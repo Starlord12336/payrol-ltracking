@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TimeManagementModule } from './time-management/time-management.module';
@@ -14,6 +15,9 @@ import { PayrollExecutionModule } from './payroll-execution/payroll-execution.mo
 
 @Module({
   imports: [
+    MongooseModule.forRoot(
+      process.env.MONGODB_URI || 'mongodb+srv://emad_admin:VTleW62xq1Dpywdx@payroll-cluster-system.n3cu4rw.mongodb.net/',
+    ),
     TimeManagementModule,
     RecruitmentModule,
     LeavesModule,
