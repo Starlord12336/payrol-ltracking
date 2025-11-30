@@ -103,4 +103,71 @@ export class PayrollExecutionService {
       totalNetPay: run.totalnetpay,
     };
   }
+
+  //phase 3 - manager approval
+
+  async publishPayrollForApproval(runId: string): Promise<payrollRuns> {
+    const run = await this.payrollRunsModel.findOne({ runId });
+    if (!run) {
+      throw new NotFoundException(`Payroll run ${runId} not found`);
+    }
+
+    if (run.status !== PayRollStatus.UNDER_REVIEW) {
+      throw new BadRequestException(
+        `Cannot publish. Current status: ${run.status}`,
+      );
+    }
+
+    run.status = PayRollStatus.PENDING_FINANCE_APPROVAL;
+    await run.save();
+
+    return run;
+  }
+
+  async approveByManager(
+    runId: string,
+    managerId: string,
+  ): Promise<payrollRuns> {
+    const run = await this.payrollRunsModel.findOne({ runId });
+    if (!run) {
+      throw new NotFoundException(`Payroll run ${runId} not found`);
+    }
+
+    if (run.status !== PayRollStatus.PENDING_FINANCE_APPROVAL) {
+      throw new BadRequestException(
+        `Cannot approve. Current status: ${run.status}`,
+      );
+    }
+
+    run.payrollManagerId = managerId as any;
+    run.managerApprovalDate = new Date();
+
+    await run.save();
+    return run;
+  }
+
+  async rejectByManager(
+    runId: string,
+    managerId: string,
+    reason: string,
+  ): Promise<payrollRuns> {
+    const run = await this.payrollRunsModel.findOne({ runId });
+    if (!run) {
+      throw new NotFoundException(`Payroll run ${runId} not found`);
+    }
+
+    if (run.status !== PayRollStatus.PENDING_FINANCE_APPROVAL) {
+      throw new BadRequestException(
+        `Cannot reject. Current status: ${run.status}`,
+      );
+    }
+
+    run.status = PayRollStatus.REJECTED;
+    run.payrollManagerId = managerId as any;
+    run.managerApprovalDate = new Date();
+    run.rejectionReason = reason;
+
+    await run.save();
+    return run;
+  }
 }
