@@ -7,7 +7,11 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { payrollRuns } from './models/payrollRuns.schema';
 import { employeePayrollDetails } from './models/employeePayrollDetails.schema';
-import { PayRollStatus, BankStatus } from './enums/payroll-execution-enum';
+import {
+  PayRollStatus,
+  BankStatus,
+  PayRollPaymentStatus,
+} from './enums/payroll-execution-enum';
 import { ReviewPayrollResponseDto, ExceptionDetail } from './dto';
 
 @Injectable()
@@ -168,6 +172,110 @@ export class PayrollExecutionService {
     run.rejectionReason = reason;
 
     await run.save();
+    return run;
+  }
+
+  //phase 3 - finance approval
+
+  async approveByFinance(
+    runId: string,
+    financeStaffId: string,
+  ): Promise<payrollRuns> {
+    const run = await this.payrollRunsModel.findOne({ runId });
+    if (!run) {
+      throw new NotFoundException(`Payroll run ${runId} not found`);
+    }
+
+    if (run.status !== PayRollStatus.PENDING_FINANCE_APPROVAL) {
+      throw new BadRequestException(
+        `Cannot approve. Current status: ${run.status}`,
+      );
+    }
+
+    run.status = PayRollStatus.APPROVED;
+    run.paymentStatus = PayRollPaymentStatus.PAID;
+    run.financeStaffId = financeStaffId as any;
+    run.financeApprovalDate = new Date();
+
+    await run.save();
+    return run;
+  }
+
+  async rejectByFinance(
+    runId: string,
+    financeStaffId: string,
+    reason: string,
+  ): Promise<payrollRuns> {
+    const run = await this.payrollRunsModel.findOne({ runId });
+    if (!run) {
+      throw new NotFoundException(`Payroll run ${runId} not found`);
+    }
+
+    if (run.status !== PayRollStatus.PENDING_FINANCE_APPROVAL) {
+      throw new BadRequestException(
+        `Cannot reject. Current status: ${run.status}`,
+      );
+    }
+
+    run.status = PayRollStatus.REJECTED;
+    run.financeStaffId = financeStaffId as any;
+    run.financeApprovalDate = new Date();
+    run.rejectionReason = reason;
+
+    await run.save();
+    return run;
+  }
+
+  //phase 3 - lock/unlock
+
+  async lockPayroll(runId: string, managerId: string): Promise<payrollRuns> {
+    const run = await this.payrollRunsModel.findOne({ runId });
+    if (!run) {
+      throw new NotFoundException(`Payroll run ${runId} not found`);
+    }
+
+    if (run.status !== PayRollStatus.APPROVED) {
+      throw new BadRequestException(
+        `Can only lock approved payrolls. Current status: ${run.status}`,
+      );
+    }
+
+    run.status = PayRollStatus.LOCKED;
+    run.payrollManagerId = managerId as any;
+
+    await run.save();
+    return run;
+  }
+
+  async unlockPayroll(
+    runId: string,
+    managerId: string,
+    reason: string,
+  ): Promise<payrollRuns> {
+    const run = await this.payrollRunsModel.findOne({ runId });
+    if (!run) {
+      throw new NotFoundException(`Payroll run ${runId} not found`);
+    }
+
+    if (run.status !== PayRollStatus.LOCKED) {
+      throw new BadRequestException(
+        `Can only unlock locked payrolls. Current status: ${run.status}`,
+      );
+    }
+
+    run.status = PayRollStatus.UNLOCKED;
+    run.unlockReason = reason;
+    run.payrollManagerId = managerId as any;
+
+    await run.save();
+    return run;
+  }
+
+  async getPayrollRunDetails(runId: string): Promise<payrollRuns> {
+    const run = await this.payrollRunsModel.findOne({ runId });
+    if (!run) {
+      throw new NotFoundException(`Payroll run ${runId} not found`);
+    }
     return run;
   }
 }
