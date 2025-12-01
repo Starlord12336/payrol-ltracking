@@ -19,16 +19,16 @@ import {
   ApiResponse,
   ApiParam,
   ApiBody,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 
 import { PayrollConfigurationService } from './payroll-configuration.service';
 
-// Guards - John Wasfy
-import {
-  PayrollSpecialistGuard,
-  PayrollManagerGuard,
-  HRManagerGuard,
-} from './guards';
+// Auth Module - Guards & Decorators
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { SystemRole } from '../employee-profile/enums/employee-profile.enums';
 
 // DTOs
 import {
@@ -65,7 +65,9 @@ import {
  * @author Mohammed Emad
  */
 @ApiTags('Payroll Configuration - Core Config Module')
+@ApiBearerAuth()
 @Controller('payroll-config')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class PayrollConfigurationController {
   constructor(
     private readonly payrollConfigService: PayrollConfigurationService,
@@ -93,6 +95,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('pay-grades')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({
     summary: 'Get all pay grades',
     description:
@@ -107,6 +110,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('pay-grades/approved')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER, SystemRole.FINANCE_STAFF)
   @ApiOperation({
     summary: 'Get all approved pay grades',
     description:
@@ -121,6 +125,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('pay-grades/:id')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({ summary: 'Get a single pay grade by ID' })
   @ApiParam({ name: 'id', description: 'Pay grade ID' })
   @ApiResponse({ status: 200, description: 'Pay grade retrieved successfully' })
@@ -234,6 +239,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('allowances')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({
     summary: 'Get all allowances',
     description: 'Retrieves all allowances with optional filtering',
@@ -247,6 +253,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('allowances/approved')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER, SystemRole.FINANCE_STAFF)
   @ApiOperation({
     summary: 'Get all approved allowances',
     description:
@@ -261,6 +268,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('allowances/:id')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({ summary: 'Get a single allowance by ID' })
   @ApiParam({ name: 'id', description: 'Allowance ID' })
   @ApiResponse({ status: 200, description: 'Allowance retrieved successfully' })
@@ -362,6 +370,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('tax-rules')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER, SystemRole.LEGAL_POLICY_ADMIN)
   @ApiOperation({
     summary: 'Get all tax rules',
     description: 'Retrieves all tax rules with optional filtering',
@@ -372,6 +381,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('tax-rules/approved')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER, SystemRole.LEGAL_POLICY_ADMIN, SystemRole.FINANCE_STAFF)
   @ApiOperation({
     summary: 'Get all approved tax rules',
     description:
@@ -386,6 +396,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('tax-rules/:id')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER, SystemRole.LEGAL_POLICY_ADMIN)
   @ApiOperation({ summary: 'Get a single tax rule by ID' })
   @ApiParam({ name: 'id', description: 'Tax rule ID' })
   @ApiResponse({ status: 200, description: 'Tax rule retrieved successfully' })
@@ -463,6 +474,7 @@ export class PayrollConfigurationController {
   // ==========================================
 
   @Get('approvals/pending')
+  @Roles(SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({
     summary: 'Get pending approvals dashboard',
     description:
@@ -477,6 +489,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('configurations/approved')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER, SystemRole.FINANCE_STAFF)
   @ApiOperation({
     summary: 'Get all approved configurations',
     description:
@@ -499,7 +512,7 @@ export class PayrollConfigurationController {
   // ==========================================
 
   @Post('insurance-brackets')
-  @UseGuards(PayrollSpecialistGuard)
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
   @ApiOperation({
     summary: 'Create a new insurance bracket',
     description:
@@ -524,6 +537,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('insurance-brackets')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.HR_MANAGER)
   @ApiOperation({
     summary: 'Get all insurance brackets',
     description:
@@ -538,6 +552,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('insurance-brackets/approved')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.HR_MANAGER, SystemRole.FINANCE_STAFF)
   @ApiOperation({
     summary: 'Get all approved insurance brackets',
     description:
@@ -552,6 +567,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('insurance-brackets/:id')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.HR_MANAGER)
   @ApiOperation({ summary: 'Get a single insurance bracket by ID' })
   @ApiParam({ name: 'id', description: 'Insurance bracket ID' })
   @ApiResponse({
@@ -564,7 +580,7 @@ export class PayrollConfigurationController {
   }
 
   @Put('insurance-brackets/:id')
-  @UseGuards(PayrollSpecialistGuard)
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
   @ApiOperation({
     summary: 'Update an insurance bracket',
     description:
@@ -592,7 +608,7 @@ export class PayrollConfigurationController {
   }
 
   @Delete('insurance-brackets/:id')
-  @UseGuards(HRManagerGuard)
+  @Roles(SystemRole.HR_MANAGER)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Delete an insurance bracket',
@@ -614,7 +630,7 @@ export class PayrollConfigurationController {
   }
 
   @Post('insurance-brackets/:id/submit')
-  @UseGuards(PayrollSpecialistGuard)
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
   @ApiOperation({
     summary: 'Submit insurance bracket for approval',
     description: 'Submits an insurance bracket for HR Manager approval',
@@ -633,7 +649,7 @@ export class PayrollConfigurationController {
   }
 
   @Post('insurance-brackets/:id/approve')
-  @UseGuards(HRManagerGuard)
+  @Roles(SystemRole.HR_MANAGER)
   @ApiOperation({
     summary: 'Approve an insurance bracket',
     description:
@@ -657,7 +673,7 @@ export class PayrollConfigurationController {
   }
 
   @Post('insurance-brackets/:id/reject')
-  @UseGuards(HRManagerGuard)
+  @Roles(SystemRole.HR_MANAGER)
   @ApiOperation({
     summary: 'Reject an insurance bracket',
     description: 'Rejects an insurance bracket. Requires HR Manager role',
@@ -677,7 +693,7 @@ export class PayrollConfigurationController {
   // ==========================================
 
   @Post('payroll-policies')
-  @UseGuards(PayrollSpecialistGuard)
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
   @ApiOperation({
     summary: 'Create a new payroll policy',
     description:
@@ -702,6 +718,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('payroll-policies')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({
     summary: 'Get all payroll policies',
     description:
@@ -716,6 +733,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('payroll-policies/approved')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER, SystemRole.FINANCE_STAFF)
   @ApiOperation({
     summary: 'Get all approved payroll policies',
     description:
@@ -730,6 +748,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('payroll-policies/type/:type')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({
     summary: 'Get payroll policies by type',
     description:
@@ -748,6 +767,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('payroll-policies/applicability/:applicability')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({
     summary: 'Get payroll policies by applicability',
     description:
@@ -768,6 +788,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('payroll-policies/:id')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({ summary: 'Get a single payroll policy by ID' })
   @ApiParam({ name: 'id', description: 'Payroll policy ID' })
   @ApiResponse({
@@ -780,7 +801,7 @@ export class PayrollConfigurationController {
   }
 
   @Put('payroll-policies/:id')
-  @UseGuards(PayrollSpecialistGuard)
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
   @ApiOperation({
     summary: 'Update a payroll policy',
     description:
@@ -808,7 +829,7 @@ export class PayrollConfigurationController {
   }
 
   @Delete('payroll-policies/:id')
-  @UseGuards(PayrollSpecialistGuard)
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Delete a payroll policy',
@@ -830,7 +851,7 @@ export class PayrollConfigurationController {
   }
 
   @Post('payroll-policies/:id/submit')
-  @UseGuards(PayrollSpecialistGuard)
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
   @ApiOperation({
     summary: 'Submit payroll policy for approval',
     description: 'Submits a payroll policy for Payroll Manager approval',
@@ -849,7 +870,7 @@ export class PayrollConfigurationController {
   }
 
   @Post('payroll-policies/:id/approve')
-  @UseGuards(PayrollManagerGuard)
+  @Roles(SystemRole.PAYROLL_MANAGER)
   @ApiOperation({
     summary: 'Approve a payroll policy',
     description:
@@ -873,7 +894,7 @@ export class PayrollConfigurationController {
   }
 
   @Post('payroll-policies/:id/reject')
-  @UseGuards(PayrollManagerGuard)
+  @Roles(SystemRole.PAYROLL_MANAGER)
   @ApiOperation({
     summary: 'Reject a payroll policy',
     description: 'Rejects a payroll policy. Requires Payroll Manager role',
@@ -893,7 +914,7 @@ export class PayrollConfigurationController {
   // ==========================================
 
   @Post('signing-bonuses')
-  @UseGuards(PayrollSpecialistGuard)
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
   @ApiOperation({
     summary: 'Create a new signing bonus',
     description:
@@ -916,6 +937,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('signing-bonuses')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({
     summary: 'Get all signing bonuses',
     description:
@@ -930,6 +952,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('signing-bonuses/approved')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER, SystemRole.FINANCE_STAFF)
   @ApiOperation({
     summary: 'Get all approved signing bonuses',
     description:
@@ -944,6 +967,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('signing-bonuses/position/:name')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({
     summary: 'Get signing bonus by position name',
     description:
@@ -963,6 +987,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('signing-bonuses/:id')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({ summary: 'Get a single signing bonus by ID' })
   @ApiParam({ name: 'id', description: 'Signing bonus ID' })
   @ApiResponse({
@@ -975,7 +1000,7 @@ export class PayrollConfigurationController {
   }
 
   @Put('signing-bonuses/:id')
-  @UseGuards(PayrollSpecialistGuard)
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
   @ApiOperation({
     summary: 'Update a signing bonus',
     description:
@@ -1003,7 +1028,7 @@ export class PayrollConfigurationController {
   }
 
   @Delete('signing-bonuses/:id')
-  @UseGuards(PayrollSpecialistGuard)
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Delete a signing bonus',
@@ -1025,7 +1050,7 @@ export class PayrollConfigurationController {
   }
 
   @Post('signing-bonuses/:id/submit')
-  @UseGuards(PayrollSpecialistGuard)
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
   @ApiOperation({
     summary: 'Submit signing bonus for approval',
     description: 'Submits a signing bonus for Payroll Manager approval',
@@ -1044,7 +1069,7 @@ export class PayrollConfigurationController {
   }
 
   @Post('signing-bonuses/:id/approve')
-  @UseGuards(PayrollManagerGuard)
+  @Roles(SystemRole.PAYROLL_MANAGER)
   @ApiOperation({
     summary: 'Approve a signing bonus',
     description:
@@ -1068,7 +1093,7 @@ export class PayrollConfigurationController {
   }
 
   @Post('signing-bonuses/:id/reject')
-  @UseGuards(PayrollManagerGuard)
+  @Roles(SystemRole.PAYROLL_MANAGER)
   @ApiOperation({
     summary: 'Reject a signing bonus',
     description: 'Rejects a signing bonus. Requires Payroll Manager role',
