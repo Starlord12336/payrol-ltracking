@@ -24,8 +24,8 @@ export class PayrollExecutionService {
     private payrollRunsModel: Model<payrollRuns>,
     @InjectModel(employeePayrollDetails.name)
     private employeePayrollDetailsModel: Model<employeePayrollDetails>,
-    @InjectModel('PaySlip')
-    private readonly paySlipModel: Model<paySlip>,
+    @InjectModel(paySlip.name)
+    private paySlipModel: Model<paySlip>,
   ) {}
 
   //phase 2

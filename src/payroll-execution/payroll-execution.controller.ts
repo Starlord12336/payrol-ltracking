@@ -13,6 +13,7 @@ import { PayrollExecutionService } from './payroll-execution.service';
 import {
   PayrollSpecialistGuard,
   PayrollManagerGuard,
+  FinanceStaffGuard,  // 🆕 ADD THIS
 } from './guards';
 import {
   ReviewPayrollResponseDto,
@@ -105,6 +106,7 @@ export class PayrollExecutionController {
   //phase 3 - finance approval
 
   @Patch('runs/:runId/finance-approve')
+  @UseGuards(FinanceStaffGuard)  // 🆕 ADD THIS GUARD
   @HttpCode(HttpStatus.OK)
   async financeApprove(
     @Param('runId') runId: string,
@@ -124,6 +126,7 @@ export class PayrollExecutionController {
   }
 
   @Patch('runs/:runId/finance-reject')
+  @UseGuards(FinanceStaffGuard)  // 🆕 ADD THIS GUARD
   @HttpCode(HttpStatus.OK)
   async financeReject(
     @Param('runId') runId: string,
@@ -186,8 +189,9 @@ export class PayrollExecutionController {
     return this.payrollExecutionService.getPayrollRunDetails(runId);
   }
 
-  // 🆕 PHASE 5 - NEW ENDPOINT
+  // 🆕 PHASE 5 - NEW ENDPOINT WITH GUARD
   @Post('runs/:runId/generate-payslips')
+  @UseGuards(PayrollSpecialistGuard)  // 🆕 ADD THIS GUARD (Payslip generation is specialist's job after finance approves)
   @HttpCode(HttpStatus.CREATED)
   async generatePayslips(@Param('runId') runId: string) {
     const result = await this.payrollExecutionService.generatePayslips(runId);
