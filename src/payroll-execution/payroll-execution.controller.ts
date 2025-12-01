@@ -174,4 +174,16 @@ export class PayrollExecutionController {
   async getPayrollRunDetails(@Param('runId') runId: string) {
     return this.payrollExecutionService.getPayrollRunDetails(runId);
   }
+
+  // 🆕 PHASE 5 - NEW ENDPOINT
+  @Post('runs/:runId/generate-payslips')
+  @HttpCode(HttpStatus.CREATED)
+  async generatePayslips(@Param('runId') runId: string) {
+    const result = await this.payrollExecutionService.generatePayslips(runId);
+    return {
+      runId,
+      payslipsGenerated: result.payslipsGenerated,
+      message: `Successfully generated ${result.payslipsGenerated} payslip(s)`,
+    };
+  }
 }

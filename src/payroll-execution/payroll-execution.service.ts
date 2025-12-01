@@ -11,8 +11,11 @@ import {
   PayRollStatus,
   BankStatus,
   PayRollPaymentStatus,
+  PaySlipPaymentStatus,
 } from './enums/payroll-execution-enum';
 import { ReviewPayrollResponseDto, ExceptionDetail } from './dto';
+// 🆕 PHASE 5 - Add these imports
+import { paySlip } from './models/payslip.schema';
 
 @Injectable()
 export class PayrollExecutionService {
@@ -21,6 +24,8 @@ export class PayrollExecutionService {
     private payrollRunsModel: Model<payrollRuns>,
     @InjectModel(employeePayrollDetails.name)
     private employeePayrollDetailsModel: Model<employeePayrollDetails>,
+    @InjectModel('PaySlip')
+    private readonly paySlipModel: Model<paySlip>,
   ) {}
 
   //phase 2
@@ -277,5 +282,84 @@ export class PayrollExecutionService {
       throw new NotFoundException(`Payroll run ${runId} not found`);
     }
     return run;
+  }
+
+  // 🆕 PHASE 5 - NEW METHOD: Generate payslips after approval and lock
+  async generatePayslips(runId: string) {
+    // Fetch the payroll run
+    const run = await this.payrollRunsModel.findOne({ runId });
+
+    if (!run) {
+      throw new NotFoundException(`Payroll run ${runId} not found`);
+    }
+
+    // Validate run status: must be APPROVED or LOCKED and payment must be PAID
+    if (
+      (run.status !== PayRollStatus.APPROVED &&
+        run.status !== PayRollStatus.LOCKED) ||
+      run.paymentStatus !== PayRollPaymentStatus.PAID
+    ) {
+      throw new BadRequestException(
+        `Cannot generate payslips for run ${runId}. ` +
+          `Status must be APPROVED or LOCKED with PAID payment status. ` +
+          `Current: ${run.status} / ${run.paymentStatus}`,
+      );
+    }
+
+    // Fetch all employee payroll details for this run
+    const employeeDetails = await this.employeePayrollDetailsModel.find({
+      payrollRunId: run._id,
+    });
+
+    if (employeeDetails.length === 0) {
+      throw new NotFoundException(
+        `No employee payroll details found for run ${runId}`,
+      );
+    }
+
+    // Generate payslips for each employee
+    const payslips: any[] = [];
+    for (const detail of employeeDetails) {
+      // Check if payslip already exists
+      const existingPayslip = await this.paySlipModel.findOne({
+        employeeId: detail.employeeId,
+        payrollRunId: run._id,
+      });
+
+      if (existingPayslip) {
+        continue; // Skip if already generated
+      }
+
+      // Create new payslip with available data from employeePayrollDetails
+      const payslip = new this.paySlipModel({
+        employeeId: detail.employeeId,
+        payrollRunId: run._id,
+        earningsDetails: {
+          baseSalary: detail.baseSalary,
+          allowances: [], // Will be populated by Phase 0/1 teammate
+          bonuses: detail.bonus ? [{ amount: detail.bonus }] : [],
+          benefits: detail.benefit ? [{ amount: detail.benefit }] : [],
+          refunds: [], // Will be populated by Payroll Tracking teammate
+        },
+        deductionsDetails: {
+          taxes: [], // Will be populated by Phase 0/1 teammate
+          insurances: [], // Will be populated by Phase 0/1 teammate
+          penalties: null, // Will be populated by Phase 0/1 teammate
+        },
+        totalGrossSalary: detail.baseSalary + detail.allowances,
+        totaDeductions: detail.deductions,
+        netPay: detail.netPay,
+        paymentStatus: PaySlipPaymentStatus.PAID, // Since run is PAID
+      });
+
+      await payslip.save();
+      payslips.push(payslip);
+    }
+
+    return {
+      runId: run.runId,
+      payslipsGenerated: payslips.length,
+      message: `Generated ${payslips.length} payslip(s) for run ${runId}`,
+    };
   }
 }
