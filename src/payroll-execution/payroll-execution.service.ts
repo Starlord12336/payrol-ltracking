@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import mongoose, { Model } from 'mongoose';
+import mongoose, { FilterQuery, Model } from 'mongoose';
 
 import {
   EmployeeProfile,
@@ -154,17 +154,18 @@ export class PayrollExecutionService {
     payrollSpecialistId: mongoose.Schema.Types.ObjectId
   ) {
     // Only find employees that are not inactive and not suspended
-    const employees = await this.employeeModel
-      .find({
-        status: { $nin: ['INACTIVE', 'SUSPENDED'] },
-      })
-      .lean()
-      .exec();
+    const employeeQuery: FilterQuery<EmployeeProfileDocument> = {
+      status: { $nin: ['INACTIVE', 'SUSPENDED'] },
+    };
+
+    // Use a narrowed, non-generic model reference to avoid complex union inference
+    const employeeModelAny = this.employeeModel as any;
+    const employees = (await employeeModelAny.find(employeeQuery).lean().exec()) as any[];
 
     const payrollDraftEntries: any[] = [];
     let exceptionsCount = 0;
 
-    for (const employee of employees as EmployeeProfileDocument[]) {
+    for (const employee of employees) {
       const hrEvent = employee.status ?? 'ACTIVE';
 
       let signingBonusAmount: number | null = null;
@@ -172,16 +173,20 @@ export class PayrollExecutionService {
 
       // Signing Bonus Amount (lookup via linking table, then config)
       if (hrEvent === 'PROBATION') {
-        const signingBonusLink = await this.signingBonusModel
+        // Use a narrowed, non-generic model reference to avoid complex union inference
+        const signingBonusModelAny = this.signingBonusModel as any;
+        const signingBonusLink = (await signingBonusModelAny
           .findOne({
             employeeId: employee._id,
             status: BonusStatus.APPROVED,
           })
-          .lean();
+          .lean()) as any;
         if (signingBonusLink && signingBonusLink.signingBonusId) {
-          const signingBonusConfig = await this.signingBonusConfigModel
+          // Use a narrowed, non-generic model reference to avoid complex union inference
+          const signingBonusConfigModelAny = this.signingBonusConfigModel as any;
+          const signingBonusConfig = (await signingBonusConfigModelAny
             .findById(signingBonusLink.signingBonusId)
-            .lean();
+            .lean()) as any;
           if (signingBonusConfig && typeof signingBonusConfig.amount === 'number') {
             signingBonusAmount = signingBonusConfig.amount;
           }
@@ -190,16 +195,21 @@ export class PayrollExecutionService {
 
       // Termination or Resignation Benefit Amount (lookup via linking table, then config)
       if (hrEvent === 'RETIRED' || hrEvent === 'TERMINATED') {
-        const benefitLink = await this.terminationResignationModel
+        // Use a narrowed, non-generic model reference to avoid complex union inference
+        const terminationResignationModelAny = this.terminationResignationModel as any;
+        const benefitLink = (await terminationResignationModelAny
           .findOne({
             employeeId: employee._id,
             status: BenefitStatus.APPROVED,
           })
-          .lean();
+          .lean()) as any;
         if (benefitLink && benefitLink.benefitId) {
-          const benefitConfig = await this.terminationAndResignationBenefitsModel
+          // Use a narrowed, non-generic model reference to avoid complex union inference
+          const terminationAndResignationBenefitsModelAny = this
+            .terminationAndResignationBenefitsModel as any;
+          const benefitConfig = (await terminationAndResignationBenefitsModelAny
             .findById(benefitLink.benefitId)
-            .lean();
+            .lean()) as any;
           if (benefitConfig && typeof benefitConfig.amount === 'number') {
             benefitAmount = benefitConfig.amount;
           }
@@ -209,39 +219,49 @@ export class PayrollExecutionService {
       // PHASE 1.1.B – Salary Calculations
       // ---------------------------------
       // Assume pay grade id is available.
-      const payGrade = await this.payGradeModel.findById(employee.payGradeId).lean();
+      // Use a narrowed, non-generic model reference to avoid complex union inference
+      const payGradeModelAny = this.payGradeModel as any;
+      const payGrade = (await payGradeModelAny.findById(employee.payGradeId).lean()) as any;
 
       const gross = payGrade ? payGrade.grossSalary : 0;
       // These fields may not exist; fallback to 0
       // Calculate taxes by summing all tax amounts for the employee using taxRulesModel
       let taxes = 0;
-      const employeeTaxes = await this.taxRulesModel.find().lean();
+      // Use a narrowed, non-generic model reference to avoid complex union inference
+      const taxRulesModelAny = this.taxRulesModel as any;
+      const employeeTaxes = (await taxRulesModelAny.find().lean()) as any[];
       if (Array.isArray(employeeTaxes)) {
-        taxes = employeeTaxes.reduce(
-          (sum, tax) => (typeof tax.rate === 'number' ? sum + tax.rate : sum),
-          0
-        );
+        taxes = employeeTaxes.reduce<number>((sum, tax: { rate?: number }) => {
+          const rate = tax.rate;
+          return sum + (typeof rate === 'number' ? rate : 0);
+        }, 0);
       }
 
       taxes = gross * taxes;
 
       let insurance = 0;
-      const employeeinsurance = await this.insuranceModel.find().lean();
-      if (Array.isArray(employeeTaxes)) {
-        insurance = employeeinsurance.reduce(
-          (sum, insurance) => (typeof insurance.amount === 'number' ? sum + insurance.amount : sum),
-          0
-        );
+      // Use a narrowed, non-generic model reference to avoid complex union inference
+      const insuranceModelAny = this.insuranceModel as any;
+      const employeeinsurance = (await insuranceModelAny.find().lean()) as any[];
+      if (Array.isArray(employeeinsurance)) {
+        insurance = employeeinsurance.reduce<number>((sum, insurance: { amount?: number }) => {
+          const amount = insurance.amount;
+          return sum + (typeof amount === 'number' ? amount : 0);
+        }, 0);
       }
 
       // Penalties must be calculated via employeePenalties collection
       let penalties = 0;
-      const employeePenalties = await this.employeePenaltiesModel
+      // Use a narrowed, non-generic model reference to avoid complex union inference
+      const employeePenaltiesModelAny = this.employeePenaltiesModel as any;
+      const employeePenalties = (await employeePenaltiesModelAny
         .findOne({ employeeId: employee._id })
-        .lean();
+        .lean()) as any;
       if (employeePenalties && Array.isArray(employeePenalties.penalties)) {
-        penalties = employeePenalties.penalties.reduce(
-          (sum, p) => (typeof p.amount === 'number' ? sum + p.amount : sum),
+        const penaltiesArray = employeePenalties.penalties as { amount?: number }[];
+        penalties = penaltiesArray.reduce<number>(
+          (sum: number, p: { amount?: number }) =>
+            typeof p.amount === 'number' ? sum + p.amount : sum,
           0
         );
       }
