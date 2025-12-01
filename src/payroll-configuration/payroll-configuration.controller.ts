@@ -19,16 +19,16 @@ import {
   ApiResponse,
   ApiParam,
   ApiBody,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 
 import { PayrollConfigurationService } from './payroll-configuration.service';
 
-// Guards - John Wasfy
-import {
-  PayrollSpecialistGuard,
-  PayrollManagerGuard,
-  HRManagerGuard,
-} from './guards';
+// Auth Module - Guards & Decorators
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { SystemRole } from '../employee-profile/enums/employee-profile.enums';
 
 // DTOs
 import {
@@ -51,6 +51,16 @@ import {
   CreateSigningBonusDto,
   UpdateSigningBonusDto,
   FilterSigningBonusDto,
+  CreatePayTypeDto,
+  UpdatePayTypeDto,
+  FilterPayTypeDto,
+  CreateTerminationBenefitDto,
+  UpdateTerminationBenefitDto,
+  FilterTerminationBenefitDto,
+  CreateCompanySettingsDto,
+  UpdateCompanySettingsDto,
+  FilterCompanySettingsDto,
+  FilterAuditLogDto,
 } from './dto';
 
 /**
@@ -65,7 +75,9 @@ import {
  * @author Mohammed Emad
  */
 @ApiTags('Payroll Configuration - Core Config Module')
+@ApiBearerAuth()
 @Controller('payroll-config')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class PayrollConfigurationController {
   constructor(
     private readonly payrollConfigService: PayrollConfigurationService,
@@ -93,6 +105,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('pay-grades')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({
     summary: 'Get all pay grades',
     description:
@@ -107,6 +120,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('pay-grades/approved')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER, SystemRole.FINANCE_STAFF)
   @ApiOperation({
     summary: 'Get all approved pay grades',
     description:
@@ -121,6 +135,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('pay-grades/:id')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({ summary: 'Get a single pay grade by ID' })
   @ApiParam({ name: 'id', description: 'Pay grade ID' })
   @ApiResponse({ status: 200, description: 'Pay grade retrieved successfully' })
@@ -234,6 +249,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('allowances')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({
     summary: 'Get all allowances',
     description: 'Retrieves all allowances with optional filtering',
@@ -247,6 +263,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('allowances/approved')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER, SystemRole.FINANCE_STAFF)
   @ApiOperation({
     summary: 'Get all approved allowances',
     description:
@@ -261,6 +278,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('allowances/:id')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({ summary: 'Get a single allowance by ID' })
   @ApiParam({ name: 'id', description: 'Allowance ID' })
   @ApiResponse({ status: 200, description: 'Allowance retrieved successfully' })
@@ -362,6 +380,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('tax-rules')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER, SystemRole.LEGAL_POLICY_ADMIN)
   @ApiOperation({
     summary: 'Get all tax rules',
     description: 'Retrieves all tax rules with optional filtering',
@@ -372,6 +391,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('tax-rules/approved')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER, SystemRole.LEGAL_POLICY_ADMIN, SystemRole.FINANCE_STAFF)
   @ApiOperation({
     summary: 'Get all approved tax rules',
     description:
@@ -386,6 +406,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('tax-rules/:id')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER, SystemRole.LEGAL_POLICY_ADMIN)
   @ApiOperation({ summary: 'Get a single tax rule by ID' })
   @ApiParam({ name: 'id', description: 'Tax rule ID' })
   @ApiResponse({ status: 200, description: 'Tax rule retrieved successfully' })
@@ -463,6 +484,7 @@ export class PayrollConfigurationController {
   // ==========================================
 
   @Get('approvals/pending')
+  @Roles(SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({
     summary: 'Get pending approvals dashboard',
     description:
@@ -477,6 +499,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('configurations/approved')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER, SystemRole.FINANCE_STAFF)
   @ApiOperation({
     summary: 'Get all approved configurations',
     description:
@@ -499,7 +522,7 @@ export class PayrollConfigurationController {
   // ==========================================
 
   @Post('insurance-brackets')
-  @UseGuards(PayrollSpecialistGuard)
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
   @ApiOperation({
     summary: 'Create a new insurance bracket',
     description:
@@ -524,6 +547,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('insurance-brackets')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.HR_MANAGER)
   @ApiOperation({
     summary: 'Get all insurance brackets',
     description:
@@ -538,6 +562,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('insurance-brackets/approved')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.HR_MANAGER, SystemRole.FINANCE_STAFF)
   @ApiOperation({
     summary: 'Get all approved insurance brackets',
     description:
@@ -552,6 +577,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('insurance-brackets/:id')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.HR_MANAGER)
   @ApiOperation({ summary: 'Get a single insurance bracket by ID' })
   @ApiParam({ name: 'id', description: 'Insurance bracket ID' })
   @ApiResponse({
@@ -564,7 +590,7 @@ export class PayrollConfigurationController {
   }
 
   @Put('insurance-brackets/:id')
-  @UseGuards(PayrollSpecialistGuard)
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
   @ApiOperation({
     summary: 'Update an insurance bracket',
     description:
@@ -592,7 +618,7 @@ export class PayrollConfigurationController {
   }
 
   @Delete('insurance-brackets/:id')
-  @UseGuards(HRManagerGuard)
+  @Roles(SystemRole.HR_MANAGER)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Delete an insurance bracket',
@@ -614,7 +640,7 @@ export class PayrollConfigurationController {
   }
 
   @Post('insurance-brackets/:id/submit')
-  @UseGuards(PayrollSpecialistGuard)
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
   @ApiOperation({
     summary: 'Submit insurance bracket for approval',
     description: 'Submits an insurance bracket for HR Manager approval',
@@ -633,7 +659,7 @@ export class PayrollConfigurationController {
   }
 
   @Post('insurance-brackets/:id/approve')
-  @UseGuards(HRManagerGuard)
+  @Roles(SystemRole.HR_MANAGER)
   @ApiOperation({
     summary: 'Approve an insurance bracket',
     description:
@@ -657,7 +683,7 @@ export class PayrollConfigurationController {
   }
 
   @Post('insurance-brackets/:id/reject')
-  @UseGuards(HRManagerGuard)
+  @Roles(SystemRole.HR_MANAGER)
   @ApiOperation({
     summary: 'Reject an insurance bracket',
     description: 'Rejects an insurance bracket. Requires HR Manager role',
@@ -677,7 +703,7 @@ export class PayrollConfigurationController {
   // ==========================================
 
   @Post('payroll-policies')
-  @UseGuards(PayrollSpecialistGuard)
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
   @ApiOperation({
     summary: 'Create a new payroll policy',
     description:
@@ -702,6 +728,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('payroll-policies')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({
     summary: 'Get all payroll policies',
     description:
@@ -716,6 +743,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('payroll-policies/approved')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER, SystemRole.FINANCE_STAFF)
   @ApiOperation({
     summary: 'Get all approved payroll policies',
     description:
@@ -730,6 +758,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('payroll-policies/type/:type')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({
     summary: 'Get payroll policies by type',
     description:
@@ -748,6 +777,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('payroll-policies/applicability/:applicability')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({
     summary: 'Get payroll policies by applicability',
     description:
@@ -768,6 +798,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('payroll-policies/:id')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({ summary: 'Get a single payroll policy by ID' })
   @ApiParam({ name: 'id', description: 'Payroll policy ID' })
   @ApiResponse({
@@ -780,7 +811,7 @@ export class PayrollConfigurationController {
   }
 
   @Put('payroll-policies/:id')
-  @UseGuards(PayrollSpecialistGuard)
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
   @ApiOperation({
     summary: 'Update a payroll policy',
     description:
@@ -808,7 +839,7 @@ export class PayrollConfigurationController {
   }
 
   @Delete('payroll-policies/:id')
-  @UseGuards(PayrollSpecialistGuard)
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Delete a payroll policy',
@@ -830,7 +861,7 @@ export class PayrollConfigurationController {
   }
 
   @Post('payroll-policies/:id/submit')
-  @UseGuards(PayrollSpecialistGuard)
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
   @ApiOperation({
     summary: 'Submit payroll policy for approval',
     description: 'Submits a payroll policy for Payroll Manager approval',
@@ -849,7 +880,7 @@ export class PayrollConfigurationController {
   }
 
   @Post('payroll-policies/:id/approve')
-  @UseGuards(PayrollManagerGuard)
+  @Roles(SystemRole.PAYROLL_MANAGER)
   @ApiOperation({
     summary: 'Approve a payroll policy',
     description:
@@ -873,7 +904,7 @@ export class PayrollConfigurationController {
   }
 
   @Post('payroll-policies/:id/reject')
-  @UseGuards(PayrollManagerGuard)
+  @Roles(SystemRole.PAYROLL_MANAGER)
   @ApiOperation({
     summary: 'Reject a payroll policy',
     description: 'Rejects a payroll policy. Requires Payroll Manager role',
@@ -893,7 +924,7 @@ export class PayrollConfigurationController {
   // ==========================================
 
   @Post('signing-bonuses')
-  @UseGuards(PayrollSpecialistGuard)
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
   @ApiOperation({
     summary: 'Create a new signing bonus',
     description:
@@ -916,6 +947,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('signing-bonuses')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({
     summary: 'Get all signing bonuses',
     description:
@@ -930,6 +962,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('signing-bonuses/approved')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER, SystemRole.FINANCE_STAFF)
   @ApiOperation({
     summary: 'Get all approved signing bonuses',
     description:
@@ -944,6 +977,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('signing-bonuses/position/:name')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({
     summary: 'Get signing bonus by position name',
     description:
@@ -963,6 +997,7 @@ export class PayrollConfigurationController {
   }
 
   @Get('signing-bonuses/:id')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER, SystemRole.HR_MANAGER)
   @ApiOperation({ summary: 'Get a single signing bonus by ID' })
   @ApiParam({ name: 'id', description: 'Signing bonus ID' })
   @ApiResponse({
@@ -975,7 +1010,7 @@ export class PayrollConfigurationController {
   }
 
   @Put('signing-bonuses/:id')
-  @UseGuards(PayrollSpecialistGuard)
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
   @ApiOperation({
     summary: 'Update a signing bonus',
     description:
@@ -1003,7 +1038,7 @@ export class PayrollConfigurationController {
   }
 
   @Delete('signing-bonuses/:id')
-  @UseGuards(PayrollSpecialistGuard)
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Delete a signing bonus',
@@ -1025,7 +1060,7 @@ export class PayrollConfigurationController {
   }
 
   @Post('signing-bonuses/:id/submit')
-  @UseGuards(PayrollSpecialistGuard)
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
   @ApiOperation({
     summary: 'Submit signing bonus for approval',
     description: 'Submits a signing bonus for Payroll Manager approval',
@@ -1044,7 +1079,7 @@ export class PayrollConfigurationController {
   }
 
   @Post('signing-bonuses/:id/approve')
-  @UseGuards(PayrollManagerGuard)
+  @Roles(SystemRole.PAYROLL_MANAGER)
   @ApiOperation({
     summary: 'Approve a signing bonus',
     description:
@@ -1068,7 +1103,7 @@ export class PayrollConfigurationController {
   }
 
   @Post('signing-bonuses/:id/reject')
-  @UseGuards(PayrollManagerGuard)
+  @Roles(SystemRole.PAYROLL_MANAGER)
   @ApiOperation({
     summary: 'Reject a signing bonus',
     description: 'Rejects a signing bonus. Requires Payroll Manager role',
@@ -1082,6 +1117,462 @@ export class PayrollConfigurationController {
   async rejectSigningBonus(@Param('id') id: string) {
     return this.payrollConfigService.rejectSigningBonus(id);
   }
+
+  // ==========================================
+  // PAY TYPE ENDPOINTS - Eslam
+  // ==========================================
+
+  @Post('pay-types')
+  @UseGuards(PayrollSpecialistGuard)
+  @ApiOperation({
+    summary: 'Create a new pay type',
+    description:
+      'Creates a new pay type in DRAFT status. Business Rules: REQ-PY-5, BR-1',
+  })
+  @ApiBody({ type: CreatePayTypeDto })
+  @ApiResponse({ status: 201, description: 'Pay type created successfully' })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({
+    status: 409,
+    description: 'Pay type with this name already exists',
+  })
+  async createPayType(@Body() createPayTypeDto: CreatePayTypeDto) {
+    return this.payrollConfigService.createPayType(createPayTypeDto);
+  }
+
+  @Get('pay-types')
+  @ApiOperation({
+    summary: 'Get all pay types',
+    description: 'Retrieves all pay types with optional filtering',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Pay types retrieved successfully',
+  })
+  async findAllPayTypes(@Query() filter: FilterPayTypeDto) {
+    return this.payrollConfigService.findAllPayTypes(filter);
+  }
+
+  @Get('pay-types/approved')
+  @ApiOperation({
+    summary: 'Get all approved pay types',
+    description:
+      'Retrieves only approved pay types for use in payroll execution',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Approved pay types retrieved successfully',
+  })
+  async getApprovedPayTypes() {
+    return this.payrollConfigService.getApprovedPayTypes();
+  }
+
+  @Get('pay-types/:id')
+  @ApiOperation({ summary: 'Get a single pay type by ID' })
+  @ApiParam({ name: 'id', description: 'Pay type ID' })
+  @ApiResponse({ status: 200, description: 'Pay type retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Pay type not found' })
+  async findPayTypeById(@Param('id') id: string) {
+    return this.payrollConfigService.findPayTypeById(id);
+  }
+
+  @Put('pay-types/:id')
+  @UseGuards(PayrollSpecialistGuard)
+  @ApiOperation({
+    summary: 'Update a pay type',
+    description:
+      'Updates a pay type. Only items in DRAFT status can be edited',
+  })
+  @ApiParam({ name: 'id', description: 'Pay type ID' })
+  @ApiBody({ type: UpdatePayTypeDto })
+  @ApiResponse({ status: 200, description: 'Pay type updated successfully' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot update non-DRAFT pay type',
+  })
+  async updatePayType(
+    @Param('id') id: string,
+    @Body() updatePayTypeDto: UpdatePayTypeDto,
+  ) {
+    return this.payrollConfigService.updatePayType(id, updatePayTypeDto);
+  }
+
+  @Delete('pay-types/:id')
+  @UseGuards(PayrollManagerGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Delete a pay type',
+    description:
+      'Deletes a pay type. Payroll Manager can delete both DRAFT and APPROVED items. For approved items, deletion is the only way to make changes (REQ-PY-18)',
+  })
+  @ApiParam({ name: 'id', description: 'Pay type ID' })
+  @ApiBody({ schema: { type: 'object', properties: { deletedBy: { type: 'string' } } }, required: false })
+  @ApiResponse({ status: 200, description: 'Pay type deleted successfully' })
+  async deletePayType(
+    @Param('id') id: string,
+    @Body() body?: { deletedBy?: string },
+  ) {
+    return this.payrollConfigService.deletePayType(id, body?.deletedBy);
+  }
+
+  @Post('pay-types/:id/approve')
+  @UseGuards(PayrollManagerGuard)
+  @ApiOperation({
+    summary: 'Approve a pay type',
+    description: 'Approves a pay type. Requires Payroll Manager role',
+  })
+  @ApiParam({ name: 'id', description: 'Pay type ID' })
+  @ApiBody({ type: ApproveDto })
+  @ApiResponse({ status: 200, description: 'Pay type approved successfully' })
+  async approvePayType(
+    @Param('id') id: string,
+    @Body() approveDto: ApproveDto,
+  ) {
+    return this.payrollConfigService.approvePayType(id, approveDto);
+  }
+
+  @Post('pay-types/:id/reject')
+  @UseGuards(PayrollManagerGuard)
+  @ApiOperation({
+    summary: 'Reject a pay type',
+    description: 'Rejects a pay type. Requires Payroll Manager role',
+  })
+  @ApiParam({ name: 'id', description: 'Pay type ID' })
+  @ApiResponse({ status: 200, description: 'Pay type rejected' })
+  async rejectPayType(@Param('id') id: string) {
+    return this.payrollConfigService.rejectPayType(id);
+  }
+
+  // ==========================================
+  // TERMINATION & RESIGNATION BENEFITS ENDPOINTS - Eslam
+  // ==========================================
+
+  @Post('termination-benefits')
+  @UseGuards(PayrollSpecialistGuard)
+  @ApiOperation({
+    summary: 'Create a new termination/resignation benefit',
+    description:
+      'Creates a new termination/resignation benefit in DRAFT status. Business Rules: REQ-PY-20',
+  })
+  @ApiBody({ type: CreateTerminationBenefitDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Termination benefit created successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({
+    status: 409,
+    description: 'Termination benefit with this name already exists',
+  })
+  async createTerminationBenefit(
+    @Body() createTerminationBenefitDto: CreateTerminationBenefitDto,
+  ) {
+    return this.payrollConfigService.createTerminationBenefit(
+      createTerminationBenefitDto,
+    );
+  }
+
+  @Get('termination-benefits')
+  @ApiOperation({
+    summary: 'Get all termination/resignation benefits',
+    description:
+      'Retrieves all termination/resignation benefits with optional filtering',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Termination benefits retrieved successfully',
+  })
+  async findAllTerminationBenefits(@Query() filter: FilterTerminationBenefitDto) {
+    return this.payrollConfigService.findAllTerminationBenefits(filter);
+  }
+
+  @Get('termination-benefits/approved')
+  @ApiOperation({
+    summary: 'Get all approved termination/resignation benefits',
+    description:
+      'Retrieves only approved termination/resignation benefits for use in payroll execution',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Approved termination benefits retrieved successfully',
+  })
+  async getApprovedTerminationBenefits() {
+    return this.payrollConfigService.getApprovedTerminationBenefits();
+  }
+
+  @Get('termination-benefits/:id')
+  @ApiOperation({ summary: 'Get a single termination/resignation benefit by ID' })
+  @ApiParam({ name: 'id', description: 'Termination benefit ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Termination benefit retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Termination benefit not found' })
+  async findTerminationBenefitById(@Param('id') id: string) {
+    return this.payrollConfigService.findTerminationBenefitById(id);
+  }
+
+  @Put('termination-benefits/:id')
+  @UseGuards(PayrollSpecialistGuard)
+  @ApiOperation({
+    summary: 'Update a termination/resignation benefit',
+    description:
+      'Updates a termination/resignation benefit. Only items in DRAFT status can be edited',
+  })
+  @ApiParam({ name: 'id', description: 'Termination benefit ID' })
+  @ApiBody({ type: UpdateTerminationBenefitDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Termination benefit updated successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot update non-DRAFT termination benefit',
+  })
+  async updateTerminationBenefit(
+    @Param('id') id: string,
+    @Body() updateTerminationBenefitDto: UpdateTerminationBenefitDto,
+  ) {
+    return this.payrollConfigService.updateTerminationBenefit(
+      id,
+      updateTerminationBenefitDto,
+    );
+  }
+
+  @Delete('termination-benefits/:id')
+  @UseGuards(PayrollManagerGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Delete a termination/resignation benefit',
+    description:
+      'Deletes a termination/resignation benefit. Payroll Manager can delete both DRAFT and APPROVED items. For approved items, deletion is the only way to make changes (REQ-PY-18)',
+  })
+  @ApiParam({ name: 'id', description: 'Termination benefit ID' })
+  @ApiBody({ schema: { type: 'object', properties: { deletedBy: { type: 'string' } } }, required: false })
+  @ApiResponse({
+    status: 200,
+    description: 'Termination benefit deleted successfully',
+  })
+  async deleteTerminationBenefit(
+    @Param('id') id: string,
+    @Body() body?: { deletedBy?: string },
+  ) {
+    return this.payrollConfigService.deleteTerminationBenefit(id, body?.deletedBy);
+  }
+
+  @Post('termination-benefits/:id/approve')
+  @UseGuards(PayrollManagerGuard)
+  @ApiOperation({
+    summary: 'Approve a termination/resignation benefit',
+    description: 'Approves a termination/resignation benefit. Requires Payroll Manager role',
+  })
+  @ApiParam({ name: 'id', description: 'Termination benefit ID' })
+  @ApiBody({ type: ApproveDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Termination benefit approved successfully',
+  })
+  async approveTerminationBenefit(
+    @Param('id') id: string,
+    @Body() approveDto: ApproveDto,
+  ) {
+    return this.payrollConfigService.approveTerminationBenefit(id, approveDto);
+  }
+
+  @Post('termination-benefits/:id/reject')
+  @UseGuards(PayrollManagerGuard)
+  @ApiOperation({
+    summary: 'Reject a termination/resignation benefit',
+    description: 'Rejects a termination/resignation benefit. Requires Payroll Manager role',
+  })
+  @ApiParam({ name: 'id', description: 'Termination benefit ID' })
+  @ApiResponse({ status: 200, description: 'Termination benefit rejected' })
+  async rejectTerminationBenefit(@Param('id') id: string) {
+    return this.payrollConfigService.rejectTerminationBenefit(id);
+  }
+
+  // ==========================================
+  // COMPANY WIDE SETTINGS ENDPOINTS - Eslam
+  // ==========================================
+
+  @Post('company-settings')
+  @UseGuards(PayrollSpecialistGuard)
+  @ApiOperation({
+    summary: 'Create company-wide settings',
+    description:
+      'Creates new company-wide settings in DRAFT status. Business Rules: REQ-PY-15',
+  })
+  @ApiBody({ type: CreateCompanySettingsDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Company settings created successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  async createCompanySettings(
+    @Body() createCompanySettingsDto: CreateCompanySettingsDto,
+  ) {
+    return this.payrollConfigService.createCompanySettings(
+      createCompanySettingsDto,
+    );
+  }
+
+  @Get('company-settings')
+  @ApiOperation({
+    summary: 'Get all company-wide settings',
+    description: 'Retrieves all company-wide settings with optional filtering',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Company settings retrieved successfully',
+  })
+  async findAllCompanySettings(@Query() filter: FilterCompanySettingsDto) {
+    return this.payrollConfigService.findAllCompanySettings(filter);
+  }
+
+  @Get('company-settings/active')
+  @ApiOperation({
+    summary: 'Get active company-wide settings',
+    description:
+      'Retrieves the currently active (approved) company-wide settings',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Active company settings retrieved successfully',
+  })
+  async getActiveCompanySettings() {
+    return this.payrollConfigService.getActiveCompanySettings();
+  }
+
+  @Get('company-settings/:id')
+  @ApiOperation({ summary: 'Get a single company-wide setting by ID' })
+  @ApiParam({ name: 'id', description: 'Company settings ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Company settings retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Company settings not found' })
+  async findCompanySettingsById(@Param('id') id: string) {
+    return this.payrollConfigService.findCompanySettingsById(id);
+  }
+
+  @Put('company-settings/:id')
+  @UseGuards(PayrollSpecialistGuard)
+  @ApiOperation({
+    summary: 'Update company-wide settings',
+    description:
+      'Updates company-wide settings. Only items in DRAFT status can be edited',
+  })
+  @ApiParam({ name: 'id', description: 'Company settings ID' })
+  @ApiBody({ type: UpdateCompanySettingsDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Company settings updated successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot update non-DRAFT company settings',
+  })
+  async updateCompanySettings(
+    @Param('id') id: string,
+    @Body() updateCompanySettingsDto: UpdateCompanySettingsDto,
+  ) {
+    return this.payrollConfigService.updateCompanySettings(
+      id,
+      updateCompanySettingsDto,
+    );
+  }
+
+  @Delete('company-settings/:id')
+  @UseGuards(PayrollSpecialistGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Delete company-wide settings',
+    description:
+      'Deletes company-wide settings. Only items in DRAFT status can be deleted',
+  })
+  @ApiParam({ name: 'id', description: 'Company settings ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Company settings deleted successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot delete non-DRAFT company settings',
+  })
+  async deleteCompanySettings(@Param('id') id: string) {
+    return this.payrollConfigService.deleteCompanySettings(id);
+  }
+
+  @Post('company-settings/:id/approve')
+  @UseGuards(PayrollManagerGuard)
+  @ApiOperation({
+    summary: 'Approve company-wide settings',
+    description: 'Approves company-wide settings. Requires Payroll Manager role',
+  })
+  @ApiParam({ name: 'id', description: 'Company settings ID' })
+  @ApiBody({ type: ApproveDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Company settings approved successfully',
+  })
+  async approveCompanySettings(
+    @Param('id') id: string,
+    @Body() approveDto: ApproveDto,
+  ) {
+    return this.payrollConfigService.approveCompanySettings(id, approveDto);
+  }
+
+  @Post('company-settings/:id/reject')
+  @UseGuards(PayrollManagerGuard)
+  @ApiOperation({
+    summary: 'Reject company-wide settings',
+    description: 'Rejects company-wide settings. Requires Payroll Manager role',
+  })
+  @ApiParam({ name: 'id', description: 'Company settings ID' })
+  @ApiResponse({ status: 200, description: 'Company settings rejected' })
+  async rejectCompanySettings(@Param('id') id: string) {
+    return this.payrollConfigService.rejectCompanySettings(id);
+  }
+
+  // ==========================================
+  // AUDIT TRAIL ENDPOINTS - Eslam
+  // ==========================================
+
+  @Get('audit-logs')
+  @ApiOperation({
+    summary: 'Get audit logs',
+    description:
+      'Retrieves audit logs with optional filtering. Business Rules: BR-AT-004',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Audit logs retrieved successfully',
+  })
+  async getAuditLogs(@Query() filter: FilterAuditLogDto) {
+    return this.payrollConfigService.getAuditLogs(filter);
+  }
+
+  @Get('audit-logs/entity/:entityType/:entityId')
+  @ApiOperation({
+    summary: 'Get audit logs for a specific entity',
+    description: 'Retrieves all audit logs for a specific configuration entity',
+  })
+  @ApiParam({ name: 'entityType', description: 'Entity type', enum: ['PayType', 'TerminationBenefit', 'CompanySettings', 'PayGrade', 'Allowance', 'TaxRule', 'InsuranceBracket', 'PayrollPolicy', 'SigningBonus'] })
+  @ApiParam({ name: 'entityId', description: 'Entity ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Audit logs retrieved successfully',
+  })
+  async getAuditLogsByEntity(
+    @Param('entityType') entityType: string,
+    @Param('entityId') entityId: string,
+  ) {
+    return this.payrollConfigService.getAuditLogsByEntity(
+      entityType as any,
+      entityId,
+    );
+  }
 }
 
 //################################## Compliance & Benefits Module - John Wasfy #######################
+//################################## Pay Type, Termination Benefits, Company Settings & Audit Trail - Eslam #######################

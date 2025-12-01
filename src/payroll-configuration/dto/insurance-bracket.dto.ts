@@ -34,15 +34,6 @@ export class CreateInsuranceBracketDto {
     name: string;
 
     @ApiProperty({
-        description: 'Fixed insurance amount in EGP (minimum 0)',
-        example: 500,
-        minimum: 0,
-    })
-    @IsNumber()
-    @Min(0, { message: 'Insurance amount must be at least 0' })
-    amount: number;
-
-    @ApiProperty({
         description: 'Minimum salary for this bracket in EGP',
         example: 6000,
         minimum: 0,
