@@ -40,4 +40,3 @@ export enum AppraisalRatingScaleType {
   FIVE_POINT = 'FIVE_POINT',
   TEN_POINT = 'TEN_POINT',
 }
-

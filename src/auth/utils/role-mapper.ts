@@ -1,30 +1,34 @@
-import { UserRole } from '../../shared/schemas/user.schema';
 import { SystemRole } from '../../employee-profile/enums/employee-profile.enums';
 
 /**
- * Maps UserRole enum to SystemRole enum
- * This allows controllers to use UserRole while the auth system uses SystemRole
+ * Maps string role names to SystemRole enum (for backward compatibility)
  */
-export function mapUserRoleToSystemRole(userRole: UserRole): SystemRole {
-  const roleMap: Record<UserRole, SystemRole> = {
-    [UserRole.EMPLOYEE]: SystemRole.DEPARTMENT_EMPLOYEE,
-    [UserRole.HR_MANAGER]: SystemRole.HR_MANAGER,
-    [UserRole.HR_ADMIN]: SystemRole.HR_ADMIN,
-    [UserRole.DEPARTMENT_MANAGER]: SystemRole.DEPARTMENT_HEAD,
-    [UserRole.PAYROLL_SPECIALIST]: SystemRole.PAYROLL_SPECIALIST,
-    [UserRole.PAYROLL_MANAGER]: SystemRole.PAYROLL_MANAGER,
-    [UserRole.FINANCE_STAFF]: SystemRole.FINANCE_STAFF,
-    [UserRole.SYSTEM_ADMIN]: SystemRole.SYSTEM_ADMIN,
-    [UserRole.LEGAL_ADMIN]: SystemRole.LEGAL_POLICY_ADMIN,
+export function mapUserRoleToSystemRole(role: string | SystemRole): SystemRole {
+  // If already a SystemRole, return as is
+  if (Object.values(SystemRole).includes(role as SystemRole)) {
+    return role as SystemRole;
+  }
+  
+  // Map common role strings to SystemRole
+  const roleMap: Record<string, SystemRole> = {
+    'EMPLOYEE': SystemRole.DEPARTMENT_EMPLOYEE,
+    'HR_MANAGER': SystemRole.HR_MANAGER,
+    'HR_ADMIN': SystemRole.HR_ADMIN,
+    'DEPARTMENT_MANAGER': SystemRole.DEPARTMENT_HEAD,
+    'PAYROLL_SPECIALIST': SystemRole.PAYROLL_SPECIALIST,
+    'PAYROLL_MANAGER': SystemRole.PAYROLL_MANAGER,
+    'FINANCE_STAFF': SystemRole.FINANCE_STAFF,
+    'SYSTEM_ADMIN': SystemRole.SYSTEM_ADMIN,
+    'LEGAL_ADMIN': SystemRole.LEGAL_POLICY_ADMIN,
   };
 
-  return roleMap[userRole] || SystemRole.DEPARTMENT_EMPLOYEE;
+  return roleMap[role] || SystemRole.DEPARTMENT_EMPLOYEE;
 }
 
 /**
- * Maps array of UserRoles to SystemRoles
+ * Maps array of roles to SystemRoles
  */
-export function mapUserRolesToSystemRoles(userRoles: UserRole[]): SystemRole[] {
-  return userRoles.map(mapUserRoleToSystemRole);
+export function mapUserRolesToSystemRoles(roles: (string | SystemRole)[]): SystemRole[] {
+  return roles.map(mapUserRoleToSystemRole);
 }
 

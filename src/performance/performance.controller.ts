@@ -28,12 +28,10 @@ import { CreatePerformanceGoalDto } from './dto/create-performance-goal.dto';
 import { UpdatePerformanceGoalDto } from './dto/update-performance-goal.dto';
 import { CreatePerformanceFeedbackDto } from './dto/create-performance-feedback.dto';
 import { UpdatePerformanceFeedbackDto } from './dto/update-performance-feedback.dto';
-import { CycleStatus } from './schemas/appraisal-cycle.schema';
-import { DisputeStatus } from './schemas/appraisal-dispute.schema';
-import { GoalStatus } from './schemas/performance-goal.schema';
-import { FeedbackStatus } from './schemas/performance-feedback.schema';
+import { AppraisalCycleStatus } from './enums/performance.enums';
+import { AppraisalDisputeStatus } from './enums/performance.enums';
 import { JwtAuthGuard, RolesGuard, Roles } from '../auth';
-import { UserRole } from '../shared/schemas/user.schema';
+import { SystemRole } from '../employee-profile/enums/employee-profile.enums';
 
 @Controller('performance')
 @UseGuards(JwtAuthGuard)
@@ -51,7 +49,7 @@ export class PerformanceController {
   @Post('templates')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HR_MANAGER, UserRole.HR_ADMIN, UserRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
   async createTemplate(@Body() createDto: CreateAppraisalTemplateDto) {
     return this.performanceService.createTemplate(createDto);
   }
@@ -82,7 +80,7 @@ export class PerformanceController {
    */
   @Put('templates/:id')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HR_MANAGER, UserRole.HR_ADMIN, UserRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
   async updateTemplate(
     @Param('id') id: string,
     @Body() updateDto: UpdateAppraisalTemplateDto,
@@ -98,7 +96,7 @@ export class PerformanceController {
   @Delete('templates/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HR_ADMIN, UserRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
   async deleteTemplate(@Param('id') id: string) {
     await this.performanceService.deleteTemplate(id);
   }
@@ -113,7 +111,7 @@ export class PerformanceController {
   @Post('cycles')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HR_MANAGER, UserRole.HR_ADMIN, UserRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
   async createCycle(@Body() createDto: CreateAppraisalCycleDto) {
     return this.performanceService.createCycle(createDto);
   }
@@ -143,7 +141,7 @@ export class PerformanceController {
    */
   @Put('cycles/:id')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HR_MANAGER, UserRole.HR_ADMIN, UserRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
   async updateCycle(
     @Param('id') id: string,
     @Body() updateDto: UpdateAppraisalCycleDto,
@@ -158,7 +156,7 @@ export class PerformanceController {
    */
   @Post('cycles/:id/activate')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HR_MANAGER, UserRole.HR_ADMIN, UserRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
   async activateCycle(@Param('id') id: string) {
     return this.performanceService.activateCycle(id);
   }
@@ -170,7 +168,7 @@ export class PerformanceController {
    */
   @Post('cycles/:id/publish')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HR_MANAGER, UserRole.HR_ADMIN, UserRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
   async publishCycle(@Param('id') id: string) {
     return this.performanceService.publishCycle(id);
   }
@@ -182,7 +180,7 @@ export class PerformanceController {
    */
   @Post('cycles/:id/close')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HR_MANAGER, UserRole.HR_ADMIN, UserRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
   async closeCycle(@Param('id') id: string) {
     return this.performanceService.closeCycle(id);
   }
@@ -253,7 +251,7 @@ export class PerformanceController {
   @Post('cycles/:cycleId/employees/:employeeId/evaluation')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
-  @Roles(UserRole.DEPARTMENT_MANAGER, UserRole.HR_MANAGER, UserRole.HR_ADMIN, UserRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.DEPARTMENT_HEAD, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
   async createOrUpdateEvaluation(
     @Param('cycleId') cycleId: string,
     @Param('employeeId') employeeId: string,
@@ -302,15 +300,15 @@ export class PerformanceController {
    */
   @Put('evaluations/:id')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.DEPARTMENT_MANAGER, UserRole.HR_MANAGER, UserRole.HR_ADMIN, UserRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.DEPARTMENT_HEAD, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
   async updateEvaluation(
     @Param('id') id: string,
     @Body() updateDto: UpdateAppraisalEvaluationDto,
   ) {
     const evaluation = await this.performanceService.findEvaluationById(id);
     return this.performanceService.createOrUpdateEvaluation(
-      evaluation.cycleId.toString(),
-      evaluation.employeeId.toString(),
+      evaluation.cycleId?.toString(),
+      (evaluation as any).employeeId?.toString(),
       updateDto as any,
     );
   }
@@ -325,7 +323,7 @@ export class PerformanceController {
   @Post('disputes')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
-  @Roles(UserRole.EMPLOYEE, UserRole.DEPARTMENT_MANAGER, UserRole.HR_MANAGER, UserRole.HR_ADMIN, UserRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.DEPARTMENT_EMPLOYEE, SystemRole.DEPARTMENT_HEAD, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
   async createDispute(
     @Body('employeeId') employeeId: string,
     @Body() createDto: CreateAppraisalDisputeDto,
@@ -367,7 +365,7 @@ export class PerformanceController {
    */
   @Post('disputes/:id/resolve')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HR_MANAGER, UserRole.HR_ADMIN, UserRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
   async resolveDispute(
     @Param('id') id: string,
     @Body('reviewerId') reviewerId: string,
@@ -405,7 +403,7 @@ export class PerformanceController {
    */
   @Post('evaluations/:id/hr-review')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HR_MANAGER, UserRole.HR_ADMIN, UserRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
   async addHrReview(
     @Param('id') id: string,
     @Body() hrReviewDto: AddHrReviewDto,
@@ -436,7 +434,7 @@ export class PerformanceController {
   ) {
     return this.performanceService.findGoalsByEmployee(
       employeeId,
-      status as GoalStatus,
+      status as any,
     );
   }
 
@@ -494,7 +492,7 @@ export class PerformanceController {
   ) {
     return this.performanceService.findFeedbackByRecipient(
       employeeId,
-      status as FeedbackStatus,
+      status as any,
     );
   }
 

@@ -1,5 +1,4 @@
-import { IsString, IsOptional, IsEnum } from 'class-validator';
-import { SnapshotPurpose } from '../schemas/org-chart-snapshot.schema';
+import { IsString, IsOptional } from 'class-validator';
 
 export class CreateOrgChartSnapshotDto {
   @IsString()
@@ -9,7 +8,8 @@ export class CreateOrgChartSnapshotDto {
   @IsOptional()
   description?: string;
 
-  @IsEnum(SnapshotPurpose)
-  purpose: SnapshotPurpose;
+  @IsString()
+  @IsOptional()
+  purpose?: string; // SnapshotPurpose enum doesn't exist in schema
 }
 

@@ -1,5 +1,4 @@
-import { IsMongoId, IsEnum, IsOptional, IsBoolean, IsDateString, IsString, MaxLength } from 'class-validator';
-import { ReportingType } from '../schemas/reporting-line.schema';
+import { IsMongoId, IsOptional, IsBoolean, IsDateString, IsString, MaxLength } from 'class-validator';
 
 export class CreateReportingLineDto {
   @IsMongoId()
@@ -8,8 +7,9 @@ export class CreateReportingLineDto {
   @IsMongoId()
   managerId: string;
 
-  @IsEnum(ReportingType)
-  reportingType: ReportingType;
+  @IsString()
+  @IsOptional()
+  reportingType?: string; // ReportingType enum doesn't exist in schema
 
   @IsString()
   @IsOptional()

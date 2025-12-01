@@ -1,21 +1,19 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateOrgChangeRequestDto } from './create-org-change-request.dto';
 import { IsEnum, IsOptional, IsString, IsMongoId, MaxLength } from 'class-validator';
-import { OrgChangeStatus } from '../schemas/org-change-request.schema';
+import { StructureRequestStatus } from '../enums/organization-structure.enums';
 
 export class UpdateOrgChangeRequestDto extends PartialType(CreateOrgChangeRequestDto) {
-  @IsEnum(OrgChangeStatus)
+  @IsEnum(StructureRequestStatus)
   @IsOptional()
-  status?: OrgChangeStatus;
+  status?: StructureRequestStatus;
 
-  @IsString()
+  @IsMongoId()
   @IsOptional()
-  @MaxLength(1000)
-  reviewComments?: string;
+  targetDepartmentId?: string;
 
-  @IsString()
+  @IsMongoId()
   @IsOptional()
-  @MaxLength(1000)
-  approvalComments?: string;
+  targetPositionId?: string;
 }
 

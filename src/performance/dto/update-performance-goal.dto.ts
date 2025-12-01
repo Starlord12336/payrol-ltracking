@@ -1,7 +1,6 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreatePerformanceGoalDto } from './create-performance-goal.dto';
-import { IsNumber, IsString, IsOptional, IsEnum, Min } from 'class-validator';
-import { GoalStatus } from '../schemas/performance-goal.schema';
+import { IsNumber, IsString, IsOptional, Min } from 'class-validator';
 
 export class UpdatePerformanceGoalDto extends PartialType(
   CreatePerformanceGoalDto,
@@ -11,9 +10,9 @@ export class UpdatePerformanceGoalDto extends PartialType(
   @Min(0)
   currentValue?: number;
 
-  @IsEnum(GoalStatus)
+  @IsString()
   @IsOptional()
-  status?: GoalStatus;
+  status?: string; // GoalStatus enum doesn't exist in schema
 
   @IsString()
   @IsOptional()

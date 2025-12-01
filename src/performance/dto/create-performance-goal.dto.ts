@@ -1,17 +1,11 @@
 import {
   IsString,
-  IsEnum,
   IsOptional,
   IsNumber,
   IsDateString,
   Min,
   Max,
 } from 'class-validator';
-import {
-  GoalCategory,
-  GoalType,
-  GoalPriority,
-} from '../schemas/performance-goal.schema';
 
 export class CreatePerformanceGoalDto {
   @IsString()
@@ -30,14 +24,17 @@ export class CreatePerformanceGoalDto {
   @IsOptional()
   cycleId?: string;
 
-  @IsEnum(GoalCategory)
-  category: GoalCategory;
+  @IsString()
+  @IsOptional()
+  category?: string; // GoalCategory enum doesn't exist in schema
 
-  @IsEnum(GoalType)
-  type: GoalType;
+  @IsString()
+  @IsOptional()
+  type?: string; // GoalType enum doesn't exist in schema
 
-  @IsEnum(GoalPriority)
-  priority: GoalPriority;
+  @IsString()
+  @IsOptional()
+  priority?: string; // GoalPriority enum doesn't exist in schema
 
   @IsString()
   @IsOptional()

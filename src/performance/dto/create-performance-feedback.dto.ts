@@ -1,6 +1,5 @@
 import {
   IsString,
-  IsEnum,
   IsOptional,
   IsNumber,
   IsBoolean,
@@ -10,10 +9,6 @@ import {
   Max,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import {
-  FeedbackType,
-  FeedbackCategory,
-} from '../schemas/performance-feedback.schema';
 
 export class FeedbackCategoryDto {
   @IsString()
@@ -37,8 +32,9 @@ export class CreatePerformanceFeedbackDto {
   @IsString()
   providerId: string; // Employee ID
 
-  @IsEnum(FeedbackType)
-  feedbackType: FeedbackType;
+  @IsString()
+  @IsOptional()
+  feedbackType?: string; // FeedbackType enum doesn't exist in schema
 
   @IsString()
   @IsOptional()

@@ -1,8 +1,7 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateDepartmentBudgetDto } from './create-department-budget.dto';
-import { IsNumber, IsOptional, IsEnum, Min } from 'class-validator';
+import { IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
-import { BudgetStatus } from '../schemas/department-budget.schema';
 
 export class UpdateDepartmentBudgetDto extends PartialType(CreateDepartmentBudgetDto) {
   @Type(() => Number)
@@ -17,8 +16,8 @@ export class UpdateDepartmentBudgetDto extends PartialType(CreateDepartmentBudge
   @IsOptional()
   actualSpent?: number;
 
-  @IsEnum(BudgetStatus)
+  @IsString()
   @IsOptional()
-  status?: BudgetStatus;
+  status?: string; // BudgetStatus enum doesn't exist in schema
 }
 

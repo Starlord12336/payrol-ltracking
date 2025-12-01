@@ -11,10 +11,9 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import {
-  OrgRequestType,
-  TargetType,
-  OrgChangePriority,
-} from '../schemas/org-change-request.schema';
+  StructureRequestType,
+  StructureRequestStatus,
+} from '../enums/organization-structure.enums';
 
 export class ProposedChangeDto {
   @IsString()
@@ -32,50 +31,25 @@ export class ProposedChangeDto {
 }
 
 export class CreateOrgChangeRequestDto {
-  @IsEnum(OrgRequestType)
-  requestType: OrgRequestType;
-
-  @IsEnum(TargetType)
-  targetType: TargetType;
+  @IsEnum(StructureRequestType)
+  requestType: StructureRequestType;
 
   @IsMongoId()
   @IsOptional()
-  targetId?: string; // ID of existing entity (for updates)
+  targetDepartmentId?: string;
 
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => ProposedChangeDto)
+  @IsMongoId()
   @IsOptional()
-  proposedChanges?: ProposedChangeDto[];
-
-  @IsObject()
-  @IsOptional()
-  newEntityData?: Record<string, any>;
-
-  @IsArray()
-  @IsMongoId({ each: true })
-  @IsOptional()
-  impactedEmployees?: string[];
-
-  @IsArray()
-  @IsMongoId({ each: true })
-  @IsOptional()
-  impactedDepartments?: string[];
-
-  @IsArray()
-  @IsMongoId({ each: true })
-  @IsOptional()
-  impactedPositions?: string[];
+  targetPositionId?: string;
 
   @IsString()
-  @MaxLength(2000)
-  businessJustification: string;
-
-  @IsDateString()
-  effectiveDate: string;
-
-  @IsEnum(OrgChangePriority)
   @IsOptional()
-  priority?: OrgChangePriority;
+  @MaxLength(2000)
+  details?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(2000)
+  reason?: string;
 }
 

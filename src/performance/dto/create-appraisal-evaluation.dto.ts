@@ -9,7 +9,7 @@ import {
   ArrayMinSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { EvaluationStatus } from '../schemas/appraisal-evaluation.schema';
+import { AppraisalRecordStatus } from '../enums/performance.enums';
 
 export class CriterionRatingDto {
   @IsString()
@@ -112,8 +112,8 @@ export class CreateAppraisalEvaluationDto {
   @IsNumber()
   finalRating: number;
 
-  @IsEnum(EvaluationStatus)
+  @IsEnum(AppraisalRecordStatus)
   @IsOptional()
-  status?: EvaluationStatus;
+  status?: AppraisalRecordStatus;
 }
 

@@ -10,44 +10,30 @@ import { Model, Types, Schema as MongooseSchema } from 'mongoose';
 import {
   AppraisalTemplate,
   AppraisalTemplateDocument,
-} from './schemas/appraisal-template.schema';
+} from './models/appraisal-template.schema';
 import {
   AppraisalCycle,
   AppraisalCycleDocument,
-  CycleStatus,
-  AssignmentStatus,
-  CycleAssignment,
-} from './schemas/appraisal-cycle.schema';
+} from './models/appraisal-cycle.schema';
+import { AppraisalCycleStatus, AppraisalAssignmentStatus } from './enums/performance.enums';
 import {
-  AppraisalEvaluation,
-  AppraisalEvaluationDocument,
-  EvaluationStatus,
-  PerformanceCategory,
-} from './schemas/appraisal-evaluation.schema';
+  AppraisalRecord,
+  AppraisalRecordDocument,
+} from './models/appraisal-record.schema';
+import { AppraisalRecordStatus } from './enums/performance.enums';
+import {
+  AppraisalAssignment,
+  AppraisalAssignmentDocument,
+} from './models/appraisal-assignment.schema';
 import {
   AppraisalDispute,
   AppraisalDisputeDocument,
-  DisputeStatus,
-  ResolutionType,
-} from './schemas/appraisal-dispute.schema';
-import {
-  PerformanceGoal,
-  PerformanceGoalDocument,
-  GoalStatus,
-} from './schemas/performance-goal.schema';
-import {
-  PerformanceFeedback,
-  PerformanceFeedbackDocument,
-  FeedbackStatus,
-} from './schemas/performance-feedback.schema';
-import {
-  PerformanceHistory,
-  PerformanceHistoryDocument,
-} from './schemas/performance-history.schema';
-// Integration schemas (from shared)
-import { EmployeeProfile, EmployeeProfileDocument } from '../shared/schemas/employee-profile.schema';
-import { Department, DepartmentDocument } from '../shared/schemas/department.schema';
-import { Position, PositionDocument } from '../shared/schemas/position.schema';
+} from './models/appraisal-dispute.schema';
+import { AppraisalDisputeStatus } from './enums/performance.enums';
+// Integration schemas
+import { EmployeeProfile, EmployeeProfileDocument } from '../employee-profile/models/employee-profile.schema';
+import { Department, DepartmentDocument } from '../organization-structure/models/department.schema';
+import { Position, PositionDocument } from '../organization-structure/models/position.schema';
 import { EmployeeStatus } from '../employee-profile/enums/employee-profile.enums';
 // DTOs
 import { CreateAppraisalTemplateDto } from './dto/create-appraisal-template.dto';
@@ -72,16 +58,12 @@ export class PerformanceService {
     private templateModel: Model<AppraisalTemplateDocument>,
     @InjectModel(AppraisalCycle.name)
     private cycleModel: Model<AppraisalCycleDocument>,
-    @InjectModel(AppraisalEvaluation.name)
-    private evaluationModel: Model<AppraisalEvaluationDocument>,
+    @InjectModel(AppraisalRecord.name)
+    private evaluationModel: Model<AppraisalRecordDocument>,
+    @InjectModel(AppraisalAssignment.name)
+    private assignmentModel: Model<AppraisalAssignmentDocument>,
     @InjectModel(AppraisalDispute.name)
     private disputeModel: Model<AppraisalDisputeDocument>,
-    @InjectModel(PerformanceGoal.name)
-    private goalModel: Model<PerformanceGoalDocument>,
-    @InjectModel(PerformanceFeedback.name)
-    private feedbackModel: Model<PerformanceFeedbackDocument>,
-    @InjectModel(PerformanceHistory.name)
-    private historyModel: Model<PerformanceHistoryDocument>,
     // Integration models
     @InjectModel(EmployeeProfile.name)
     private employeeModel: Model<EmployeeProfileDocument>,
@@ -241,48 +223,31 @@ export class PerformanceService {
       throw new BadRequestException('End date must be after start date');
     }
 
-    // Validate templateId
-    if (!createDto.templateId || !Types.ObjectId.isValid(createDto.templateId)) {
-      throw new BadRequestException('Invalid templateId');
+    // Validate templateId if provided
+    let templateId: Types.ObjectId | undefined;
+    if (createDto.templateId && Types.ObjectId.isValid(createDto.templateId)) {
+      templateId = new Types.ObjectId(createDto.templateId);
     }
-
-    // Use a dummy user ID for createdBy/updatedBy (in real app, get from auth context)
-    const dummyUserId = new Types.ObjectId('507f1f77bcf86cd799439011');
     
-    // Helper function to safely convert array of IDs
-    const convertToObjectIds = (ids?: string[]): Types.ObjectId[] => {
-      if (!ids || ids.length === 0) return [];
-      return ids
-        .filter(id => id && Types.ObjectId.isValid(id))
-        .map(id => new Types.ObjectId(id));
-    };
+    // Build templateAssignments array (required by schema)
+    const templateAssignments: any[] = [];
+    if (templateId) {
+      templateAssignments.push({
+        templateId,
+        departmentIds: createDto.targetDepartmentIds?.map(id => new Types.ObjectId(id)) || [],
+      });
+    }
     
     const cycle = new this.cycleModel({
-      cycleCode: createDto.cycleCode,
-      cycleName: createDto.cycleName,
+      name: createDto.cycleName || createDto.cycleCode || `Cycle ${new Date().toISOString()}`,
       description: createDto.description,
-      appraisalType: createDto.appraisalType,
-      templateId: new Types.ObjectId(createDto.templateId),
+      cycleType: createDto.appraisalType || 'ANNUAL',
       startDate,
       endDate,
-      selfAssessmentDeadline: createDto.selfAssessmentDeadline
-        ? new Date(createDto.selfAssessmentDeadline)
-        : undefined,
-      managerReviewDeadline: new Date(createDto.managerReviewDeadline),
-      hrReviewDeadline: createDto.hrReviewDeadline
-        ? new Date(createDto.hrReviewDeadline)
-        : undefined,
-      disputeDeadline: createDto.disputeDeadline
-        ? new Date(createDto.disputeDeadline)
-        : undefined,
-      targetEmployees: convertToObjectIds(createDto.targetEmployeeIds),
-      targetDepartments: convertToObjectIds(createDto.targetDepartmentIds),
-      targetPositions: convertToObjectIds(createDto.targetPositionIds),
-      excludeEmployees: convertToObjectIds(createDto.excludeEmployeeIds),
-      status: CycleStatus.DRAFT,
-      assignments: [],
-      createdBy: dummyUserId,
-      updatedBy: dummyUserId,
+      managerDueDate: createDto.managerReviewDeadline ? new Date(createDto.managerReviewDeadline) : undefined,
+      employeeAcknowledgementDueDate: undefined, // Set later if needed
+      templateAssignments,
+      status: AppraisalCycleStatus.PLANNED,
     });
 
     return cycle.save();
@@ -291,7 +256,7 @@ export class PerformanceService {
   /**
    * Get all cycles
    */
-  async findAllCycles(status?: CycleStatus): Promise<AppraisalCycleDocument[]> {
+  async findAllCycles(status?: AppraisalCycleStatus): Promise<AppraisalCycleDocument[]> {
     const filter: any = {};
     if (status) {
       filter.status = status;
@@ -309,12 +274,7 @@ export class PerformanceService {
   async findCycleById(id: string): Promise<AppraisalCycleDocument> {
     const cycle = await this.cycleModel
       .findById(id)
-      .populate('templateId')
-      .populate('targetEmployees')
-      .populate('targetDepartments')
-      .populate('targetPositions')
-      .populate('assignments.employeeId')
-      .populate('assignments.reviewerId')
+      .populate('templateAssignments.templateId')
       .exec();
     if (!cycle) {
       throw new NotFoundException(`Cycle with ID ${id} not found`);
@@ -338,42 +298,11 @@ export class PerformanceService {
       updateData.endDate = new Date(updateDto.endDate);
     }
     if (updateDto.managerReviewDeadline) {
-      updateData.managerReviewDeadline = new Date(updateDto.managerReviewDeadline);
-    }
-    if (updateDto.selfAssessmentDeadline) {
-      updateData.selfAssessmentDeadline = new Date(updateDto.selfAssessmentDeadline);
-    }
-    if (updateDto.hrReviewDeadline) {
-      updateData.hrReviewDeadline = new Date(updateDto.hrReviewDeadline);
-    }
-    if (updateDto.disputeDeadline) {
-      updateData.disputeDeadline = new Date(updateDto.disputeDeadline);
+      updateData.managerDueDate = new Date(updateDto.managerReviewDeadline);
     }
 
-    // Convert string IDs to ObjectIds
-    if (updateDto.targetEmployeeIds) {
-      updateData.targetEmployees = updateDto.targetEmployeeIds.map(
-        (id) => new Types.ObjectId(id),
-      );
-    }
-    if (updateDto.targetDepartmentIds) {
-      updateData.targetDepartments = updateDto.targetDepartmentIds.map(
-        (id) => new Types.ObjectId(id),
-      );
-    }
-    if (updateDto.targetPositionIds) {
-      updateData.targetPositions = updateDto.targetPositionIds.map(
-        (id) => new Types.ObjectId(id),
-      );
-    }
-    if (updateDto.excludeEmployeeIds) {
-      updateData.excludeEmployees = updateDto.excludeEmployeeIds.map(
-        (id) => new Types.ObjectId(id),
-      );
-    }
-    if (updateDto.templateId) {
-      updateData.templateId = new Types.ObjectId(updateDto.templateId);
-    }
+    // Note: AppraisalCycle schema doesn't have targetEmployees, targetDepartments, etc.
+    // These would need to be handled via templateAssignments if needed
 
     const updated = await this.cycleModel
       .findByIdAndUpdate(id, updateData, { new: true })
@@ -391,7 +320,7 @@ export class PerformanceService {
   async activateCycle(id: string): Promise<AppraisalCycleDocument> {
     const cycle = await this.findCycleById(id);
     
-    if (cycle.status !== CycleStatus.DRAFT) {
+    if (cycle.status !== AppraisalCycleStatus.PLANNED) {
       throw new BadRequestException(
         `Cannot activate cycle. Current status: ${cycle.status}`,
       );
@@ -400,7 +329,7 @@ export class PerformanceService {
     // Auto-assign appraisals based on cycle scope
     await this.autoAssignAppraisals(cycle);
 
-    cycle.status = CycleStatus.ACTIVE;
+    cycle.status = AppraisalCycleStatus.ACTIVE;
     return cycle.save();
   }
 
@@ -409,7 +338,13 @@ export class PerformanceService {
    * Integrates with Employee Profile and Organization Structure modules
    */
   private async autoAssignAppraisals(cycle: AppraisalCycleDocument): Promise<void> {
-    const template = await this.templateModel.findById(cycle.templateId).exec();
+    // Get template from cycle's templateAssignments
+    const templateAssignment = cycle.templateAssignments?.[0];
+    if (!templateAssignment) {
+      throw new BadRequestException('Cycle has no template assignments');
+    }
+    
+    const template = await this.templateModel.findById(templateAssignment.templateId).exec();
     if (!template || !template.isActive) {
       throw new BadRequestException('Template not found or inactive');
     }
@@ -419,34 +354,25 @@ export class PerformanceService {
       status: { $in: [EmployeeStatus.ACTIVE, EmployeeStatus.PROBATION] },
     };
 
-    // Filter by target employees, departments, or positions
-    if (cycle.targetEmployees && cycle.targetEmployees.length > 0) {
-      employeeQuery._id = { $in: cycle.targetEmployees };
-    } else if (cycle.targetDepartments && cycle.targetDepartments.length > 0) {
-      employeeQuery.primaryDepartmentId = { $in: cycle.targetDepartments };
-    } else if (cycle.targetPositions && cycle.targetPositions.length > 0) {
-      employeeQuery.primaryPositionId = { $in: cycle.targetPositions };
-    } else if (template.applicableDepartments && template.applicableDepartments.length > 0) {
-      employeeQuery.primaryDepartmentId = { $in: template.applicableDepartments };
-    }
-
-    // Exclude specified employees
-    if (cycle.excludeEmployees && cycle.excludeEmployees.length > 0) {
-      employeeQuery._id = {
-        ...(employeeQuery._id || {}),
-        $nin: cycle.excludeEmployees,
-      };
+    // Filter by template's applicable departments
+    if (templateAssignment.departmentIds && templateAssignment.departmentIds.length > 0) {
+      employeeQuery.primaryDepartmentId = { $in: templateAssignment.departmentIds };
+    } else if (template.applicableDepartmentIds && template.applicableDepartmentIds.length > 0) {
+      employeeQuery.primaryDepartmentId = { $in: template.applicableDepartmentIds };
     }
 
     const employees = await this.employeeModel.find(employeeQuery).exec();
-    const newAssignments: CycleAssignment[] = [];
+    const newAssignments: AppraisalAssignmentDocument[] = [];
 
     // For each employee, determine their manager and create assignment
     for (const employee of employees) {
       // Check if assignment already exists
-      const existingAssignment = cycle.assignments.find(
-        (a) => a.employeeId.toString() === employee._id.toString(),
-      );
+      const existingAssignment = await this.assignmentModel
+        .findOne({
+          cycleId: cycle._id,
+          employeeProfileId: employee._id,
+        })
+        .exec();
       if (existingAssignment) {
         continue; // Skip if already assigned
       }
@@ -493,21 +419,22 @@ export class PerformanceService {
         continue;
       }
 
-      // Create assignment and add to cycle
-      const assignment: CycleAssignment = {
-        employeeId: employee._id as any,
-        reviewerId: managerId as any,
-        selfAssessmentRequired: template.requiresSelfAssessment || false,
-        status: AssignmentStatus.NOT_STARTED,
+      // Create assignment document
+      const assignmentData = {
+        cycleId: cycle._id,
+        templateId: templateAssignment.templateId,
+        employeeProfileId: employee._id,
+        managerProfileId: managerId,
+        departmentId: employee.primaryDepartmentId || new Types.ObjectId(),
+        positionId: employee.primaryPositionId,
+        status: AppraisalAssignmentStatus.NOT_STARTED,
         assignedAt: new Date(),
       };
 
+      const assignment = new this.assignmentModel(assignmentData);
+      await assignment.save();
       newAssignments.push(assignment);
     }
-
-    // Add all new assignments to cycle
-    cycle.assignments.push(...newAssignments);
-    await cycle.save();
   }
 
   /**
@@ -516,7 +443,7 @@ export class PerformanceService {
   async publishCycle(id: string): Promise<AppraisalCycleDocument> {
     const cycle = await this.findCycleById(id);
     
-    if (cycle.status !== CycleStatus.ACTIVE && cycle.status !== CycleStatus.IN_PROGRESS) {
+    if (cycle.status !== AppraisalCycleStatus.ACTIVE) {
       throw new BadRequestException(
         `Cannot publish cycle. Current status: ${cycle.status}`,
       );
@@ -526,19 +453,23 @@ export class PerformanceService {
     await this.evaluationModel.updateMany(
       { cycleId: new Types.ObjectId(id) },
       { 
-        status: EvaluationStatus.PUBLISHED,
-        publishedAt: new Date(),
+        status: AppraisalRecordStatus.HR_PUBLISHED,
+        hrPublishedAt: new Date(),
       },
     ).exec();
 
     // Update cycle assignments status
-    cycle.assignments.forEach((assignment) => {
-      if (assignment.status === AssignmentStatus.MANAGER_REVIEW_PENDING) {
-        assignment.status = AssignmentStatus.COMPLETED;
-      }
-    });
+    await this.assignmentModel.updateMany(
+      { 
+        cycleId: new Types.ObjectId(id),
+        status: AppraisalAssignmentStatus.SUBMITTED,
+      },
+      {
+        status: AppraisalAssignmentStatus.PUBLISHED,
+        publishedAt: new Date(),
+      },
+    ).exec();
 
-    cycle.resultsPublished = true;
     cycle.publishedAt = new Date();
     return cycle.save();
   }
@@ -549,13 +480,13 @@ export class PerformanceService {
   async closeCycle(id: string): Promise<AppraisalCycleDocument> {
     const cycle = await this.findCycleById(id);
     
-    if (cycle.status !== CycleStatus.ACTIVE && cycle.status !== CycleStatus.IN_PROGRESS) {
+    if (cycle.status !== AppraisalCycleStatus.ACTIVE) {
       throw new BadRequestException(
         `Cannot close cycle. Current status: ${cycle.status}`,
       );
     }
 
-    cycle.status = CycleStatus.COMPLETED;
+    cycle.status = AppraisalCycleStatus.CLOSED;
     return cycle.save();
   }
 
@@ -564,9 +495,12 @@ export class PerformanceService {
   /**
    * Get all assignments for a cycle
    */
-  async findAssignmentsByCycle(cycleId: string): Promise<CycleAssignment[]> {
-    const cycle = await this.findCycleById(cycleId);
-    return cycle.assignments;
+  async findAssignmentsByCycle(cycleId: string): Promise<AppraisalAssignmentDocument[]> {
+    return this.assignmentModel
+      .find({ cycleId: new Types.ObjectId(cycleId) })
+      .populate('employeeProfileId')
+      .populate('managerProfileId')
+      .exec();
   }
 
   /**
@@ -575,29 +509,16 @@ export class PerformanceService {
   async findAssignmentsByManager(
     managerId: string,
     cycleId?: string,
-  ): Promise<CycleAssignment[]> {
+  ): Promise<AppraisalAssignmentDocument[]> {
+    const filter: any = { managerProfileId: new Types.ObjectId(managerId) };
     if (cycleId) {
-      const cycle = await this.findCycleById(cycleId);
-      return cycle.assignments.filter(
-        (a) => a.reviewerId.toString() === managerId,
-      );
+      filter.cycleId = new Types.ObjectId(cycleId);
     }
-
-    // If no cycleId, search across all cycles
-    const cycles = await this.cycleModel
-      .find({ status: { $in: [CycleStatus.ACTIVE, CycleStatus.IN_PROGRESS] } })
-      .populate('assignments.reviewerId')
+    return this.assignmentModel
+      .find(filter)
+      .populate('employeeProfileId')
+      .populate('cycleId')
       .exec();
-
-    const allAssignments: CycleAssignment[] = [];
-    cycles.forEach((cycle) => {
-      const managerAssignments = cycle.assignments.filter(
-        (a) => a.reviewerId.toString() === managerId,
-      );
-      allAssignments.push(...managerAssignments);
-    });
-
-    return allAssignments;
   }
 
   /**
@@ -606,29 +527,16 @@ export class PerformanceService {
   async findAssignmentsByEmployee(
     employeeId: string,
     cycleId?: string,
-  ): Promise<CycleAssignment[]> {
+  ): Promise<AppraisalAssignmentDocument[]> {
+    const filter: any = { employeeProfileId: new Types.ObjectId(employeeId) };
     if (cycleId) {
-      const cycle = await this.findCycleById(cycleId);
-      return cycle.assignments.filter(
-        (a) => a.employeeId.toString() === employeeId,
-      );
+      filter.cycleId = new Types.ObjectId(cycleId);
     }
-
-    // If no cycleId, search across all cycles
-    const cycles = await this.cycleModel
-      .find({ status: { $in: [CycleStatus.ACTIVE, CycleStatus.IN_PROGRESS] } })
-      .populate('assignments.employeeId')
+    return this.assignmentModel
+      .find(filter)
+      .populate('managerProfileId')
+      .populate('cycleId')
       .exec();
-
-    const allAssignments: CycleAssignment[] = [];
-    cycles.forEach((cycle) => {
-      const employeeAssignments = cycle.assignments.filter(
-        (a) => a.employeeId.toString() === employeeId,
-      );
-      allAssignments.push(...employeeAssignments);
-    });
-
-    return allAssignments;
   }
 
   /**
@@ -637,11 +545,13 @@ export class PerformanceService {
   async findAssignmentByEmployeeAndCycle(
     employeeId: string,
     cycleId: string,
-  ): Promise<CycleAssignment> {
-    const cycle = await this.findCycleById(cycleId);
-    const assignment = cycle.assignments.find(
-      (a) => a.employeeId.toString() === employeeId,
-    );
+  ): Promise<AppraisalAssignmentDocument> {
+    const assignment = await this.assignmentModel
+      .findOne({
+        employeeProfileId: new Types.ObjectId(employeeId),
+        cycleId: new Types.ObjectId(cycleId),
+      })
+      .exec();
     if (!assignment) {
       throw new NotFoundException(
         `Assignment not found for employee ${employeeId} in cycle ${cycleId}`,
@@ -659,114 +569,82 @@ export class PerformanceService {
     cycleId: string,
     employeeId: string,
     createDto: CreateAppraisalEvaluationDto,
-  ): Promise<AppraisalEvaluationDocument> {
+  ): Promise<AppraisalRecordDocument> {
     const cycle = await this.findCycleById(cycleId);
     
     // Check if cycle is active
-    if (cycle.status !== CycleStatus.ACTIVE && cycle.status !== CycleStatus.IN_PROGRESS) {
+    if (cycle.status !== AppraisalCycleStatus.ACTIVE) {
       throw new BadRequestException('Cannot modify evaluation for inactive cycle');
     }
 
     // Verify assignment exists
-    const assignment = cycle.assignments.find(
-      (a) => a.employeeId.toString() === employeeId,
-    );
+    const assignment = await this.assignmentModel
+      .findOne({
+        cycleId: new Types.ObjectId(cycleId),
+        employeeProfileId: new Types.ObjectId(employeeId),
+      })
+      .exec();
     if (!assignment) {
       throw new NotFoundException(
         `No assignment found for employee ${employeeId} in cycle ${cycleId}`,
       );
     }
 
-    if (assignment.status === AssignmentStatus.COMPLETED) {
+    if (assignment.status === AppraisalAssignmentStatus.ACKNOWLEDGED) {
       throw new BadRequestException('Cannot modify completed evaluation');
     }
 
     // Get template to calculate scores
     const template = await this.findTemplateById(createDto.templateId);
 
-    // Calculate final rating from manager evaluation
-    const finalRating = this.calculateFinalRating(
-      createDto.managerEvaluation,
-      template as any,
-    );
+    // Convert manager evaluation to ratings array (AppraisalRecord uses ratings, not managerEvaluation)
+    const ratings = this.convertEvaluationToRatings(createDto.managerEvaluation, template as any);
 
-    // Determine performance category
-    const performanceCategory = this.determinePerformanceCategory(
-      finalRating,
-      template.ratingScale,
-    );
+    // Calculate total score
+    const totalScore = this.calculateTotalScore(ratings, template as any);
 
     // Check if evaluation already exists
     let evaluation = await this.evaluationModel
       .findOne({
         cycleId: new Types.ObjectId(cycleId),
-        employeeId: new Types.ObjectId(employeeId),
+        employeeProfileId: new Types.ObjectId(employeeId),
       })
       .exec();
 
     if (evaluation) {
       // Update existing evaluation
-      evaluation.selfAssessment = createDto.selfAssessment
-        ? {
-            submittedAt: new Date(),
-            sections: createDto.selfAssessment.sections,
-            overallComments: createDto.selfAssessment.overallComments,
-          }
-        : evaluation.selfAssessment;
-      evaluation.managerEvaluation = {
-        submittedAt: new Date(),
-        sections: createDto.managerEvaluation.sections,
-        overallRating: createDto.managerEvaluation.overallRating || finalRating,
-        strengths: createDto.managerEvaluation.strengths,
-        areasForImprovement: createDto.managerEvaluation.areasForImprovement,
-        developmentRecommendations: createDto.managerEvaluation.developmentRecommendations,
-        attendanceScore: createDto.managerEvaluation.attendanceScore,
-        punctualityScore: createDto.managerEvaluation.punctualityScore,
-        attendanceComments: createDto.managerEvaluation.attendanceComments,
-      };
-      evaluation.finalRating = finalRating;
-      evaluation.performanceCategory = performanceCategory;
-      evaluation.status = EvaluationStatus.MANAGER_REVIEW_SUBMITTED;
+      evaluation.ratings = ratings;
+      evaluation.totalScore = totalScore;
+      evaluation.managerSummary = createDto.managerEvaluation?.strengths || evaluation.managerSummary;
+      evaluation.strengths = createDto.managerEvaluation?.strengths || evaluation.strengths;
+      evaluation.improvementAreas = createDto.managerEvaluation?.areasForImprovement || evaluation.improvementAreas;
+      evaluation.managerSubmittedAt = new Date();
+      evaluation.status = AppraisalRecordStatus.MANAGER_SUBMITTED;
     } else {
       // Create new evaluation
       evaluation = new this.evaluationModel({
+        assignmentId: assignment._id,
         cycleId: new Types.ObjectId(cycleId),
         templateId: new Types.ObjectId(createDto.templateId),
-        employeeId: new Types.ObjectId(employeeId),
-        reviewerId: assignment.reviewerId,
-        selfAssessment: createDto.selfAssessment
-          ? {
-              submittedAt: new Date(),
-              sections: createDto.selfAssessment.sections,
-              overallComments: createDto.selfAssessment.overallComments,
-            }
-          : undefined,
-        managerEvaluation: {
-          submittedAt: new Date(),
-          sections: createDto.managerEvaluation.sections,
-          overallRating: createDto.managerEvaluation.overallRating || finalRating,
-          strengths: createDto.managerEvaluation.strengths,
-          areasForImprovement: createDto.managerEvaluation.areasForImprovement,
-          developmentRecommendations: createDto.managerEvaluation.developmentRecommendations,
-          attendanceScore: createDto.managerEvaluation.attendanceScore,
-          punctualityScore: createDto.managerEvaluation.punctualityScore,
-          attendanceComments: createDto.managerEvaluation.attendanceComments,
-        },
-        finalRating,
-        performanceCategory,
-        status: createDto.selfAssessment
-          ? EvaluationStatus.SELF_ASSESSMENT_SUBMITTED
-          : EvaluationStatus.MANAGER_REVIEW_SUBMITTED,
+        employeeProfileId: new Types.ObjectId(employeeId),
+        managerProfileId: assignment.managerProfileId,
+        ratings,
+        totalScore,
+        managerSummary: createDto.managerEvaluation?.strengths,
+        strengths: createDto.managerEvaluation?.strengths,
+        improvementAreas: createDto.managerEvaluation?.areasForImprovement,
+        managerSubmittedAt: new Date(),
+        status: AppraisalRecordStatus.MANAGER_SUBMITTED,
       });
     }
 
     const savedEvaluation = await evaluation.save();
 
     // Update assignment status
-    assignment.status = createDto.selfAssessment
-      ? AssignmentStatus.MANAGER_REVIEW_PENDING
-      : AssignmentStatus.MANAGER_REVIEW_PENDING;
-    await cycle.save();
+    assignment.status = AppraisalAssignmentStatus.SUBMITTED;
+    assignment.submittedAt = new Date();
+    assignment.latestAppraisalId = savedEvaluation._id;
+    await assignment.save();
 
     return savedEvaluation;
   }
@@ -777,29 +655,31 @@ export class PerformanceService {
   async findEvaluationByCycleAndEmployee(
     cycleId: string,
     employeeId: string,
-  ): Promise<AppraisalEvaluationDocument | null> {
+  ): Promise<AppraisalRecordDocument | null> {
     return this.evaluationModel
       .findOne({
         cycleId: new Types.ObjectId(cycleId),
-        employeeId: new Types.ObjectId(employeeId),
+        employeeProfileId: new Types.ObjectId(employeeId),
       })
-      .populate('employeeId')
-      .populate('reviewerId')
+      .populate('employeeProfileId')
+      .populate('managerProfileId')
       .populate('templateId')
       .populate('cycleId')
+      .populate('assignmentId')
       .exec();
   }
 
   /**
    * Get evaluation by ID
    */
-  async findEvaluationById(id: string): Promise<AppraisalEvaluationDocument> {
+  async findEvaluationById(id: string): Promise<AppraisalRecordDocument> {
     const evaluation = await this.evaluationModel
       .findById(id)
-      .populate('employeeId')
-      .populate('reviewerId')
+      .populate('employeeProfileId')
+      .populate('managerProfileId')
       .populate('templateId')
       .populate('cycleId')
+      .populate('assignmentId')
       .exec();
     if (!evaluation) {
       throw new NotFoundException(`Appraisal evaluation with ID ${id} not found`);
@@ -813,94 +693,113 @@ export class PerformanceService {
   async acknowledgeEvaluation(
     evaluationId: string,
     comment?: string,
-  ): Promise<AppraisalEvaluationDocument> {
+  ): Promise<AppraisalRecordDocument> {
     const evaluation = await this.findEvaluationById(evaluationId);
 
-    if (evaluation.status !== EvaluationStatus.PUBLISHED) {
+    if (evaluation.status !== AppraisalRecordStatus.HR_PUBLISHED) {
       throw new BadRequestException(
         `Cannot acknowledge evaluation. Current status: ${evaluation.status}`,
       );
     }
 
-    evaluation.acknowledgedAt = new Date();
-    evaluation.employeeComments = comment;
-    evaluation.status = EvaluationStatus.ACKNOWLEDGED;
+    evaluation.employeeAcknowledgedAt = new Date();
+    evaluation.employeeAcknowledgementComment = comment;
 
-    // Update cycle assignment status
-    const cycle = await this.findCycleById(evaluation.cycleId.toString());
-    const assignment = cycle.assignments.find(
-      (a) => a.employeeId.toString() === evaluation.employeeId.toString(),
-    );
+    // Update assignment status
+    const assignment = await this.assignmentModel
+      .findOne({ latestAppraisalId: evaluation._id })
+      .exec();
     if (assignment) {
-      assignment.status = AssignmentStatus.COMPLETED;
-      await cycle.save();
+      assignment.status = AppraisalAssignmentStatus.ACKNOWLEDGED;
+      await assignment.save();
     }
 
     return evaluation.save();
   }
 
   /**
-   * Calculate final rating from manager evaluation sections
+   * Convert evaluation DTO to ratings array for AppraisalRecord
    */
-  private calculateFinalRating(
+  private convertEvaluationToRatings(
     managerEvaluation: any,
     template: AppraisalTemplateDocument,
-  ): number {
-    let totalWeightedScore = 0;
-    let totalWeight = 0;
-
-    // Calculate weighted score for each section
-    managerEvaluation.sections.forEach((sectionRating: any) => {
-      const templateSection = template.sections.find(
-        (s) => s.sectionId === sectionRating.sectionId,
-      );
-      if (!templateSection) return;
-
-      // Calculate section score from criteria
-      let sectionScore = 0;
-      let sectionWeight = 0;
-
-      sectionRating.criteria.forEach((criterionRating: any) => {
-        const criterion = templateSection.criteria.find(
-          (c) => c.criteriaId === criterionRating.criteriaId,
-        );
-        if (!criterion || !criterionRating.rating) return;
-
-        const criterionScore = (criterionRating.rating / template.ratingScale.maxValue) * 100;
-        sectionScore += criterionScore * (criterion.weight / 100);
-        sectionWeight += criterion.weight;
+  ): any[] {
+    const ratings: any[] = [];
+    
+    if (managerEvaluation?.sections) {
+      managerEvaluation.sections.forEach((sectionRating: any) => {
+        if (sectionRating.criteria) {
+          sectionRating.criteria.forEach((criterionRating: any) => {
+            ratings.push({
+              key: criterionRating.criteriaId || criterionRating.key,
+              title: criterionRating.title || '',
+              ratingValue: criterionRating.rating || 0,
+              ratingLabel: this.getRatingLabel(criterionRating.rating, template.ratingScale),
+              weightedScore: criterionRating.weight ? (criterionRating.rating * criterionRating.weight / 100) : 0,
+              comments: criterionRating.comments,
+            });
+          });
+        }
       });
+    }
+    
+    return ratings;
+  }
 
-      // Normalize section score
-      const normalizedSectionScore = sectionWeight > 0
-        ? (sectionScore / sectionWeight) * 100
-        : 0;
-
-      // Apply section weight to final score
-      totalWeightedScore += normalizedSectionScore * (templateSection.weight / 100);
-      totalWeight += templateSection.weight;
-    });
-
-    // Normalize final score
+  /**
+   * Calculate total score from ratings
+   */
+  private calculateTotalScore(ratings: any[], template: AppraisalTemplateDocument): number {
+    if (ratings.length === 0) return 0;
+    
+    const totalWeightedScore = ratings.reduce((sum, rating) => {
+      return sum + (rating.weightedScore || 0);
+    }, 0);
+    
+    const totalWeight = template.criteria.reduce((sum, criterion) => {
+      return sum + (criterion.weight || 0);
+    }, 0);
+    
     return totalWeight > 0 ? (totalWeightedScore / totalWeight) * 100 : 0;
   }
 
   /**
-   * Determine performance category based on rating
+   * Get rating label from rating value
    */
-  private determinePerformanceCategory(
-    rating: number,
-    ratingScale: any,
-  ): PerformanceCategory {
-    const { minValue, maxValue } = ratingScale;
-    const range = maxValue - minValue;
-    const percentage = ((rating - minValue) / range) * 100;
+  private getRatingLabel(rating: number, ratingScale: any): string {
+    if (!ratingScale.labels || ratingScale.labels.length === 0) {
+      return rating.toString();
+    }
+    const index = Math.round((rating - ratingScale.min) / (ratingScale.step || 1));
+    return ratingScale.labels[Math.min(index, ratingScale.labels.length - 1)] || rating.toString();
+  }
 
-    if (percentage >= 90) return PerformanceCategory.EXCEPTIONAL;
-    if (percentage >= 75) return PerformanceCategory.EXCEEDS_EXPECTATIONS;
-    if (percentage >= 60) return PerformanceCategory.MEETS_EXPECTATIONS;
-    if (percentage >= 40) return PerformanceCategory.NEEDS_IMPROVEMENT;
-    return PerformanceCategory.UNSATISFACTORY;
+  /**
+   * Convert self-assessment DTO to ratings array
+   */
+  private convertSelfAssessmentToRatings(
+    selfAssessmentDto: SubmitSelfAssessmentDto,
+    template: AppraisalTemplateDocument,
+  ): any[] {
+    const ratings: any[] = [];
+    
+    if (selfAssessmentDto.sections) {
+      selfAssessmentDto.sections.forEach((section: any) => {
+        if (section.criteria) {
+          section.criteria.forEach((criterion: any) => {
+            ratings.push({
+              key: criterion.criteriaId || criterion.key,
+              title: criterion.title || '',
+              ratingValue: criterion.rating || 0,
+              ratingLabel: this.getRatingLabel(criterion.rating || 0, template.ratingScale),
+              comments: criterion.comments || selfAssessmentDto.overallComments,
+            });
+          });
+        }
+      });
+    }
+    
+    return ratings;
   }
 
   // ==================== APPRAISAL DISPUTE METHODS ====================
@@ -912,10 +811,14 @@ export class PerformanceService {
     employeeId: string,
     createDto: CreateAppraisalDisputeDto,
   ): Promise<AppraisalDisputeDocument> {
-    const evaluation = await this.findEvaluationById(createDto.evaluationId);
+    const evaluationId = (createDto as any).evaluationId || (createDto as any).appraisalId;
+    if (!evaluationId) {
+      throw new BadRequestException('evaluationId or appraisalId is required');
+    }
+    const evaluation = await this.findEvaluationById(evaluationId);
 
     // Verify the employee is the one who received the evaluation
-    if (evaluation.employeeId.toString() !== employeeId) {
+    if (evaluation.employeeProfileId.toString() !== employeeId) {
       throw new BadRequestException(
         'You can only dispute your own appraisals',
       );
@@ -924,8 +827,8 @@ export class PerformanceService {
     // Check if dispute already exists
     const existingDispute = await this.disputeModel
       .findOne({
-        evaluationId: new Types.ObjectId(createDto.evaluationId),
-        status: { $in: [DisputeStatus.SUBMITTED, DisputeStatus.UNDER_REVIEW] },
+        appraisalId: evaluation._id,
+        status: { $in: [AppraisalDisputeStatus.OPEN, AppraisalDisputeStatus.UNDER_REVIEW] },
       })
       .exec();
 
@@ -933,23 +836,22 @@ export class PerformanceService {
       throw new ConflictException('An active dispute already exists for this evaluation');
     }
 
-    const cycle = await this.findCycleById(evaluation.cycleId.toString());
-    const disputeDeadline = cycle.disputeDeadline || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // Default 7 days
+    const assignment = await this.assignmentModel
+      .findOne({ latestAppraisalId: evaluation._id })
+      .exec();
+    if (!assignment) {
+      throw new NotFoundException('Assignment not found for this evaluation');
+    }
 
     const dispute = new this.disputeModel({
-      evaluationId: new Types.ObjectId(createDto.evaluationId),
-      employeeId: new Types.ObjectId(employeeId),
+      appraisalId: evaluation._id,
+      assignmentId: assignment._id,
       cycleId: evaluation.cycleId,
-      disputeReason: createDto.disputeReason,
-      disputedSections: createDto.disputedSections || [],
-      disputedCriteria: createDto.disputedCriteria || [],
-      proposedRating: createDto.proposedRating,
-      supportingDocuments: createDto.supportingDocumentIds?.map(
-        (id) => new Types.ObjectId(id),
-      ) || [],
-      additionalComments: createDto.additionalComments,
-      status: DisputeStatus.SUBMITTED,
-      deadline: disputeDeadline,
+      raisedByEmployeeId: new Types.ObjectId(employeeId),
+      reason: createDto.disputeReason || (createDto as any).reason || '',
+      details: createDto.additionalComments || (createDto as any).details,
+      status: AppraisalDisputeStatus.OPEN,
+      submittedAt: new Date(),
     });
 
     return dispute.save();
@@ -958,16 +860,17 @@ export class PerformanceService {
   /**
    * Get all disputes
    */
-  async findAllDisputes(status?: DisputeStatus): Promise<AppraisalDisputeDocument[]> {
+  async findAllDisputes(status?: AppraisalDisputeStatus): Promise<AppraisalDisputeDocument[]> {
     const filter: any = {};
     if (status) {
       filter.status = status;
     }
     return this.disputeModel
       .find(filter)
-      .populate('evaluationId')
-      .populate('employeeId')
+      .populate('appraisalId')
+      .populate('raisedByEmployeeId')
       .populate('cycleId')
+      .populate('assignmentId')
       .sort({ submittedAt: -1 })
       .exec();
   }
@@ -977,9 +880,10 @@ export class PerformanceService {
    */
   async findDisputesByEmployee(employeeId: string): Promise<AppraisalDisputeDocument[]> {
     return this.disputeModel
-      .find({ employeeId: new Types.ObjectId(employeeId) })
-      .populate('evaluationId')
+      .find({ raisedByEmployeeId: new Types.ObjectId(employeeId) })
+      .populate('appraisalId')
       .populate('cycleId')
+      .populate('assignmentId')
       .sort({ submittedAt: -1 })
       .exec();
   }
@@ -990,10 +894,12 @@ export class PerformanceService {
   async findDisputeById(id: string): Promise<AppraisalDisputeDocument> {
     const dispute = await this.disputeModel
       .findById(id)
-      .populate('evaluationId')
-      .populate('employeeId')
+      .populate('appraisalId')
+      .populate('raisedByEmployeeId')
       .populate('cycleId')
-      .populate('reviewedBy')
+      .populate('assignmentId')
+      .populate('resolvedByEmployeeId')
+      .populate('assignedReviewerEmployeeId')
       .exec();
     if (!dispute) {
       throw new NotFoundException(`Dispute with ID ${id} not found`);
@@ -1012,31 +918,23 @@ export class PerformanceService {
     const dispute = await this.findDisputeById(disputeId);
 
     if (
-      dispute.status !== DisputeStatus.SUBMITTED &&
-      dispute.status !== DisputeStatus.UNDER_REVIEW
+      dispute.status !== AppraisalDisputeStatus.OPEN &&
+      dispute.status !== AppraisalDisputeStatus.UNDER_REVIEW
     ) {
       throw new BadRequestException(
         `Cannot resolve dispute. Current status: ${dispute.status}`,
       );
     }
 
-    dispute.status = resolveDto.status === 'RESOLVED' ? DisputeStatus.RESOLVED : DisputeStatus.REJECTED;
-    dispute.resolutionType = resolveDto.resolutionType;
-    dispute.adjustedRating = resolveDto.adjustedRating;
-    dispute.resolutionNotes = resolveDto.resolutionNotes;
+    dispute.status = resolveDto.status === 'RESOLVED' ? AppraisalDisputeStatus.ADJUSTED : AppraisalDisputeStatus.REJECTED;
+    dispute.resolutionSummary = resolveDto.resolutionNotes || (resolveDto as any).resolutionSummary;
     dispute.resolvedAt = new Date();
-    dispute.reviewedBy = new Types.ObjectId(reviewerId) as any;
-    dispute.reviewedAt = new Date();
-    dispute.reviewComments = resolveDto.resolutionNotes;
+    dispute.resolvedByEmployeeId = new Types.ObjectId(reviewerId);
 
-    // If adjusted, update the evaluation
-    if (resolveDto.resolutionType === ResolutionType.RATING_ADJUSTED && resolveDto.adjustedRating) {
-      const evaluation = await this.findEvaluationById(dispute.evaluationId.toString());
-      evaluation.finalRating = resolveDto.adjustedRating;
-      evaluation.performanceCategory = this.determinePerformanceCategory(
-        resolveDto.adjustedRating,
-        (await this.findTemplateById(evaluation.templateId.toString())).ratingScale,
-      );
+    // If adjusted, update the evaluation totalScore
+    if (resolveDto.status === 'RESOLVED' && resolveDto.adjustedRating) {
+      const evaluation = await this.findEvaluationById(dispute.appraisalId.toString());
+      evaluation.totalScore = resolveDto.adjustedRating;
       await evaluation.save();
     }
 
@@ -1050,12 +948,13 @@ export class PerformanceService {
    */
   async getEmployeePerformanceHistory(
     employeeId: string,
-  ): Promise<AppraisalEvaluationDocument[]> {
+  ): Promise<AppraisalRecordDocument[]> {
     return this.evaluationModel
-      .find({ employeeId: new Types.ObjectId(employeeId) })
+      .find({ employeeProfileId: new Types.ObjectId(employeeId) })
       .populate('cycleId')
       .populate('templateId')
-      .populate('reviewerId')
+      .populate('managerProfileId')
+      .populate('assignmentId')
       .sort({ createdAt: -1 })
       .exec();
   }
@@ -1064,35 +963,32 @@ export class PerformanceService {
    * Get cycle progress dashboard
    */
   async getCycleProgress(cycleId: string): Promise<any> {
-    const cycle = await this.findCycleById(cycleId);
-    const assignments = cycle.assignments;
+    const assignments = await this.assignmentModel
+      .find({ cycleId: new Types.ObjectId(cycleId) })
+      .exec();
     
     const total = assignments.length;
     const notStarted = assignments.filter(
-      (a) => a.status === AssignmentStatus.NOT_STARTED,
+      (a) => a.status === AppraisalAssignmentStatus.NOT_STARTED,
     ).length;
-    const selfAssessmentPending = assignments.filter(
-      (a) => a.status === AssignmentStatus.SELF_ASSESSMENT_PENDING,
+    const inProgress = assignments.filter(
+      (a) => a.status === AppraisalAssignmentStatus.IN_PROGRESS,
     ).length;
-    const managerReviewPending = assignments.filter(
-      (a) => a.status === AssignmentStatus.MANAGER_REVIEW_PENDING,
+    const submitted = assignments.filter(
+      (a) => a.status === AppraisalAssignmentStatus.SUBMITTED,
     ).length;
-    const completed = assignments.filter(
-      (a) => a.status === AssignmentStatus.COMPLETED,
-    ).length;
-    const disputed = assignments.filter(
-      (a) => a.status === AssignmentStatus.DISPUTED,
+    const acknowledged = assignments.filter(
+      (a) => a.status === AppraisalAssignmentStatus.ACKNOWLEDGED,
     ).length;
 
     return {
       total,
       notStarted,
-      selfAssessmentPending,
-      managerReviewPending,
-      completed,
-      disputed,
-      completionRate: total > 0 ? (completed / total) * 100 : 0,
-      progressPercentage: cycle.progressPercentage || 0,
+      inProgress,
+      submitted,
+      acknowledged,
+      completed: acknowledged,
+      completionRate: total > 0 ? (acknowledged / total) * 100 : 0,
     };
   }
 
@@ -1105,71 +1001,64 @@ export class PerformanceService {
     cycleId: string,
     employeeId: string,
     selfAssessmentDto: SubmitSelfAssessmentDto,
-  ): Promise<AppraisalEvaluationDocument> {
+  ): Promise<AppraisalRecordDocument> {
     const cycle = await this.findCycleById(cycleId);
     
-    if (cycle.status !== CycleStatus.ACTIVE && cycle.status !== CycleStatus.IN_PROGRESS) {
+    if (cycle.status !== AppraisalCycleStatus.ACTIVE) {
       throw new BadRequestException('Cannot submit self-assessment for inactive cycle');
     }
 
-    const assignment = cycle.assignments.find(
-      (a) => a.employeeId.toString() === employeeId,
-    );
+    const assignment = await this.assignmentModel
+      .findOne({
+        cycleId: new Types.ObjectId(cycleId),
+        employeeProfileId: new Types.ObjectId(employeeId),
+      })
+      .exec();
     if (!assignment) {
       throw new NotFoundException(
         `No assignment found for employee ${employeeId} in cycle ${cycleId}`,
       );
     }
 
-    if (!assignment.selfAssessmentRequired) {
-      throw new BadRequestException('Self-assessment is not required for this assignment');
-    }
-
-    if (assignment.status !== AssignmentStatus.SELF_ASSESSMENT_PENDING &&
-        assignment.status !== AssignmentStatus.NOT_STARTED) {
+    if (assignment.status !== AppraisalAssignmentStatus.IN_PROGRESS &&
+        assignment.status !== AppraisalAssignmentStatus.NOT_STARTED) {
       throw new BadRequestException(
         `Cannot submit self-assessment. Current status: ${assignment.status}`,
       );
     }
 
+    // Get template from assignment
+    const template = await this.findTemplateById(assignment.templateId.toString());
+
     // Get or create evaluation
     let evaluation = await this.evaluationModel
       .findOne({
         cycleId: new Types.ObjectId(cycleId),
-        employeeId: new Types.ObjectId(employeeId),
+        employeeProfileId: new Types.ObjectId(employeeId),
       })
       .exec();
 
+    // Convert self-assessment to ratings (AppraisalRecord uses ratings, not selfAssessment)
+    const ratings = this.convertSelfAssessmentToRatings(selfAssessmentDto, template as any);
+
     if (evaluation) {
-      evaluation.selfAssessment = {
-        submittedAt: new Date(),
-        sections: selfAssessmentDto.sections as any,
-        overallComments: selfAssessmentDto.overallComments,
-      };
-      evaluation.status = EvaluationStatus.SELF_ASSESSMENT_SUBMITTED;
+      evaluation.ratings = ratings;
+      evaluation.status = AppraisalRecordStatus.DRAFT;
     } else {
-      const template = await this.findTemplateById(cycle.templateId.toString());
       evaluation = new this.evaluationModel({
+        assignmentId: assignment._id,
         cycleId: new Types.ObjectId(cycleId),
-        templateId: cycle.templateId,
-        employeeId: new Types.ObjectId(employeeId),
-        reviewerId: assignment.reviewerId,
-        selfAssessment: {
-          submittedAt: new Date(),
-          sections: selfAssessmentDto.sections as any,
-          overallComments: selfAssessmentDto.overallComments,
-        },
-        managerEvaluation: {
-          sections: [],
-        },
-        finalRating: 0,
-        status: EvaluationStatus.SELF_ASSESSMENT_SUBMITTED,
+        templateId: assignment.templateId,
+        employeeProfileId: new Types.ObjectId(employeeId),
+        managerProfileId: assignment.managerProfileId,
+        ratings,
+        status: AppraisalRecordStatus.DRAFT,
       });
     }
 
     // Update assignment status
-    assignment.status = AssignmentStatus.MANAGER_REVIEW_PENDING;
-    await cycle.save();
+    assignment.status = AppraisalAssignmentStatus.IN_PROGRESS;
+    await assignment.save();
 
     return evaluation.save();
   }
@@ -1182,42 +1071,25 @@ export class PerformanceService {
   async addHrReview(
     evaluationId: string,
     hrReviewDto: AddHrReviewDto,
-  ): Promise<AppraisalEvaluationDocument> {
+  ): Promise<AppraisalRecordDocument> {
     const evaluation = await this.findEvaluationById(evaluationId);
 
-    if (evaluation.status !== EvaluationStatus.MANAGER_REVIEW_SUBMITTED &&
-        evaluation.status !== EvaluationStatus.HR_REVIEWED) {
+    if (evaluation.status !== AppraisalRecordStatus.MANAGER_SUBMITTED &&
+        evaluation.status !== AppraisalRecordStatus.HR_PUBLISHED) {
       throw new BadRequestException(
         `Cannot add HR review. Current status: ${evaluation.status}`,
       );
     }
 
-    const template = await this.findTemplateById(evaluation.templateId.toString());
-    
-    // Use adjusted rating if provided, otherwise keep current
-    const finalRating = hrReviewDto.adjustedRating !== undefined
-      ? hrReviewDto.adjustedRating
-      : evaluation.finalRating;
-
-    const performanceCategory = this.determinePerformanceCategory(
-      finalRating,
-      template.ratingScale,
-    );
-
-    evaluation.hrReview = {
-      reviewedBy: new MongooseSchema.Types.ObjectId(hrReviewDto.reviewedBy) as any,
-      reviewedAt: new Date(),
-      adjustedRating: hrReviewDto.adjustedRating,
-      adjustmentReason: hrReviewDto.adjustmentReason,
-      hrComments: hrReviewDto.hrComments,
-    };
-
+    // AppraisalRecord doesn't have hrReview field, but we can update totalScore if adjusted
     if (hrReviewDto.adjustedRating !== undefined) {
-      evaluation.finalRating = finalRating;
-      evaluation.performanceCategory = performanceCategory;
+      evaluation.totalScore = hrReviewDto.adjustedRating;
     }
 
-    evaluation.status = EvaluationStatus.HR_REVIEWED;
+    // Update status and published info
+    evaluation.status = AppraisalRecordStatus.HR_PUBLISHED;
+    evaluation.hrPublishedAt = new Date();
+    evaluation.publishedByEmployeeId = new Types.ObjectId(hrReviewDto.reviewedBy);
 
     return evaluation.save();
   }
@@ -1229,198 +1101,70 @@ export class PerformanceService {
    */
   async createGoal(
     createDto: CreatePerformanceGoalDto,
-  ): Promise<PerformanceGoalDocument> {
-    const goal = new this.goalModel({
-      goalTitle: createDto.goalTitle,
-      description: createDto.description,
-      employeeId: new Types.ObjectId(createDto.employeeId),
-      setBy: new Types.ObjectId(createDto.setBy),
-      cycleId: createDto.cycleId ? new Types.ObjectId(createDto.cycleId) : undefined,
-      category: createDto.category,
-      type: createDto.type,
-      priority: createDto.priority,
-      targetMetric: createDto.targetMetric,
-      targetValue: createDto.targetValue,
-      targetUnit: createDto.targetUnit,
-      startDate: new Date(createDto.startDate),
-      dueDate: new Date(createDto.dueDate),
-      status: GoalStatus.NOT_STARTED,
-    });
-
-    return goal.save();
+  ): Promise<any> {
+    // Note: PerformanceGoal schema doesn't exist
+    throw new BadRequestException('Performance goals feature not yet implemented');
   }
 
-  /**
-   * Get all goals for an employee
-   */
   async findGoalsByEmployee(
     employeeId: string,
-    status?: GoalStatus,
-  ): Promise<PerformanceGoalDocument[]> {
-    const filter: any = { employeeId: new Types.ObjectId(employeeId) };
-    if (status) {
-      filter.status = status;
-    }
-    return this.goalModel
-      .find(filter)
-      .populate('setBy')
-      .populate('cycleId')
-      .sort({ dueDate: 1 })
-      .exec();
+    status?: any,
+  ): Promise<any[]> {
+    // Note: PerformanceGoal schema doesn't exist
+    throw new BadRequestException('Performance goals feature not yet implemented');
   }
 
-  /**
-   * Get goal by ID
-   */
-  async findGoalById(id: string): Promise<PerformanceGoalDocument> {
-    const goal = await this.goalModel
-      .findById(id)
-      .populate('setBy')
-      .populate('employeeId')
-      .populate('cycleId')
-      .exec();
-    if (!goal) {
-      throw new NotFoundException(`Goal with ID ${id} not found`);
-    }
-    return goal;
+  async findGoalById(id: string): Promise<any> {
+    // Note: PerformanceGoal schema doesn't exist
+    throw new BadRequestException('Performance goals feature not yet implemented');
   }
 
-  /**
-   * Update a performance goal
-   */
   async updateGoal(
     id: string,
     updateDto: UpdatePerformanceGoalDto,
-  ): Promise<PerformanceGoalDocument> {
-    const goal = await this.findGoalById(id);
-
-    if (updateDto.currentValue !== undefined) {
-      goal.currentValue = updateDto.currentValue;
-    }
-    if (updateDto.status !== undefined) {
-      goal.status = updateDto.status;
-      if (updateDto.status === GoalStatus.ACHIEVED || 
-          updateDto.status === GoalStatus.PARTIALLY_ACHIEVED ||
-          updateDto.status === GoalStatus.NOT_ACHIEVED) {
-        goal.completedAt = new Date();
-        goal.actualValue = updateDto.currentValue;
-      }
-    }
-    if (updateDto.finalComments !== undefined) {
-      goal.finalComments = updateDto.finalComments;
-    }
-
-    // Update other fields
-    Object.assign(goal, updateDto);
-    if (updateDto.startDate) goal.startDate = new Date(updateDto.startDate);
-    if (updateDto.dueDate) goal.dueDate = new Date(updateDto.dueDate);
-
-    return goal.save();
+  ): Promise<any> {
+    // Note: PerformanceGoal schema doesn't exist
+    throw new BadRequestException('Performance goals feature not yet implemented');
   }
 
-  /**
-   * Delete a performance goal
-   */
   async deleteGoal(id: string): Promise<void> {
-    const result = await this.goalModel.findByIdAndDelete(id).exec();
-    if (!result) {
-      throw new NotFoundException(`Goal with ID ${id} not found`);
-    }
+    // Note: PerformanceGoal schema doesn't exist
+    throw new BadRequestException('Performance goals feature not yet implemented');
   }
 
-  // ==================== PERFORMANCE FEEDBACK METHODS ====================
-
-  /**
-   * Create performance feedback
-   */
   async createFeedback(
     createDto: CreatePerformanceFeedbackDto,
-  ): Promise<PerformanceFeedbackDocument> {
-    const feedback = new this.feedbackModel({
-      recipientId: new Types.ObjectId(createDto.recipientId),
-      providerId: new Types.ObjectId(createDto.providerId),
-      feedbackType: createDto.feedbackType,
-      cycleId: createDto.cycleId ? new Types.ObjectId(createDto.cycleId) : undefined,
-      isAnonymous: createDto.isAnonymous || false,
-      rating: createDto.rating,
-      strengths: createDto.strengths,
-      areasForImprovement: createDto.areasForImprovement,
-      specificExamples: createDto.specificExamples,
-      recommendations: createDto.recommendations,
-      categories: createDto.categories || [],
-      isPrivate: createDto.isPrivate || false,
-      sharedWith: createDto.sharedWith?.map(id => new Types.ObjectId(id)) || [],
-      status: FeedbackStatus.SUBMITTED,
-      submittedAt: new Date(),
-    });
-
-    return feedback.save();
+  ): Promise<any> {
+    // Note: PerformanceFeedback schema doesn't exist
+    throw new BadRequestException('Performance feedback feature not yet implemented');
   }
 
-  /**
-   * Get feedback for an employee (as recipient)
-   */
   async findFeedbackByRecipient(
     employeeId: string,
-    status?: FeedbackStatus,
-  ): Promise<PerformanceFeedbackDocument[]> {
-    const filter: any = { recipientId: new Types.ObjectId(employeeId) };
-    if (status) {
-      filter.status = status;
-    }
-    return this.feedbackModel
-      .find(filter)
-      .populate('providerId')
-      .populate('recipientId')
-      .populate('cycleId')
-      .sort({ submittedAt: -1 })
-      .exec();
+    status?: any,
+  ): Promise<any[]> {
+    // Note: PerformanceFeedback schema doesn't exist
+    throw new BadRequestException('Performance feedback feature not yet implemented');
   }
 
-  /**
-   * Get feedback by ID
-   */
-  async findFeedbackById(id: string): Promise<PerformanceFeedbackDocument> {
-    const feedback = await this.feedbackModel
-      .findById(id)
-      .populate('providerId')
-      .populate('recipientId')
-      .populate('cycleId')
-      .exec();
-    if (!feedback) {
-      throw new NotFoundException(`Feedback with ID ${id} not found`);
-    }
-    return feedback;
+  async findFeedbackById(id: string): Promise<any> {
+    // Note: PerformanceFeedback schema doesn't exist
+    throw new BadRequestException('Performance feedback feature not yet implemented');
   }
 
-  /**
-   * Update feedback (acknowledge, respond)
-   */
   async updateFeedback(
     id: string,
     updateDto: UpdatePerformanceFeedbackDto,
-  ): Promise<PerformanceFeedbackDocument> {
-    const feedback = await this.findFeedbackById(id);
-
-    if (updateDto.recipientResponse !== undefined) {
-      feedback.recipientResponse = updateDto.recipientResponse;
-      feedback.acknowledgedAt = new Date();
-      feedback.status = FeedbackStatus.ACKNOWLEDGED;
-    }
-
-    // Update other fields
-    Object.assign(feedback, updateDto);
-
-    return feedback.save();
+  ): Promise<any> {
+    // Note: PerformanceFeedback schema doesn't exist
+    throw new BadRequestException('Performance feedback feature not yet implemented');
   }
 
-  /**
-   * Delete feedback
-   */
   async deleteFeedback(id: string): Promise<void> {
-    const result = await this.feedbackModel.findByIdAndDelete(id).exec();
-    if (!result) {
-      throw new NotFoundException(`Feedback with ID ${id} not found`);
-    }
+    // Note: PerformanceFeedback schema doesn't exist
+    throw new BadRequestException('Performance feedback feature not yet implemented');
   }
+
+
 }
+

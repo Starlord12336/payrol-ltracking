@@ -3,9 +3,7 @@ import {
   IsArray,
   IsOptional,
   IsNumber,
-  IsEnum,
 } from 'class-validator';
-import { DisputeStatus } from '../schemas/appraisal-dispute.schema';
 
 export class CreateAppraisalDisputeDto {
   @IsString()

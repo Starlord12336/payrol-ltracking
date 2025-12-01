@@ -1,12 +1,12 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateAppraisalCycleDto } from './create-appraisal-cycle.dto';
-import { IsEnum, IsOptional } from 'class-validator';
-import { CycleStatus } from '../schemas/appraisal-cycle.schema';
+import { IsString, IsOptional } from 'class-validator';
+import { AppraisalCycleStatus } from '../enums/performance.enums';
 
 export class UpdateAppraisalCycleDto extends PartialType(
   CreateAppraisalCycleDto,
 ) {
-  @IsEnum(CycleStatus)
+  @IsString()
   @IsOptional()
-  status?: CycleStatus;
+  status?: string; // AppraisalCycleStatus as string
 }

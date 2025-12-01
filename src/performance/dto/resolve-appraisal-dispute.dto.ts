@@ -1,18 +1,17 @@
 import {
   IsString,
-  IsEnum,
   IsOptional,
   IsNumber,
 } from 'class-validator';
-import { DisputeStatus, ResolutionType } from '../schemas/appraisal-dispute.schema';
+import { AppraisalDisputeStatus } from '../enums/performance.enums';
 
 export class ResolveAppraisalDisputeDto {
-  @IsEnum(DisputeStatus)
-  status: DisputeStatus;
+  @IsString()
+  status: string; // 'RESOLVED' or 'REJECTED' - mapped to AppraisalDisputeStatus in service
 
-  @IsEnum(ResolutionType)
+  @IsString()
   @IsOptional()
-  resolutionType?: ResolutionType;
+  resolutionType?: string; // ResolutionType enum doesn't exist in schema
 
   @IsNumber()
   @IsOptional()

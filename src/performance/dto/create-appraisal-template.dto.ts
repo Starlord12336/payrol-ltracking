@@ -11,7 +11,7 @@ import {
   ArrayMinSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { AppraisalType, RatingScaleType, CalculationMethod } from '../schemas/appraisal-template.schema';
+import { AppraisalTemplateType, AppraisalRatingScaleType } from '../enums/performance.enums';
 
 export class RatingLabelDto {
   @IsNumber()
@@ -26,8 +26,8 @@ export class RatingLabelDto {
 }
 
 export class RatingScaleDto {
-  @IsEnum(RatingScaleType)
-  scaleType: RatingScaleType;
+  @IsEnum(AppraisalRatingScaleType)
+  scaleType: AppraisalRatingScaleType;
 
   @IsNumber()
   @Min(0)
@@ -105,8 +105,8 @@ export class CreateAppraisalTemplateDto {
   @IsOptional()
   description?: string;
 
-  @IsEnum(AppraisalType)
-  appraisalType: AppraisalType;
+  @IsEnum(AppraisalTemplateType)
+  appraisalType: AppraisalTemplateType;
 
   @ValidateNested()
   @Type(() => RatingScaleDto)
@@ -118,8 +118,9 @@ export class CreateAppraisalTemplateDto {
   @ArrayMinSize(1)
   sections: TemplateSectionDto[];
 
-  @IsEnum(CalculationMethod)
-  calculationMethod: CalculationMethod;
+  @IsString()
+  @IsOptional()
+  calculationMethod?: string; // CalculationMethod enum doesn't exist in schema
 
   @IsNumber()
   @IsOptional()

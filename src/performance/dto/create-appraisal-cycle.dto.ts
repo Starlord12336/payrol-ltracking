@@ -1,12 +1,9 @@
 import {
   IsString,
-  IsEnum,
   IsDateString,
   IsArray,
   IsOptional,
-  IsBoolean,
 } from 'class-validator';
-import { CycleStatus } from '../schemas/appraisal-cycle.schema';
 
 export class CreateAppraisalCycleDto {
   @IsString()

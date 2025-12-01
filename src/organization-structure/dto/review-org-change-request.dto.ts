@@ -1,9 +1,12 @@
-import { IsString, IsOptional, MaxLength } from 'class-validator';
+import { IsString, IsOptional, MaxLength, IsBoolean } from 'class-validator';
 
 export class ReviewOrgChangeRequestDto {
+  @IsBoolean()
+  approved: boolean;
+
   @IsString()
   @IsOptional()
   @MaxLength(1000)
-  reviewComments?: string;
+  comments?: string;
 }
 

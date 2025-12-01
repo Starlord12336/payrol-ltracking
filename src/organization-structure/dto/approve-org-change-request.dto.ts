@@ -4,6 +4,6 @@ export class ApproveOrgChangeRequestDto {
   @IsString()
   @IsOptional()
   @MaxLength(1000)
-  approvalComments?: string;
+  comments?: string;
 }
 

@@ -7,35 +7,27 @@ import { AuthModule } from '../auth/auth.module';
 import {
   AppraisalTemplate,
   AppraisalTemplateSchema,
-} from './schemas/appraisal-template.schema';
+} from './models/appraisal-template.schema';
 import {
   AppraisalCycle,
   AppraisalCycleSchema,
-} from './schemas/appraisal-cycle.schema';
+} from './models/appraisal-cycle.schema';
 import {
-  AppraisalEvaluation,
-  AppraisalEvaluationSchema,
-} from './schemas/appraisal-evaluation.schema';
+  AppraisalRecord,
+  AppraisalRecordSchema,
+} from './models/appraisal-record.schema';
+import {
+  AppraisalAssignment,
+  AppraisalAssignmentSchema,
+} from './models/appraisal-assignment.schema';
 import {
   AppraisalDispute,
   AppraisalDisputeSchema,
-} from './schemas/appraisal-dispute.schema';
-import {
-  PerformanceGoal,
-  PerformanceGoalSchema,
-} from './schemas/performance-goal.schema';
-import {
-  PerformanceFeedback,
-  PerformanceFeedbackSchema,
-} from './schemas/performance-feedback.schema';
-import {
-  PerformanceHistory,
-  PerformanceHistorySchema,
-} from './schemas/performance-history.schema';
-// Integration schemas (from shared)
-import { EmployeeProfile, EmployeeProfileSchema } from '../shared/schemas/employee-profile.schema';
-import { Department, DepartmentSchema } from '../shared/schemas/department.schema';
-import { Position, PositionSchema } from '../shared/schemas/position.schema';
+} from './models/appraisal-dispute.schema';
+// Integration schemas
+import { EmployeeProfile, EmployeeProfileSchema } from '../employee-profile/models/employee-profile.schema';
+import { Department, DepartmentSchema } from '../organization-structure/models/department.schema';
+import { Position, PositionSchema } from '../organization-structure/models/position.schema';
 
 @Module({
   imports: [
@@ -44,11 +36,9 @@ import { Position, PositionSchema } from '../shared/schemas/position.schema';
       // Performance schemas
       { name: AppraisalTemplate.name, schema: AppraisalTemplateSchema },
       { name: AppraisalCycle.name, schema: AppraisalCycleSchema },
-      { name: AppraisalEvaluation.name, schema: AppraisalEvaluationSchema },
+      { name: AppraisalRecord.name, schema: AppraisalRecordSchema },
+      { name: AppraisalAssignment.name, schema: AppraisalAssignmentSchema },
       { name: AppraisalDispute.name, schema: AppraisalDisputeSchema },
-      { name: PerformanceGoal.name, schema: PerformanceGoalSchema },
-      { name: PerformanceFeedback.name, schema: PerformanceFeedbackSchema },
-      { name: PerformanceHistory.name, schema: PerformanceHistorySchema },
       // Integration schemas
       { name: EmployeeProfile.name, schema: EmployeeProfileSchema },
       { name: Department.name, schema: DepartmentSchema },

@@ -1,6 +1,5 @@
-import { IsMongoId, IsNumber, IsOptional, IsString, IsEnum, Min, Max } from 'class-validator';
+import { IsMongoId, IsNumber, IsOptional, IsString, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
-import { BudgetStatus } from '../schemas/department-budget.schema';
 
 export class CreateDepartmentBudgetDto {
   @IsMongoId()
@@ -33,8 +32,8 @@ export class CreateDepartmentBudgetDto {
   @IsOptional()
   currency?: string;
 
-  @IsEnum(BudgetStatus)
+  @IsString()
   @IsOptional()
-  status?: BudgetStatus;
+  status?: string; // BudgetStatus enum doesn't exist in schema
 }
 

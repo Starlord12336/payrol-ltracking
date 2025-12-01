@@ -4,20 +4,14 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
-  Inject,
-  forwardRef,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types, Document } from 'mongoose';
+import { Model, Types } from 'mongoose';
 
 import {
   EmployeeProfile,
   EmployeeProfileDocument,
 } from './models/employee-profile.schema';
-import {
-  Candidate,
-  CandidateDocument,
-} from './models/candidate.schema';
 import { EmployeeProfileChangeRequest } from './models/ep-change-request.schema';
 import {
   EmployeeSystemRole,
@@ -29,12 +23,6 @@ import {
   SystemRole,
   ProfileChangeStatus,
 } from './enums/employee-profile.enums';
-import { UserProfileBase } from './models/user-schema';
-import { UserRegistryService } from '../auth/services/user-registry.service';
-
-// Generic user type that can be any document extending UserProfileBase
-export type UserDocument = Document & UserProfileBase;
-export type UserType = string; // Now supports any registered user type
 
 import { UpdateContactInfoDto } from './dto/update-contact-info.dto';
 import { UpdateAddressDto } from './dto/update-address.dto';
@@ -51,17 +39,11 @@ export class EmployeeProfileService {
     @InjectModel(EmployeeProfile.name)
     private readonly profileModel: Model<EmployeeProfileDocument>,
 
-    @InjectModel(Candidate.name)
-    private readonly candidateModel: Model<CandidateDocument>,
-
     @InjectModel(EmployeeProfileChangeRequest.name)
     private readonly changeRequestModel: Model<EmployeeProfileChangeRequest>,
 
     @InjectModel(EmployeeSystemRole.name)
     private readonly roleModel: Model<EmployeeSystemRoleDocument>,
-
-    @Inject(forwardRef(() => UserRegistryService))
-    private userRegistryService: UserRegistryService,
   ) {}
 
   // =====================================
@@ -562,177 +544,5 @@ async updateEmployeeProfileAsHr(
   return updated;
 }
 
-  // =====================================
-  // AUTH-RELATED METHODS
-  // =====================================
-
-  /**
-   * Find user by email (checks ALL registered user types)
-   * Returns user with type information
-   * This method is generic and works with any registered user type
-   */
-  async findByEmail(email: string): Promise<{
-    user: UserDocument;
-    userType: UserType;
-  } | null> {
-    // Get all registered user types
-    const userTypes = this.userRegistryService.getAllModels();
-
-    // Search across all registered user types
-    for (const { model, type, registry } of userTypes) {
-      // Build query - check both workEmail and personalEmail if they exist
-      const query: any = {
-        $or: [{ personalEmail: email }],
-      };
-
-      // If this user type has workEmail field (like EmployeeProfile)
-      const schema = model.schema;
-      if (schema.paths.workEmail) {
-        query.$or.push({ workEmail: email });
-      }
-
-      const user = await model.findOne(query);
-      if (user) {
-        return { user: user as UserDocument, userType: type };
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * Find user by national ID (checks ALL registered user types)
-   * This method is generic and works with any registered user type
-   */
-  async findByNationalId(
-    nationalId: string,
-  ): Promise<{ user: UserDocument; userType: UserType } | null> {
-    const userTypes = this.userRegistryService.getAllModels();
-
-    for (const { model, type } of userTypes) {
-      const user = await model.findOne({ nationalId });
-      if (user) {
-        return { user: user as UserDocument, userType: type };
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * Find user by ID (checks ALL registered user types)
-   * This method is generic and works with any registered user type
-   */
-  async findById(
-    id: string | Types.ObjectId,
-  ): Promise<{ user: UserDocument; userType: UserType } | null> {
-    const userTypes = this.userRegistryService.getAllModels();
-
-    for (const { model, type } of userTypes) {
-      const user = await model.findById(id);
-      if (user) {
-        return { user: user as UserDocument, userType: type };
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * Get employee roles from EmployeeSystemRole
-   * Note: Currently only EmployeeProfile has roles, Candidates typically don't
-   */
-  async getEmployeeRoles(
-    employeeProfileId: Types.ObjectId,
-  ): Promise<SystemRole[]> {
-    const systemRole = await this.roleModel.findOne({
-      employeeProfileId,
-      isActive: true,
-    });
-
-    return systemRole?.roles || [];
-  }
-
-  /**
-   * Create a new employee profile
-   */
-  async createEmployee(
-    employeeData: Partial<EmployeeProfile>,
-  ): Promise<EmployeeProfileDocument> {
-    const newEmployee = new this.profileModel(employeeData);
-    return await newEmployee.save();
-  }
-
-  /**
-   * Create a new candidate
-   */
-  async createCandidate(
-    candidateData: Partial<Candidate>,
-  ): Promise<CandidateDocument> {
-    const newCandidate = new this.candidateModel(candidateData);
-    return await newCandidate.save();
-  }
-
-  /**
-   * Update employee profile
-   */
-  async updateEmployee(
-    id: string | Types.ObjectId,
-    updateData: Partial<EmployeeProfile>,
-  ): Promise<EmployeeProfileDocument | null> {
-    return await this.profileModel.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true },
-    );
-  }
-
-  /**
-   * Update candidate
-   */
-  async updateCandidate(
-    id: string | Types.ObjectId,
-    updateData: Partial<Candidate>,
-  ): Promise<CandidateDocument | null> {
-    return await this.candidateModel.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true },
-    );
-  }
-
-  /**
-   * Update user (works with ANY registered user type)
-   * This method is generic and works with any registered user type
-   */
-  async updateUser(
-    id: string | Types.ObjectId,
-    userType: UserType,
-    updateData: Partial<UserProfileBase> & Record<string, any>,
-  ): Promise<UserDocument | null> {
-    const registry = this.userRegistryService.getUserType(userType);
-    if (!registry) {
-      throw new NotFoundException(`User type '${userType}' is not registered`);
-    }
-
-    return await registry.model.findByIdAndUpdate(id, updateData, { new: true });
-  }
-
-  /**
-   * Create user (works with ANY registered user type)
-   * This method is generic and works with any registered user type
-   */
-  async createUser(
-    userType: UserType,
-    userData: Partial<UserProfileBase> & Record<string, any>,
-  ): Promise<UserDocument> {
-    const registry = this.userRegistryService.getUserType(userType);
-    if (!registry) {
-      throw new NotFoundException(`User type '${userType}' is not registered`);
-    }
-
-    const newUser = new registry.model(userData);
-    return await newUser.save();
-  }
 
 }

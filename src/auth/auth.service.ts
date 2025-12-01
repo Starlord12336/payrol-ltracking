@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { EmployeeProfileService, UserType } from '../employee-profile/employee-profile.service';
+import { UserType } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { Types } from 'mongoose';
@@ -23,7 +23,6 @@ import { Model } from 'mongoose';
 @Injectable()
 export class AuthService {
   constructor(
-    private employeeProfileService: EmployeeProfileService,
     private jwtService: JwtService,
     private userRegistryService: UserRegistryService,
     @InjectModel(EmployeeSystemRole.name)
@@ -36,16 +35,13 @@ export class AuthService {
    */
   async register(registerDto: RegisterDto): Promise<{ message: string; userType: UserType }> {
     // Check if email already exists (checks ALL registered user types)
-    const existingUserByEmail = await this.employeeProfileService.findByEmail(
-      registerDto.email,
-    );
+    const existingUserByEmail = await this.findUserByEmail(registerDto.email);
     if (existingUserByEmail) {
       throw new ConflictException('Email already exists');
     }
 
     // Check if national ID already exists (checks ALL registered user types)
-    const existingUserByNationalId =
-      await this.employeeProfileService.findByNationalId(registerDto.nationalId);
+    const existingUserByNationalId = await this.findUserByNationalId(registerDto.nationalId);
     if (existingUserByNationalId) {
       throw new ConflictException('National ID already exists');
     }
@@ -96,8 +92,8 @@ export class AuthService {
       baseUserData.status = registerDto.candidateStatus || CandidateStatus.APPLIED;
     }
 
-    // Create user using generic method
-    await this.employeeProfileService.createUser(userType, baseUserData);
+    // Create user using registry model
+    await registry.model.create(baseUserData);
 
     return { message: `${userType} registered successfully`, userType };
   }
@@ -120,7 +116,7 @@ export class AuthService {
     };
   }> {
     // Find user by email (checks both EmployeeProfile and Candidate)
-    const userResult = await this.employeeProfileService.findByEmail(loginDto.email);
+    const userResult = await this.findUserByEmail(loginDto.email);
 
     if (!userResult) {
       throw new NotFoundException('User not found');
@@ -167,7 +163,7 @@ export class AuthService {
 
     // For employees, also check EmployeeSystemRole collection
     if (userType === 'employee') {
-      const systemRoles = await this.employeeProfileService.getEmployeeRoles(user._id);
+      const systemRoles = await this.getEmployeeRoles(user._id);
       if (systemRoles.length > 0) {
         roles = systemRoles;
       }
@@ -212,16 +208,16 @@ export class AuthService {
     currentPassword: string,
     newPassword: string,
   ): Promise<{ message: string }> {
-    const userResult = await this.employeeProfileService.findById(userId);
+    const userResult = await this.findUserById(userId, userType);
 
-    if (!userResult || !userResult.user.password) {
+    if (!userResult || !userResult.password) {
       throw new NotFoundException('User not found or password not set');
     }
 
     // Verify current password
     const isPasswordValid = await bcrypt.compare(
       currentPassword,
-      userResult.user.password,
+      userResult.password,
     );
 
     if (!isPasswordValid) {
@@ -232,13 +228,78 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     // Update password based on user type
-    await this.employeeProfileService.updateUser(
-      userId,
-      userType,
-      { password: hashedPassword },
-    );
+    const registry = this.userRegistryService.getUserType(userType);
+    if (!registry) {
+      throw new BadRequestException(`User type '${userType}' is not registered`);
+    }
+    await registry.model.findByIdAndUpdate(userId, { password: hashedPassword });
 
     return { message: 'Password changed successfully' };
+  }
+
+  /**
+   * Find user by email across all registered user types
+   */
+  private async findUserByEmail(email: string): Promise<{ user: any; userType: UserType } | null> {
+    const allModels = this.userRegistryService.getAllModels();
+    
+    for (const { model, type, registry } of allModels) {
+      const user = await model.findOne({
+        $or: [
+          { personalEmail: email },
+          { workEmail: email },
+        ],
+      }).lean().exec();
+      
+      if (user) {
+        return { user, userType: type as UserType };
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Find user by national ID across all registered user types
+   */
+  private async findUserByNationalId(nationalId: string): Promise<any> {
+    const allModels = this.userRegistryService.getAllModels();
+    
+    for (const { model } of allModels) {
+      const user = await model.findOne({ nationalId }).lean().exec();
+      if (user) {
+        return user;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Find user by ID and type
+   */
+  private async findUserById(userId: Types.ObjectId, userType: UserType): Promise<any> {
+    const registry = this.userRegistryService.getUserType(userType);
+    if (!registry) {
+      return null;
+    }
+    return await registry.model.findById(userId).lean().exec();
+  }
+
+  /**
+   * Get employee roles from EmployeeSystemRole collection
+   */
+  private async getEmployeeRoles(employeeId: Types.ObjectId): Promise<SystemRole[]> {
+    const systemRole = await this.employeeSystemRoleModel
+      .findOne({ employeeProfileId: employeeId, isActive: true })
+      .lean()
+      .exec() as any;
+    
+    if (!systemRole || !systemRole.roles) {
+      return [];
+    }
+    
+    return systemRole.roles;
   }
 
   /**

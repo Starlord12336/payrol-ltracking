@@ -1,6 +1,6 @@
 import { IsOptional, IsString, IsEnum, IsMongoId, IsInt, Min, Max } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { OrgRequestType, TargetType, OrgChangeStatus, OrgChangePriority } from '../schemas/org-change-request.schema';
+import { StructureRequestType, StructureRequestStatus } from '../enums/organization-structure.enums';
 
 export class QueryOrgChangeRequestDto {
   @IsOptional()
@@ -8,24 +8,12 @@ export class QueryOrgChangeRequestDto {
   requestNumber?: string;
 
   @IsOptional()
-  @IsEnum(OrgRequestType)
-  requestType?: OrgRequestType;
+  @IsEnum(StructureRequestType)
+  requestType?: StructureRequestType;
 
   @IsOptional()
-  @IsEnum(TargetType)
-  targetType?: TargetType;
-
-  @IsOptional()
-  @IsMongoId()
-  targetId?: string;
-
-  @IsOptional()
-  @IsEnum(OrgChangeStatus)
-  status?: OrgChangeStatus;
-
-  @IsOptional()
-  @IsEnum(OrgChangePriority)
-  priority?: OrgChangePriority;
+  @IsEnum(StructureRequestStatus)
+  status?: StructureRequestStatus;
 
   @IsOptional()
   @IsMongoId()

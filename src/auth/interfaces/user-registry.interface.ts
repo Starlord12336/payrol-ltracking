@@ -1,5 +1,5 @@
 import { Model, Document } from 'mongoose';
-import { UserProfileBase } from '../../../../../HR-System/src/employee-profile/models/user-schema';
+import { UserProfileBase } from '../../employee-profile/models/user-schema';
 
 /**
  * Interface for user type registration
