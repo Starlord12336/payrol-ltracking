@@ -7,8 +7,13 @@ import {
   Param,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import { PayrollExecutionService } from './payroll-execution.service';
+import {
+  PayrollSpecialistGuard,
+  PayrollManagerGuard,
+} from './guards';
 import {
   ReviewPayrollResponseDto,
   ApprovePayrollDto,
@@ -31,6 +36,7 @@ export class PayrollExecutionController {
   //phase 2
 
   @Post('runs/:runId/review')
+  @UseGuards(PayrollSpecialistGuard)
   @HttpCode(HttpStatus.OK)
   async reviewPayroll(
     @Param('runId') runId: string,
@@ -41,6 +47,7 @@ export class PayrollExecutionController {
   //phase 3 - manager approval
 
   @Post('runs/:runId/publish')
+  @UseGuards(PayrollSpecialistGuard)
   @HttpCode(HttpStatus.OK)
   async publishPayroll(
     @Param('runId') runId: string,
@@ -57,6 +64,7 @@ export class PayrollExecutionController {
   }
 
   @Patch('runs/:runId/manager-approve')
+  @UseGuards(PayrollManagerGuard)
   @HttpCode(HttpStatus.OK)
   async managerApprove(
     @Param('runId') runId: string,
@@ -76,6 +84,7 @@ export class PayrollExecutionController {
   }
 
   @Patch('runs/:runId/manager-reject')
+  @UseGuards(PayrollManagerGuard)
   @HttpCode(HttpStatus.OK)
   async managerReject(
     @Param('runId') runId: string,
@@ -135,6 +144,7 @@ export class PayrollExecutionController {
   //phase 3 - lock/unlock
 
   @Patch('runs/:runId/lock')
+  @UseGuards(PayrollManagerGuard)
   @HttpCode(HttpStatus.OK)
   async lockPayroll(
     @Param('runId') runId: string,
@@ -152,6 +162,7 @@ export class PayrollExecutionController {
   }
 
   @Patch('runs/:runId/unlock')
+  @UseGuards(PayrollManagerGuard)
   @HttpCode(HttpStatus.OK)
   async unlockPayroll(
     @Param('runId') runId: string,
