@@ -1,430 +1,365 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import mongoose, { FilterQuery, Model } from 'mongoose';
-
+import { Model } from 'mongoose';
+import { payrollRuns } from './models/payrollRuns.schema';
+import { employeePayrollDetails } from './models/employeePayrollDetails.schema';
 import {
-  EmployeeProfile,
-  EmployeeProfileDocument,
-} from '../employee-profile/models/employee-profile.schema';
-import {
-  insuranceBrackets,
-  insuranceBracketsDocument,
-} from '../payroll-configuration/models/insuranceBrackets.schema';
-import { payGrade, payGradeDocument } from '../payroll-configuration/models/payGrades.schema';
-import {
-  signingBonus,
-  signingBonusDocument,
-} from '../payroll-configuration/models/signingBonus.schema';
-import { taxRules, taxRulesDocument } from '../payroll-configuration/models/taxRules.schema';
-import {
-  terminationAndResignationBenefits,
-  terminationAndResignationBenefitsDocument,
-} from '../payroll-configuration/models/terminationAndResignationBenefits';
-
-import {
-  CreateEmployeeSigningBonusDto,
-  DeleteEmployeeSigningBonusDto,
-  UpdateEmployeeSigningBonusDto,
-} from './dto/EmployeeSigningBonus.dto';
-import {
-  CreateEmployeeTerminationResignationBenefitsDto,
-  DeleteEmployeeTerminationResignationBenefitsDto,
-  UpdateEmployeeTerminationResignationBenefitsDto,
-} from './dto/EmployeeTerminationResignationBenefits.dto';
-import {
-  CreatePayrollRunsDto,
-  DeletePayrollRunsDto,
-  UpdatePayrollRunsDto,
-} from './dto/payrollRuns.dto';
-import { CreatePayslipDto, DeletePayslipDto, UpdatePayslipDto } from './dto/payslip.dto';
-import { BenefitStatus, BonusStatus } from './enums/payroll-execution-enum';
-import {
-  employeePayrollDetails,
-  employeePayrollDetailsDocument,
-} from './models/employeePayrollDetails.schema';
-import { employeePenalties, employeePenaltiesDocument } from './models/employeePenalties.schema';
-import {
-  employeeSigningBonus,
-  employeeSigningBonusDocument,
-} from './models/EmployeeSigningBonus.schema';
-import {
-  EmployeeTerminationResignation,
-  EmployeeTerminationResignationDocument,
-} from './models/EmployeeTerminationResignation.schema';
-import { payrollRuns, payrollRunsDocument } from './models/payrollRuns.schema';
-import { paySlip, PayslipDocument } from './models/payslip.schema';
+  PayRollStatus,
+  BankStatus,
+  PayRollPaymentStatus,
+  PaySlipPaymentStatus,
+} from './enums/payroll-execution-enum';
+import { ReviewPayrollResponseDto, ExceptionDetail } from './dto';
+// 🆕 PHASE 5 - Add these imports
+import { paySlip } from './models/payslip.schema';
 
 @Injectable()
 export class PayrollExecutionService {
   constructor(
     @InjectModel(payrollRuns.name)
-    private readonly payrollRunsModel: Model<payrollRunsDocument>,
-    @InjectModel(employeeSigningBonus.name)
-    private readonly signingBonusModel: Model<employeeSigningBonusDocument>,
-    @InjectModel(EmployeeTerminationResignation.name)
-    private readonly terminationResignationModel: Model<EmployeeTerminationResignationDocument>,
-    @InjectModel(EmployeeProfile.name)
-    private readonly employeeModel: Model<EmployeeProfileDocument>,
-    @InjectModel(payGrade.name)
-    private readonly payGradeModel: Model<payGradeDocument>,
-    @InjectModel(signingBonus.name)
-    private readonly signingBonusConfigModel: Model<signingBonusDocument>,
-    @InjectModel(taxRules.name)
-    private readonly taxRulesModel: Model<taxRulesDocument>,
-    @InjectModel(terminationAndResignationBenefits.name)
-    private readonly terminationAndResignationBenefitsModel: Model<terminationAndResignationBenefitsDocument>,
-    @InjectModel(employeePenalties.name)
-    private readonly employeePenaltiesModel: Model<employeePenaltiesDocument>,
-    @InjectModel(insuranceBrackets.name)
-    private readonly insuranceModel: Model<insuranceBracketsDocument>,
-    @InjectModel(paySlip.name)
-    private readonly payslipModel: Model<PayslipDocument>,
+    private payrollRunsModel: Model<payrollRuns>,
     @InjectModel(employeePayrollDetails.name)
-    private readonly employeePayrollDetailsModel: Model<employeePayrollDetailsDocument>
+    private employeePayrollDetailsModel: Model<employeePayrollDetails>,
+    @InjectModel(paySlip.name)
+    private paySlipModel: Model<paySlip>,
   ) {}
 
-  /**
-   * Edit a pending signing bonus by id. Will only allow update if status is pending.
-   * @param _id Signing bonus document id
-   * @param updateData Fields to update (excluding status)
-   */
-  async editPendingSigningBonus(
-    _id: string,
-    updateData: Partial<Omit<employeeSigningBonus, 'status' | '_id'>>
-  ) {
-    const bonus = await this.signingBonusModel.findOne({ _id, status: BonusStatus.PENDING });
-    if (!bonus) {
-      throw new Error('Signing bonus is not pending or does not exist.');
+  //phase 2
+
+  async flagExceptions(runId: string): Promise<ExceptionDetail[]> {
+    const run = await this.payrollRunsModel.findOne({ runId });
+    if (!run) {
+      throw new NotFoundException(`Payroll run ${runId} not found`);
     }
-    Object.assign(bonus, updateData);
-    await bonus.save();
-    return bonus;
+
+    const details = await this.employeePayrollDetailsModel
+      .find({ payrollRunId: run._id })
+      .populate('employeeId', 'name');
+
+    const exceptions: ExceptionDetail[] = [];
+
+    for (const detail of details) {
+      const employeeName =
+        typeof detail.employeeId === 'object' &&
+        detail.employeeId !== null &&
+        'name' in detail.employeeId
+          ? String((detail.employeeId as { name?: string }).name || '')
+          : '';
+
+      //flag missing bank accounts
+      if (detail.bankStatus === BankStatus.MISSING) {
+        exceptions.push({
+          employeeId: detail.employeeId.toString(),
+          employeeName,
+          issue: 'Missing bank account details',
+          severity: 'critical',
+        });
+      }
+
+      //flag negative net pay
+      if (detail.netPay < 0) {
+        exceptions.push({
+          employeeId: detail.employeeId.toString(),
+          employeeName,
+          issue: `Negative net pay: ${detail.netPay}`,
+          severity: 'critical',
+        });
+      }
+
+      //for now, flagging if netPay is suspiciously high
+      if (detail.netPay > 100000) {
+        //example threshold
+        exceptions.push({
+          employeeId: detail.employeeId.toString(),
+          employeeName,
+          issue: `Unusually high salary: ${detail.netPay}`,
+          severity: 'warning',
+        });
+      }
+    }
+
+    return exceptions;
   }
 
-  /**
-   * Edit a pending resignation or termination benefit by id.
-   * Will only allow update if status is pending.
-   * @param _id Benefit document id
-   * @param updateData Fields to update (excluding status)
-   */
-  async editPendingResignationOrTerminationBenefit(
-    _id: string,
-    updateData: Partial<Omit<EmployeeTerminationResignation, 'status' | '_id'>>
-  ) {
-    const benefit = await this.terminationResignationModel.findOne({
-      _id,
-      status: BenefitStatus.PENDING,
-    });
-    if (!benefit) {
-      throw new Error('Benefit is not pending or does not exist.');
+  async reviewPayrollRun(runId: string): Promise<ReviewPayrollResponseDto> {
+    const run = await this.payrollRunsModel.findOne({ runId });
+    if (!run) {
+      throw new NotFoundException(`Payroll run ${runId} not found`);
     }
-    Object.assign(benefit, updateData);
-    await benefit.save();
-    return benefit;
-  }
 
-  /**
-   * Edit an unlocked payroll period by id.
-   * Will only allow update if payroll period status is UNLOCKED.
-   * @param _id Payroll period document id
-   * @param updateData Fields to update (excluding status)
-   */
-  async editPayrollPeriod(
-    _id: string,
-    updateData: Partial<Omit<payrollRunsDocument, 'status' | '_id'>>
-  ) {
-    const payrollPeriod = await this.payrollRunsModel.findOne({ _id, status: 'unlocked' });
-    if (!payrollPeriod) {
-      throw new Error('Payroll period is not unlocked or does not exist.');
+    if (run.status !== PayRollStatus.DRAFT) {
+      throw new BadRequestException(
+        `Only draft payrolls can be reviewed. Current status: ${run.status}`,
+      );
     }
-    Object.assign(payrollPeriod, updateData);
-    await payrollPeriod.save();
-    return payrollPeriod;
-  }
 
-  /**
-   * @param generatedRunId
-   * @param period Payroll period string (e.g., pay month)
-   * @param departmentId
-   * @param payrollSpecialistId id, if null, process company-wide
-   */
-  async generatePayrollDraft(
-    generatedRunId: string,
-    period: string,
-    payrollSpecialistId: mongoose.Schema.Types.ObjectId
-  ) {
-    // Only find employees that are not inactive and not suspended
-    const employeeQuery: FilterQuery<EmployeeProfileDocument> = {
-      status: { $nin: ['INACTIVE', 'SUSPENDED'] },
+    const exceptionDetails = await this.flagExceptions(runId);
+
+    run.exceptions = exceptionDetails.length;
+    run.status = PayRollStatus.UNDER_REVIEW;
+    await run.save();
+
+    return {
+      runId: run.runId,
+      status: run.status,
+      exceptions: run.exceptions,
+      exceptionDetails,
+      employees: run.employees,
+      totalNetPay: run.totalnetpay,
     };
+  }
 
-    // Use a narrowed, non-generic model reference to avoid complex union inference
-    const employeeModelAny = this.employeeModel as any;
-    const employees = (await employeeModelAny.find(employeeQuery).lean().exec()) as any[];
+  //phase 3 - manager approval
 
-    const payrollDraftEntries: any[] = [];
-    let exceptionsCount = 0;
-
-    for (const employee of employees) {
-      const hrEvent = employee.status ?? 'ACTIVE';
-
-      let signingBonusAmount: number | null = null;
-      let benefitAmount: number | null = null;
-
-      // Signing Bonus Amount (lookup via linking table, then config)
-      if (hrEvent === 'PROBATION') {
-        // Use a narrowed, non-generic model reference to avoid complex union inference
-        const signingBonusModelAny = this.signingBonusModel as any;
-        const signingBonusLink = (await signingBonusModelAny
-          .findOne({
-            employeeId: employee._id,
-            status: BonusStatus.APPROVED,
-          })
-          .lean()) as any;
-        if (signingBonusLink && signingBonusLink.signingBonusId) {
-          // Use a narrowed, non-generic model reference to avoid complex union inference
-          const signingBonusConfigModelAny = this.signingBonusConfigModel as any;
-          const signingBonusConfig = (await signingBonusConfigModelAny
-            .findById(signingBonusLink.signingBonusId)
-            .lean()) as any;
-          if (signingBonusConfig && typeof signingBonusConfig.amount === 'number') {
-            signingBonusAmount = signingBonusConfig.amount;
-          }
-        }
-      }
-
-      // Termination or Resignation Benefit Amount (lookup via linking table, then config)
-      if (hrEvent === 'RETIRED' || hrEvent === 'TERMINATED') {
-        // Use a narrowed, non-generic model reference to avoid complex union inference
-        const terminationResignationModelAny = this.terminationResignationModel as any;
-        const benefitLink = (await terminationResignationModelAny
-          .findOne({
-            employeeId: employee._id,
-            status: BenefitStatus.APPROVED,
-          })
-          .lean()) as any;
-        if (benefitLink && benefitLink.benefitId) {
-          // Use a narrowed, non-generic model reference to avoid complex union inference
-          const terminationAndResignationBenefitsModelAny = this
-            .terminationAndResignationBenefitsModel as any;
-          const benefitConfig = (await terminationAndResignationBenefitsModelAny
-            .findById(benefitLink.benefitId)
-            .lean()) as any;
-          if (benefitConfig && typeof benefitConfig.amount === 'number') {
-            benefitAmount = benefitConfig.amount;
-          }
-        }
-      }
-
-      // PHASE 1.1.B – Salary Calculations
-      // ---------------------------------
-      // Assume pay grade id is available.
-      // Use a narrowed, non-generic model reference to avoid complex union inference
-      const payGradeModelAny = this.payGradeModel as any;
-      const payGrade = (await payGradeModelAny.findById(employee.payGradeId).lean()) as any;
-
-      const gross = payGrade ? payGrade.grossSalary : 0;
-      // These fields may not exist; fallback to 0
-      // Calculate taxes by summing all tax amounts for the employee using taxRulesModel
-      let taxes = 0;
-      // Use a narrowed, non-generic model reference to avoid complex union inference
-      const taxRulesModelAny = this.taxRulesModel as any;
-      const employeeTaxes = (await taxRulesModelAny.find().lean()) as any[];
-      if (Array.isArray(employeeTaxes)) {
-        taxes = employeeTaxes.reduce<number>((sum, tax: { rate?: number }) => {
-          const rate = tax.rate;
-          return sum + (typeof rate === 'number' ? rate : 0);
-        }, 0);
-      }
-
-      taxes = gross * taxes;
-
-      let insurance = 0;
-      // Use a narrowed, non-generic model reference to avoid complex union inference
-      const insuranceModelAny = this.insuranceModel as any;
-      const employeeinsurance = (await insuranceModelAny.find().lean()) as any[];
-      if (Array.isArray(employeeinsurance)) {
-        insurance = employeeinsurance.reduce<number>((sum, insurance: { amount?: number }) => {
-          const amount = insurance.amount;
-          return sum + (typeof amount === 'number' ? amount : 0);
-        }, 0);
-      }
-
-      // Penalties must be calculated via employeePenalties collection
-      let penalties = 0;
-      // Use a narrowed, non-generic model reference to avoid complex union inference
-      const employeePenaltiesModelAny = this.employeePenaltiesModel as any;
-      const employeePenalties = (await employeePenaltiesModelAny
-        .findOne({ employeeId: employee._id })
-        .lean()) as any;
-      if (employeePenalties && Array.isArray(employeePenalties.penalties)) {
-        const penaltiesArray = employeePenalties.penalties as { amount?: number }[];
-        penalties = penaltiesArray.reduce<number>(
-          (sum: number, p: { amount?: number }) =>
-            typeof p.amount === 'number' ? sum + p.amount : sum,
-          0
-        );
-      }
-
-      const netSalary = gross - taxes - insurance;
-      const finalSalary = netSalary - penalties;
-
-      if (finalSalary < 0) {
-        exceptionsCount++;
-      }
-
-      //  Draft Generation
-
-      const entry = {
-        employee: employee._id,
-        period,
-        grossSalary: gross,
-        netSalary,
-        taxes,
-        insurance,
-        penalties,
-        finalSalary,
-        hrEvent,
-        signingBonus: signingBonusAmount,
-        terminationOrResignationBenefit: benefitAmount,
-        breakdown: {
-          base: gross,
-          net: netSalary,
-          taxes,
-          insurance,
-          penalties,
-          signingBonus: signingBonusAmount !== null ? signingBonusAmount : undefined,
-          terminationOrResignationBenefit: benefitAmount !== null ? benefitAmount : undefined,
-        },
-      };
-      payrollDraftEntries.push(entry);
+  async publishPayrollForApproval(runId: string): Promise<payrollRuns> {
+    const run = await this.payrollRunsModel.findOne({ runId });
+    if (!run) {
+      throw new NotFoundException(`Payroll run ${runId} not found`);
     }
 
-    // Schange to match schema
-    const payrollRunDraft = await this.payrollRunsModel.create({
-      runId: generatedRunId,
-      payrollPeriod: period,
-      status: 'draft',
-      entity: 'companyName',
-      employees: payrollDraftEntries.length,
-      exceptions: exceptionsCount,
-      totalnetpay: payrollDraftEntries.reduce((sum, entry) => sum + (entry.finalSalary || 0), 0),
-      payrollSpecialistId: payrollSpecialistId,
-      paymentStatus: 'pending',
-      payrollManagerId: null,
-      financeStaffId: null,
+    if (run.status !== PayRollStatus.UNDER_REVIEW) {
+      throw new BadRequestException(
+        `Cannot publish. Current status: ${run.status}`,
+      );
+    }
+
+    run.status = PayRollStatus.PENDING_FINANCE_APPROVAL;
+    await run.save();
+
+    return run;
+  }
+
+  async approveByManager(
+    runId: string,
+    managerId: string,
+  ): Promise<payrollRuns> {
+    const run = await this.payrollRunsModel.findOne({ runId });
+    if (!run) {
+      throw new NotFoundException(`Payroll run ${runId} not found`);
+    }
+
+    if (run.status !== PayRollStatus.PENDING_FINANCE_APPROVAL) {
+      throw new BadRequestException(
+        `Cannot approve. Current status: ${run.status}`,
+      );
+    }
+
+    run.payrollManagerId = managerId as any;
+    run.managerApprovalDate = new Date();
+
+    await run.save();
+    return run;
+  }
+
+  async rejectByManager(
+    runId: string,
+    managerId: string,
+    reason: string,
+  ): Promise<payrollRuns> {
+    const run = await this.payrollRunsModel.findOne({ runId });
+    if (!run) {
+      throw new NotFoundException(`Payroll run ${runId} not found`);
+    }
+
+    if (run.status !== PayRollStatus.PENDING_FINANCE_APPROVAL) {
+      throw new BadRequestException(
+        `Cannot reject. Current status: ${run.status}`,
+      );
+    }
+
+    run.status = PayRollStatus.REJECTED;
+    run.payrollManagerId = managerId as any;
+    run.managerApprovalDate = new Date();
+    run.rejectionReason = reason;
+
+    await run.save();
+    return run;
+  }
+
+  //phase 3 - finance approval
+
+  async approveByFinance(
+    runId: string,
+    financeStaffId: string,
+  ): Promise<payrollRuns> {
+    const run = await this.payrollRunsModel.findOne({ runId });
+    if (!run) {
+      throw new NotFoundException(`Payroll run ${runId} not found`);
+    }
+
+    if (run.status !== PayRollStatus.PENDING_FINANCE_APPROVAL) {
+      throw new BadRequestException(
+        `Cannot approve. Current status: ${run.status}`,
+      );
+    }
+
+    run.status = PayRollStatus.APPROVED;
+    run.paymentStatus = PayRollPaymentStatus.PAID;
+    run.financeStaffId = financeStaffId as any;
+    run.financeApprovalDate = new Date();
+
+    await run.save();
+    return run;
+  }
+
+  async rejectByFinance(
+    runId: string,
+    financeStaffId: string,
+    reason: string,
+  ): Promise<payrollRuns> {
+    const run = await this.payrollRunsModel.findOne({ runId });
+    if (!run) {
+      throw new NotFoundException(`Payroll run ${runId} not found`);
+    }
+
+    if (run.status !== PayRollStatus.PENDING_FINANCE_APPROVAL) {
+      throw new BadRequestException(
+        `Cannot reject. Current status: ${run.status}`,
+      );
+    }
+
+    run.status = PayRollStatus.REJECTED;
+    run.financeStaffId = financeStaffId as any;
+    run.financeApprovalDate = new Date();
+    run.rejectionReason = reason;
+
+    await run.save();
+    return run;
+  }
+
+  //phase 3 - lock/unlock
+
+  async lockPayroll(runId: string, managerId: string): Promise<payrollRuns> {
+    const run = await this.payrollRunsModel.findOne({ runId });
+    if (!run) {
+      throw new NotFoundException(`Payroll run ${runId} not found`);
+    }
+
+    if (run.status !== PayRollStatus.APPROVED) {
+      throw new BadRequestException(
+        `Can only lock approved payrolls. Current status: ${run.status}`,
+      );
+    }
+
+    run.status = PayRollStatus.LOCKED;
+    run.payrollManagerId = managerId as any;
+
+    await run.save();
+    return run;
+  }
+
+  async unlockPayroll(
+    runId: string,
+    managerId: string,
+    reason: string,
+  ): Promise<payrollRuns> {
+    const run = await this.payrollRunsModel.findOne({ runId });
+    if (!run) {
+      throw new NotFoundException(`Payroll run ${runId} not found`);
+    }
+
+    if (run.status !== PayRollStatus.LOCKED) {
+      throw new BadRequestException(
+        `Can only unlock locked payrolls. Current status: ${run.status}`,
+      );
+    }
+
+    run.status = PayRollStatus.UNLOCKED;
+    run.unlockReason = reason;
+    run.payrollManagerId = managerId as any;
+
+    await run.save();
+    return run;
+  }
+
+  async getPayrollRunDetails(runId: string): Promise<payrollRuns> {
+    const run = await this.payrollRunsModel.findOne({ runId });
+    if (!run) {
+      throw new NotFoundException(`Payroll run ${runId} not found`);
+    }
+    return run;
+  }
+
+  // 🆕 PHASE 5 - NEW METHOD: Generate payslips after approval and lock
+  async generatePayslips(runId: string) {
+    // Fetch the payroll run
+    const run = await this.payrollRunsModel.findOne({ runId });
+
+    if (!run) {
+      throw new NotFoundException(`Payroll run ${runId} not found`);
+    }
+
+    // Validate run status: must be APPROVED or LOCKED and payment must be PAID
+    if (
+      (run.status !== PayRollStatus.APPROVED &&
+        run.status !== PayRollStatus.LOCKED) ||
+      run.paymentStatus !== PayRollPaymentStatus.PAID
+    ) {
+      throw new BadRequestException(
+        `Cannot generate payslips for run ${runId}. ` +
+          `Status must be APPROVED or LOCKED with PAID payment status. ` +
+          `Current: ${run.status} / ${run.paymentStatus}`,
+      );
+    }
+
+    // Fetch all employee payroll details for this run
+    const employeeDetails = await this.employeePayrollDetailsModel.find({
+      payrollRunId: run._id,
     });
 
-    for (const entry of payrollDraftEntries) {
-      await this.employeePayrollDetailsModel.create({
-        payrollRunId: payrollRunDraft._id,
-        employee: entry.employee,
-        period: entry.period || period,
-        grossSalary: entry.grossSalary,
-        netSalary: entry.netSalary,
-        taxes: entry.taxes,
-        insurance: entry.insurance,
-        penalties: entry.penalties,
-        finalSalary: entry.finalSalary,
-        hrEvent: entry.hrEvent,
-        signingBonus: entry.signingBonus,
-        terminationOrResignationBenefit: entry.terminationOrResignationBenefit,
-        breakdown: entry.breakdown,
+    if (employeeDetails.length === 0) {
+      throw new NotFoundException(
+        `No employee payroll details found for run ${runId}`,
+      );
+    }
+
+    // Generate payslips for each employee
+    const payslips: any[] = [];
+    for (const detail of employeeDetails) {
+      // Check if payslip already exists
+      const existingPayslip = await this.paySlipModel.findOne({
+        employeeId: detail.employeeId,
+        payrollRunId: run._id,
       });
+
+      if (existingPayslip) {
+        continue; // Skip if already generated
+      }
+
+      // Create new payslip with available data from employeePayrollDetails
+      const payslip = new this.paySlipModel({
+        employeeId: detail.employeeId,
+        payrollRunId: run._id,
+        earningsDetails: {
+          baseSalary: detail.baseSalary,
+          allowances: [], // Will be populated by Phase 0/1 teammate
+          bonuses: detail.bonus ? [{ amount: detail.bonus }] : [],
+          benefits: detail.benefit ? [{ amount: detail.benefit }] : [],
+          refunds: [], // Will be populated by Payroll Tracking teammate
+        },
+        deductionsDetails: {
+          taxes: [], // Will be populated by Phase 0/1 teammate
+          insurances: [], // Will be populated by Phase 0/1 teammate
+          penalties: null, // Will be populated by Phase 0/1 teammate
+        },
+        totalGrossSalary: detail.baseSalary + detail.allowances,
+        totaDeductions: detail.deductions,
+        netPay: detail.netPay,
+        paymentStatus: PaySlipPaymentStatus.PAID, // Since run is PAID
+      });
+
+      await payslip.save();
+      payslips.push(payslip);
     }
 
-    return payrollRunDraft;
-  }
-
-  // Create Payroll Run
-  async CreatePayrollRunsDto(CreatePayrollRunsDto: CreatePayrollRunsDto) {
-    const created = new this.payrollRunsModel(CreatePayrollRunsDto);
-    return created.save();
-  }
-
-  // Update Payroll Run
-  async UpdatePayrollRunsDto(payrollRuns: string, updatePayrollRunsDto: UpdatePayrollRunsDto) {
-    return this.payrollRunsModel.findByIdAndUpdate(payrollRuns, updatePayrollRunsDto, {
-      new: true,
-    });
-  }
-
-  // Delete Payroll Run
-  async deletePayrollRun(deletePayrollRunsDto: DeletePayrollRunsDto) {
-    return this.payrollRunsModel.findByIdAndDelete(deletePayrollRunsDto.payrollRunId);
-  }
-
-  // Create Payslip
-  async createPayslip(createPayslipDto: CreatePayslipDto) {
-    const created = new this.payslipModel(createPayslipDto);
-    return created.save();
-  }
-
-  // Update Payslip
-  async updatePayslip(payslipId: string, updatePayslipDto: UpdatePayslipDto) {
-    return this.payslipModel.findByIdAndUpdate(payslipId, updatePayslipDto, { new: true });
-  }
-
-  // Delete Payslip
-  async deletePayslip(deletePayslipDto: DeletePayslipDto) {
-    return this.payslipModel.findByIdAndDelete(deletePayslipDto.payslipId);
-  }
-
-  // Create Employee Signing Bonus
-  async createEmployeeSigningBonus(createEmployeeSigningBonusDto: CreateEmployeeSigningBonusDto) {
-    const created = new this.signingBonusModel(createEmployeeSigningBonusDto);
-    return created.save();
-  }
-
-  // Update Employee Signing Bonus
-  async updateEmployeeSigningBonus(
-    employeeId: string,
-    signingBonusId: string,
-    updateDto: UpdateEmployeeSigningBonusDto
-  ) {
-    return this.signingBonusModel.findOneAndUpdate({ employeeId, signingBonusId }, updateDto, {
-      new: true,
-    });
-  }
-
-  // Delete Employee Signing Bonus
-  async deleteEmployeeSigningBonus(deleteDto: DeleteEmployeeSigningBonusDto) {
-    return this.signingBonusModel.findOneAndDelete({
-      employeeId: deleteDto.employeeId,
-      signingBonusId: deleteDto.signingBonusId,
-    });
-  }
-
-  // Create Employee Termination/Resignation Benefit
-  async createEmployeeTerminationResignationBenefits(
-    createDto: CreateEmployeeTerminationResignationBenefitsDto
-  ) {
-    const created = new this.terminationResignationModel(createDto);
-    return created.save();
-  }
-
-  // Update Employee Termination/Resignation Benefit
-  async updateEmployeeTerminationResignationBenefits(
-    employeeId: string,
-    benefitId: string,
-    terminationId: string,
-    updateDto: UpdateEmployeeTerminationResignationBenefitsDto
-  ) {
-    return this.terminationResignationModel.findOneAndUpdate(
-      { employeeId, benefitId, terminationId },
-      updateDto,
-      { new: true }
-    );
-  }
-
-  // Delete Employee Termination/Resignation Benefit
-  async deleteEmployeeTerminationResignationBenefits(
-    deleteDto: DeleteEmployeeTerminationResignationBenefitsDto
-  ) {
-    return this.terminationResignationModel.findOneAndDelete({
-      employeeId: deleteDto.employeeId,
-      benefitId: deleteDto.benefitId,
-      terminationId: deleteDto.terminationId,
-    });
+    return {
+      runId: run.runId,
+      payslipsGenerated: payslips.length,
+      message: `Generated ${payslips.length} payslip(s) for run ${runId}`,
+    };
   }
 }
