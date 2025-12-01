@@ -344,18 +344,6 @@ export class PayrollConfigurationService {
     if (filter?.name) {
       query.name = { $regex: filter.name, $options: 'i' };
     }
-    if (filter?.minAmount !== undefined) {
-      query.amount = {
-        ...((query.amount as object) || {}),
-        $gte: filter.minAmount,
-      };
-    }
-    if (filter?.maxAmount !== undefined) {
-      query.amount = {
-        ...((query.amount as object) || {}),
-        $lte: filter.maxAmount,
-      };
-    }
 
     return this.allowanceModel.find(query).sort({ createdAt: -1 }).exec();
   }
