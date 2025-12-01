@@ -11,6 +11,8 @@ import { signingBonus, signingBonusSchema, } from './models/signingBonus.schema'
 import { taxRules, taxRulesSchema, } from './models/taxRules.schema';
 import { terminationAndResignationBenefits, terminationAndResignationBenefitsSchema, } from './models/terminationAndResignationBenefits';
 import { payGrade, payGradeSchema, } from './models/payGrades.schema';
+import { AuditLog, AuditLogSchema } from './models/audit-log.schema';
+import { EmployeeProfile, EmployeeProfileSchema } from '../employee-profile/models/employee-profile.schema';
 
 // Auth Module - Integration
 import { AuthModule } from '../auth/auth.module';
@@ -33,6 +35,8 @@ import { SigningBonusListener } from './listeners/signing-bonus.listener';
       },
       { name: CompanyWideSettings.name, schema: CompanyWideSettingsSchema },
       { name: payGrade.name, schema: payGradeSchema },
+      { name: AuditLog.name, schema: AuditLogSchema },
+      { name: EmployeeProfile.name, schema: EmployeeProfileSchema },
     ]),
     AuthModule,
   ],
