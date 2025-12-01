@@ -15,6 +15,7 @@ export enum ApprovalEntityType {
   PAY_TYPE = 'PayType',
   SIGNING_BONUS = 'SigningBonus',
   TERMINATION_BENEFIT = 'TerminationBenefit',
+  COMPANY_SETTINGS = 'CompanySettings',
 }
 
 /**

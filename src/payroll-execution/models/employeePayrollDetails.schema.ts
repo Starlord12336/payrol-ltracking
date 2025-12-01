@@ -1,19 +1,16 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import mongoose, { HydratedDocument } from 'mongoose';
+
 import { EmployeeProfile as Employee } from '../../employee-profile/models/employee-profile.schema';
-import { payrollRuns } from './payrollRuns.schema';
 import { BankStatus } from '../enums/payroll-execution-enum';
 
-export type employeePayrollDetailsDocument =
-  HydratedDocument<employeePayrollDetails>;
+import { payrollRuns } from './payrollRuns.schema';
+
+export type employeePayrollDetailsDocument = HydratedDocument<employeePayrollDetails>;
 
 @Schema({ timestamps: true })
 export class employeePayrollDetails {
-  @Prop({
-    type: mongoose.Schema.Types.ObjectId,
-    ref: Employee.name,
-    required: true,
-  })
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: Employee.name, required: true })
   employeeId: mongoose.Types.ObjectId;
   @Prop({ required: true })
   baseSalary: number;
@@ -34,14 +31,8 @@ export class employeePayrollDetails {
   @Prop({})
   benefit?: number;
 
-  @Prop({
-    type: mongoose.Schema.Types.ObjectId,
-    ref: payrollRuns.name,
-    required: true,
-  })
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: payrollRuns.name, required: true })
   payrollRunId: mongoose.Types.ObjectId;
 }
 
-export const employeePayrollDetailsSchema = SchemaFactory.createForClass(
-  employeePayrollDetails,
-);
+export const employeePayrollDetailsSchema = SchemaFactory.createForClass(employeePayrollDetails);
