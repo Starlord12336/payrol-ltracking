@@ -5,12 +5,13 @@ import { TerminationStatus } from '../enums/termination-status.enum';
 
 @Schema({ timestamps: true })
 export class TerminationRequest {
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+
+  @Prop({ type: Types.ObjectId, ref: 'EmployeeProfile', required: true })
   employeeId: Types.ObjectId;
 
   @Prop({
     enum: TerminationInitiation,
-    required: true,
+    required: true
   })
   initiator: TerminationInitiation;
 
@@ -25,7 +26,7 @@ export class TerminationRequest {
 
   @Prop({
     enum: TerminationStatus,
-    default: TerminationStatus.PENDING,
+    default: TerminationStatus.PENDING
   })
   status: TerminationStatus;
 
@@ -37,5 +38,4 @@ export class TerminationRequest {
 }
 
 export type TerminationRequestDocument = HydratedDocument<TerminationRequest>;
-export const TerminationRequestSchema =
-  SchemaFactory.createForClass(TerminationRequest);
+export const TerminationRequestSchema = SchemaFactory.createForClass(TerminationRequest);
