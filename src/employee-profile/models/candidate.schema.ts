@@ -1,9 +1,12 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 import { CandidateStatus } from '../enums/employee-profile.enums';
-import { Department } from '../../organization-structure/models/department.schema';
-import { Position } from '../../organization-structure/models/position.schema';
+import { OrganizationalUnit } from '../../organization-structure/schemas/organizational-unit.schema';
 import { UserProfileBase } from './user-schema';
+
+// Type aliases for backward compatibility
+type Department = OrganizationalUnit;
+type Position = OrganizationalUnit;
 
 export type CandidateDocument = HydratedDocument<Candidate>;
 
@@ -12,10 +15,10 @@ export class Candidate extends UserProfileBase {
   @Prop({ type: String, required: true, unique: true })
   candidateNumber: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'Department' })
+  @Prop({ type: Types.ObjectId, ref: 'OrganizationalUnit' })
   departmentId?: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Position' })
+  @Prop({ type: Types.ObjectId, ref: 'OrganizationalUnit' })
   positionId?: Types.ObjectId;
 
   @Prop({ type: Date })
