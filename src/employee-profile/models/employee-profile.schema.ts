@@ -6,13 +6,15 @@ import {
   WorkType,
 } from '../enums/employee-profile.enums';
 import { AppraisalRatingScaleType } from '../../performance/enums/performance.enums';
-import { Department } from '../../organization-structure/models/department.schema';
-import { Position } from '../../organization-structure/models/position.schema';
-import { AppraisalCycle } from '../../performance/models/appraisal-cycle.schema';
-import { AppraisalRecord } from '../../performance/models/appraisal-record.schema';
-import { AppraisalTemplate } from '../../performance/models/appraisal-template.schema';
-import { payGrade } from '../../payroll-configuration/models/payGrades.schema';
+import { OrganizationalUnit } from '../../organization-structure/schemas/organizational-unit.schema';
+import { AppraisalCycle } from '../../performance/schemas/appraisal-cycle.schema';
+import { AppraisalTemplate } from '../../performance/schemas/appraisal-template.schema';
+import { AppraisalEvaluation } from '../../performance/schemas/appraisal-evaluation.schema';
 import { UserProfileBase } from './user-schema';
+
+// Type aliases for backward compatibility
+type Department = OrganizationalUnit;
+type Position = OrganizationalUnit;
 
 export type EmployeeProfileDocument = HydratedDocument<EmployeeProfile>;
 
@@ -37,6 +39,14 @@ export class EmployeeProfile extends UserProfileBase {
   @Prop({ type: Date })
   contractEndDate?: Date;
 
+  // Banking details
+  @Prop({ type: String })
+  bankName?: string;
+
+  @Prop({ type: String })
+  bankAccountNumber?: string;
+
+  
   @Prop({
     type: String,
     enum: Object.values(ContractType),
@@ -63,19 +73,21 @@ export class EmployeeProfile extends UserProfileBase {
   statusEffectiveFrom?: Date;
 
   // Org Structure links
-  @Prop({ type: Types.ObjectId, ref: 'Position' })
+  @Prop({ type: Types.ObjectId, ref: 'OrganizationalUnit' })
   primaryPositionId?: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Department' })
+  @Prop({ type: Types.ObjectId, ref: 'OrganizationalUnit' })
   primaryDepartmentId?: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Position' })
+  @Prop({ type: Types.ObjectId, ref: 'OrganizationalUnit' })
   supervisorPositionId?: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: payGrade.name })
-  payGradeId?: Types.ObjectId;
+  // Payroll module not present - commented out
+  // @Prop({ type: Types.ObjectId, ref: payGrade.name })
+  // payGradeId?: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'AppraisalRecord' })
+  // Using AppraisalEvaluation instead of AppraisalRecord (which doesn't exist)
+  @Prop({ type: Types.ObjectId, ref: 'AppraisalEvaluation' })
   lastAppraisalRecordId?: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'AppraisalCycle' })
