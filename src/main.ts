@@ -1,12 +1,19 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { Logger } from '@nestjs/common';
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
-    logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+  const app = await NestFactory.create(AppModule);
+  
+  // Enable cookie parser middleware (REQUIRED for reading cookies)
+  app.use(cookieParser());
+  
+  // Enable CORS to accept requests from any origin (any port)
+  app.enableCors({
+    origin: true, // Allow all origins
+    credentials: true,
   });
+  
   await app.listen(process.env.PORT ?? 3000);
-  Logger.log(`Application is running on: http://localhost:${process.env.PORT ?? 3000}`);
 }
 bootstrap();
