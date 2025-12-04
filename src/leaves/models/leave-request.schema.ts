@@ -47,6 +47,7 @@ export class LeaveRequest {
   }[];
 
   @Prop({
+    type: String,
     enum: LeaveStatus,
     default: LeaveStatus.PENDING,
   })

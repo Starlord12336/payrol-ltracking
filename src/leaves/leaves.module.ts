@@ -24,6 +24,7 @@ import { Calendar, CalendarSchema } from './models/calendar.schema';
 import { Attachment, AttachmentSchema } from './models/attachment.schema';
 import { EmployeeProfileModule } from '../employee-profile/employee-profile.module';
 import { TimeManagementModule } from '../time-management/time-management.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { TimeManagementModule } from '../time-management/time-management.module'
     ]),
     EmployeeProfileModule,
     TimeManagementModule,
+    AuthModule,
   ],
   controllers: [LeavesController],
   providers: [LeavesService],

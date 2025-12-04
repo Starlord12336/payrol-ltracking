@@ -1,7 +1,8 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TimeManagementController } from './time-management.controller';
 import { TimeManagementService } from './time-management.service';
 import { MongooseModule } from '@nestjs/mongoose';
+import { AuthModule } from '../auth/auth.module';
 import {
   NotificationLogSchema,
   NotificationLog,
@@ -40,6 +41,7 @@ import { HolidaySchema, Holiday } from './models/holiday.schema';
 
 @Module({
   imports: [
+    forwardRef(() => AuthModule),
     MongooseModule.forFeature([
       { name: NotificationLog.name, schema: NotificationLogSchema },
       {

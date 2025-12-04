@@ -1,9 +1,5 @@
 import { IsString, IsEnum, IsOptional } from 'class-validator';
-
-export enum ReviewAction {
-  APPROVE = 'approve',
-  REJECT = 'reject',
-}
+import { ReviewAction } from './review-claim.dto';
 
 export class ReviewDisputeDto {
   @IsEnum(ReviewAction)

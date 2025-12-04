@@ -1,7 +1,7 @@
 import { SchemaFactory, Schema, Prop } from '@nestjs/mongoose';
 import { Types } from 'mongoose';
 import { HydratedDocument } from 'mongoose';
-import { ShiftAssignmentStatus } from './enums/index';
+import { ShiftAssignmentStatus } from '../enums/index';
 
 export type ShiftAssignmentDocument = HydratedDocument<ShiftAssignment>;
 
@@ -28,7 +28,7 @@ export class ShiftAssignment {
   @Prop()
   endDate?: Date; //null means ongoing
 
-  @Prop({ enum: ShiftAssignmentStatus, default: ShiftAssignmentStatus.PENDING })
+  @Prop({ type: String, enum: ShiftAssignmentStatus, default: ShiftAssignmentStatus.PENDING })
   status: ShiftAssignmentStatus;
 }
 

@@ -15,12 +15,14 @@ export class Application {
   assignedHr?: Types.ObjectId;
 
   @Prop({
+    type: String,
     enum: ApplicationStage,
     default: ApplicationStage.SCREENING,
   })
   currentStage: ApplicationStage;
 
   @Prop({
+    type: String,
     enum: ApplicationStatus,
     default: ApplicationStatus.SUBMITTED,
   })

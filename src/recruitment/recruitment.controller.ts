@@ -14,78 +14,88 @@ import {
   Request,
   ForbiddenException,
   NotFoundException,
-} from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import * as path from 'path';
-import * as fs from 'fs';
-import { ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
-import { RecruitmentService } from './recruitment.service';
-import { CreateJobTemplateDto } from './dto/create-job-template.dto';
-import { CreateOfferDto } from './dto/create-offer.dto';
-import { AddOfferApproverDto } from './dto/add-offer-approver.dto';
-import { ScheduleInterviewDto } from './dto/schedule-interview.dto';
-import { RolesGuard } from './guards/roles.guard';
-import { Roles } from './decorators/roles.decorator';
-import { CreateChecklistDto } from './dto/create-checklist.dto';
-import { UploadOnboardingDocumentDto } from './dto/upload-onboarding-document.dto';
+} from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { diskStorage } from "multer";
+import * as path from "path";
+import * as fs from "fs";
+import { ApiOperation, ApiResponse, ApiBody } from "@nestjs/swagger";
+import { RecruitmentService } from "./recruitment.service";
+import { CreateJobTemplateDto } from "./dto/create-job-template.dto";
+import { CreateOfferDto } from "./dto/create-offer.dto";
+import { AddOfferApproverDto } from "./dto/add-offer-approver.dto";
+import { ScheduleInterviewDto } from "./dto/schedule-interview.dto";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { RolesGuard } from "../auth/guards/roles.guard";
+import { Roles } from "../auth/decorators/roles.decorator";
+import { Public } from "../auth/decorators/public.decorator";
+import { SystemRole } from "../employee-profile/enums/employee-profile.enums";
+import { CreateChecklistDto } from "./dto/create-checklist.dto";
+import { UploadOnboardingDocumentDto } from "./dto/upload-onboarding-document.dto";
 import {
   CreateOnboardingTaskDto,
   UpdateTaskStatusDto,
-} from './dto/onboarding-task.dto';
-import { CreateProvisionDto } from './dto/create-provision.dto';
-import { ApproveProvisionDto } from './dto/approve-provision.dto';
-import { RejectProvisionDto } from './dto/reject-provision.dto';
-import { CreateAccessDto } from './dto/create-access.dto';
-import { ApproveAccessDto } from './dto/approve-access.dto';
-import { RevokeAccessDto } from './dto/revoke-access.dto';
-import { CreateEquipmentDto } from './dto/create-equipment.dto';
-import { AssignEquipmentDto } from './dto/assign-equipment.dto';
-import { ReturnEquipmentDto } from './dto/return-equipment.dto';
-import { CreatePayrollDto } from './dto/create-payroll.dto';
-import { TriggerPayrollDto } from './dto/trigger-payroll.dto';
-import { CreateBenefitsDto } from './dto/create-benefits.dto';
-import { ApproveBenefitsDto } from './dto/approve-benefits.dto';
+} from "./dto/onboarding-task.dto";
+import { CreateProvisionDto } from "./dto/create-provision.dto";
+import { ApproveProvisionDto } from "./dto/approve-provision.dto";
+import { RejectProvisionDto } from "./dto/reject-provision.dto";
+import { CreateAccessDto } from "./dto/create-access.dto";
+import { ApproveAccessDto } from "./dto/approve-access.dto";
+import { RevokeAccessDto } from "./dto/revoke-access.dto";
+import { CreateEquipmentDto } from "./dto/create-equipment.dto";
+import { AssignEquipmentDto } from "./dto/assign-equipment.dto";
+import { ReturnEquipmentDto } from "./dto/return-equipment.dto";
+import { CreatePayrollDto } from "./dto/create-payroll.dto";
+import { TriggerPayrollDto } from "./dto/trigger-payroll.dto";
+import { CreateBenefitsDto } from "./dto/create-benefits.dto";
+import { ApproveBenefitsDto } from "./dto/approve-benefits.dto";
 import {
   InitiateTerminationReviewDto,
   TerminationReviewResponseDto,
-} from './dto/initiate-termination-review.dto';
+} from "./dto/initiate-termination-review.dto";
 import {
   CreateOffboardingChecklistDto,
   OffboardingChecklistResponseDto,
   OffboardingChecklistSummaryDto,
-} from './dto/offboarding-checklist.dto';
-import { Types } from 'mongoose';
-import { TerminationStatus } from './enums/termination-status.enum';
-import { ApprovalStatus } from './enums/approval-status.enum';
+} from "./dto/offboarding-checklist.dto";
+import { Types } from "mongoose";
+import { TerminationStatus } from "./enums/termination-status.enum";
+import { ApprovalStatus } from "./enums/approval-status.enum";
 
 class AdvanceApplicationDto {
   newStage?: string;
   changedBy?: string;
 }
 
-@Controller('recruitment')
+@Controller("recruitment")
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class RecruitmentController {
   constructor(private readonly recruitmentService: RecruitmentService) {}
 
-  @Post('templates')
+  // REC-003: Job Design & Posting
+  @Post("templates")
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_EMPLOYEE)
   async createTemplate(@Body() dto: CreateJobTemplateDto) {
     return this.recruitmentService.createJobTemplate(dto);
   }
 
-  @Get('templates')
+  @Get("templates")
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_EMPLOYEE, SystemRole.RECRUITER)
   async listTemplates() {
     return this.recruitmentService.findAllJobTemplates();
   }
 
-  @Get('templates/:id')
-  async getTemplate(@Param('id') id: string) {
+  @Get("templates/:id")
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_EMPLOYEE, SystemRole.RECRUITER)
+  async getTemplate(@Param("id") id: string) {
     return this.recruitmentService.findJobTemplateById(id);
   }
 
-  @Post('applications/:id/advance')
+  // REC-008: Candidate Tracking
+  @Post("applications/:id/advance")
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.RECRUITER)
   async advanceApplication(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() body: AdvanceApplicationDto,
   ) {
     return this.recruitmentService.advanceApplicationStage(id, {
@@ -94,14 +104,17 @@ export class RecruitmentController {
     });
   }
 
-  @Get('requisitions/:id/preview')
-  async previewRequisition(@Param('id') id: string) {
+  // REC-023: Career Page Publishing
+  @Get("requisitions/:id/preview")
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER)
+  async previewRequisition(@Param("id") id: string) {
     return this.recruitmentService.previewJobRequisition(id);
   }
 
-  @Post('requisitions/:id/publish')
+  @Post("requisitions/:id/publish")
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER)
   async publishRequisition(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() body: { expiryDays?: number },
   ) {
     return this.recruitmentService.publishJobRequisition(id, {
@@ -111,31 +124,31 @@ export class RecruitmentController {
 
   // REC-017: Candidate status tracking endpoints
 
-  @Get('applications/:id/status')
-  async getApplicationStatus(@Param('id') id: string) {
+  @Get("applications/:id/status")
+  async getApplicationStatus(@Param("id") id: string) {
     return this.recruitmentService.getApplicationStatus(id);
   }
 
-  @Get('applications/:id/history')
-  async getApplicationHistory(@Param('id') id: string) {
+  @Get("applications/:id/history")
+  async getApplicationHistory(@Param("id") id: string) {
     return this.recruitmentService.getApplicationHistory(id);
   }
 
-  @Get('candidates/:id/applications')
-  async listCandidateApplications(@Param('id') id: string) {
+  @Get("candidates/:id/applications")
+  async listCandidateApplications(@Param("id") id: string) {
     return this.recruitmentService.listApplicationsForCandidate(id);
   }
 
-  @Post('applications/:id/notify')
-  async notifyCandidate(@Param('id') id: string) {
+  @Post("applications/:id/notify")
+  async notifyCandidate(@Param("id") id: string) {
     return this.recruitmentService.prepareCandidateNotification(id);
   }
 
   // REC-022: Rejection templates and automated notifications
 
-  @Get('applications/:id/rejection-preview')
+  @Get("applications/:id/rejection-preview")
   async rejectionPreview(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() body: { templateKey?: string; reason?: string },
   ) {
     return this.recruitmentService.prepareRejectionNotification(id, {
@@ -144,9 +157,9 @@ export class RecruitmentController {
     });
   }
 
-  @Post('applications/:id/reject')
+  @Post("applications/:id/reject")
   async rejectApplication(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() body: { templateKey?: string; reason?: string; changedBy?: string },
   ) {
     return this.recruitmentService.rejectApplication(id, {
@@ -158,19 +171,19 @@ export class RecruitmentController {
 
   // REC-008: Manage hiring process templates (file-backed, no schema changes)
 
-  @Get('process-templates')
+  @Get("process-templates")
   async listProcessTemplates() {
     return this.recruitmentService.listProcessTemplates();
   }
 
-  @Get('process-templates/:key')
-  async getProcessTemplate(@Param('key') key: string) {
+  @Get("process-templates/:key")
+  async getProcessTemplate(@Param("key") key: string) {
     return this.recruitmentService.readProcessTemplate(key);
   }
 
-  @Post('process-templates/:key')
+  @Post("process-templates/:key")
   async createOrUpdateProcessTemplate(
-    @Param('key') key: string,
+    @Param("key") key: string,
     @Body() body: { name: string; stages: string[] },
   ) {
     return this.recruitmentService.saveProcessTemplate(key, {
@@ -179,14 +192,14 @@ export class RecruitmentController {
     });
   }
 
-  @Delete('process-templates/:key')
-  async deleteProcessTemplate(@Param('key') key: string) {
+  @Delete("process-templates/:key")
+  async deleteProcessTemplate(@Param("key") key: string) {
     return this.recruitmentService.deleteProcessTemplate(key);
   }
 
   // REC-010: Interview scheduling and invitation management
 
-  @Post('interviews/schedule')
+  @Post("interviews/schedule")
   async scheduleInterview(@Body() dto: ScheduleInterviewDto) {
     return this.recruitmentService.scheduleInterview(dto.applicationId, {
       stage: dto.stage,
@@ -201,14 +214,14 @@ export class RecruitmentController {
     });
   }
 
-  @Get('interviews/:id')
-  async getInterview(@Param('id') id: string) {
+  @Get("interviews/:id")
+  async getInterview(@Param("id") id: string) {
     return this.recruitmentService.getInterview(id);
   }
 
-  @Put('interviews/:id')
+  @Put("interviews/:id")
   async updateInterview(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body()
     body: {
       scheduledDate?: string;
@@ -225,9 +238,9 @@ export class RecruitmentController {
     });
   }
 
-  @Post('interviews/:id/cancel')
+  @Post("interviews/:id/cancel")
   async cancelInterview(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() body: { reason?: string; changedBy?: string },
   ) {
     return this.recruitmentService.cancelInterview(id, {
@@ -236,14 +249,14 @@ export class RecruitmentController {
     });
   }
 
-  @Post('interviews/:id/invite')
+  @Post("interviews/:id/invite")
   async inviteInterview(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() body: { extraPanelEmails?: string[]; message?: string },
   ) {
     // Prepare invitation payload for an existing interview (does not send emails)
     const interview = await this.recruitmentService.getInterview(id);
-    if (!interview) throw new NotFoundException('Interview not found');
+    if (!interview) throw new NotFoundException("Interview not found");
     const candidateInfo =
       await this.recruitmentService.prepareCandidateNotification(
         String(interview.applicationId),
@@ -259,9 +272,9 @@ export class RecruitmentController {
 
   // REC-011: Interview feedback (assessment results)
 
-  @Post('interviews/:id/feedback')
+  @Post("interviews/:id/feedback")
   async submitInterviewFeedback(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() body: { interviewerId: string; score: number; comments?: string },
   ) {
     return this.recruitmentService.saveAssessmentResult(
@@ -272,21 +285,21 @@ export class RecruitmentController {
     );
   }
 
-  @Get('interviews/:id/feedbacks')
-  async listInterviewFeedbacks(@Param('id') id: string) {
+  @Get("interviews/:id/feedbacks")
+  async listInterviewFeedbacks(@Param("id") id: string) {
     return this.recruitmentService.listAssessmentResults(id);
   }
 
-  @Get('interviews/:id/summary')
-  async interviewFeedbackSummary(@Param('id') id: string) {
+  @Get("interviews/:id/summary")
+  async interviewFeedbackSummary(@Param("id") id: string) {
     return this.recruitmentService.getInterviewFeedbackSummary(id);
   }
 
   // REC-020: Assessment forms (file-backed) and structured feedback
 
-  @Post('assessment-forms/:key')
+  @Post("assessment-forms/:key")
   async createOrUpdateAssessmentForm(
-    @Param('key') key: string,
+    @Param("key") key: string,
     @Body()
     body: {
       name: string;
@@ -303,24 +316,24 @@ export class RecruitmentController {
     });
   }
 
-  @Get('assessment-forms')
+  @Get("assessment-forms")
   async listAssessmentForms() {
     return this.recruitmentService.listAssessmentForms();
   }
 
-  @Get('assessment-forms/:key')
-  async getAssessmentForm(@Param('key') key: string) {
+  @Get("assessment-forms/:key")
+  async getAssessmentForm(@Param("key") key: string) {
     return this.recruitmentService.readAssessmentForm(key);
   }
 
-  @Delete('assessment-forms/:key')
-  async deleteAssessmentForm(@Param('key') key: string) {
+  @Delete("assessment-forms/:key")
+  async deleteAssessmentForm(@Param("key") key: string) {
     return this.recruitmentService.deleteAssessmentForm(key);
   }
 
-  @Post('interviews/:id/feedback-structured')
+  @Post("interviews/:id/feedback-structured")
   async submitStructuredFeedback(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body()
     body: {
       interviewerId: string;
@@ -338,24 +351,24 @@ export class RecruitmentController {
     );
   }
 
-  @Get('interviews/:id/structured-responses')
-  async listStructuredResponses(@Param('id') id: string) {
+  @Get("interviews/:id/structured-responses")
+  async listStructuredResponses(@Param("id") id: string) {
     return this.recruitmentService.listStructuredResponses(id);
   }
 
-  @Get('interviews/:id/structured-responses/:file')
+  @Get("interviews/:id/structured-responses/:file")
   async getStructuredResponse(
-    @Param('id') id: string,
-    @Param('file') file: string,
+    @Param("id") id: string,
+    @Param("file") file: string,
   ): Promise<any> {
     return this.recruitmentService.getStructuredResponse(id, file);
   }
 
   // REC-021: Interview panel coordination (members, availability, feedback aggregation)
 
-  @Post('panel-members/:id')
+  @Post("panel-members/:id")
   async registerPanelMember(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body()
     body: { name: string; email?: string; role?: string; expertise?: string[] },
   ) {
@@ -367,42 +380,42 @@ export class RecruitmentController {
     });
   }
 
-  @Get('panel-members')
+  @Get("panel-members")
   async listPanelMembers() {
     return this.recruitmentService.listPanelMembers();
   }
 
-  @Get('panel-members/:id')
-  async getPanelMember(@Param('id') id: string): Promise<any> {
+  @Get("panel-members/:id")
+  async getPanelMember(@Param("id") id: string): Promise<any> {
     return this.recruitmentService.getPanelMember(id);
   }
 
-  @Post('panel-members/:id/availability')
+  @Post("panel-members/:id/availability")
   async setPanelAvailability(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() body: { availability: Record<string, string[]> },
   ) {
     return this.recruitmentService.setPanelAvailability(id, body.availability);
   }
 
-  @Get('panel-members/:id/availability')
-  async getPanelAvailability(@Param('id') id: string): Promise<any> {
+  @Get("panel-members/:id/availability")
+  async getPanelAvailability(@Param("id") id: string): Promise<any> {
     return this.recruitmentService.getPanelAvailability(id);
   }
 
-  @Put('panel-members/:id/availability')
+  @Put("panel-members/:id/availability")
   async updatePanelAvailability(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() body: { availability: Record<string, string[]> },
   ) {
     return this.recruitmentService.setPanelAvailability(id, body.availability);
   }
-  @Get('interviews/:id/panel-coordination')
-  async getPanelCoordinationReport(@Param('id') id: string) {
+  @Get("interviews/:id/panel-coordination")
+  async getPanelCoordinationReport(@Param("id") id: string) {
     return this.recruitmentService.getPanelCoordinationReport(id);
   }
 
-  @Post('panel-members/common-availability')
+  @Post("panel-members/common-availability")
   async findCommonAvailability(
     @Body()
     body: {
@@ -417,30 +430,30 @@ export class RecruitmentController {
   }
 
   // Upload candidate CV (multipart/form-data 'file')
-  @Post('candidates/:id/upload-cv')
+  @Post("candidates/:id/upload-cv")
   @UseInterceptors(
-    FileInterceptor('file', {
+    FileInterceptor("file", {
       storage: diskStorage({
         destination: (req: any, file: any, cb: any): void => {
           const candidateId = req.params.id as string;
           const uploadPath = path.join(
             process.cwd(),
-            'uploads',
-            'candidates',
+            "uploads",
+            "candidates",
             candidateId,
           );
           fs.mkdirSync(uploadPath, { recursive: true });
           cb(null, uploadPath);
         },
         filename: (req: any, file: any, cb: any): void => {
-          const name = `${Date.now()}-${(file.originalname as string).replace(/\s+/g, '_')}`;
+          const name = `${Date.now()}-${(file.originalname as string).replace(/\s+/g, "_")}`;
           cb(null, name);
         },
       }) as any,
     }),
   )
   async uploadCv(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @UploadedFile() file: any,
   ): Promise<any> {
     return this.recruitmentService.uploadCandidateCV(id, {
@@ -450,9 +463,9 @@ export class RecruitmentController {
   }
 
   // Apply to a requisition. Body: { candidateId: string, documentId?: string }
-  @Post('requisitions/:id/apply')
+  @Post("requisitions/:id/apply")
   async applyToRequisition(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() body: { candidateId: string; documentId?: string },
   ) {
     return this.recruitmentService.applyToRequisition(body.candidateId, id, {
@@ -462,9 +475,9 @@ export class RecruitmentController {
 
   // REC-030: Referral tagging and prioritization (no schema changes)
 
-  @Post('candidates/:id/referral')
+  @Post("candidates/:id/referral")
   async tagCandidateReferral(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body()
     body: { referringEmployeeId: string; role?: string; level?: string },
   ) {
@@ -475,26 +488,26 @@ export class RecruitmentController {
     );
   }
 
-  @Get('candidates/:id/referral')
-  async getCandidateReferrals(@Param('id') id: string) {
+  @Get("candidates/:id/referral")
+  async getCandidateReferrals(@Param("id") id: string) {
     return this.recruitmentService.getReferralsForCandidate(id);
   }
 
-  @Get('referrals')
+  @Get("referrals")
   async listReferrals() {
     return this.recruitmentService.listReferrals();
   }
 
-  @Get('referrals/:id')
-  async getReferral(@Param('id') id: string) {
+  @Get("referrals/:id")
+  async getReferral(@Param("id") id: string) {
     return this.recruitmentService.getReferralById(id);
   }
 
   // REC-028: Candidate consent endpoints (grant/revoke/list/latest)
 
-  @Post('candidates/:id/consent')
+  @Post("candidates/:id/consent")
   async grantConsent(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body()
     body: {
       granted: boolean;
@@ -506,47 +519,47 @@ export class RecruitmentController {
     return this.recruitmentService.saveConsent(
       id,
       body.granted,
-      body.type || 'personal',
+      body.type || "personal",
       body.givenBy,
       body.details,
     );
   }
 
-  @Post('candidates/:id/consent/revoke')
+  @Post("candidates/:id/consent/revoke")
   async revokeConsent(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() body: { givenBy?: string; details?: string },
   ) {
     return this.recruitmentService.saveConsent(
       id,
       false,
-      'personal',
+      "personal",
       body.givenBy,
       body.details,
     );
   }
 
-  @Get('candidates/:id/consent')
-  async listCandidateConsents(@Param('id') id: string) {
+  @Get("candidates/:id/consent")
+  async listCandidateConsents(@Param("id") id: string) {
     return this.recruitmentService.listConsents(id);
   }
 
-  @Get('candidates/:id/consent/latest')
-  async latestCandidateConsent(@Param('id') id: string) {
+  @Get("candidates/:id/consent/latest")
+  async latestCandidateConsent(@Param("id") id: string) {
     return this.recruitmentService.getLatestConsent(id);
   }
 
-  @Get('candidates/:id/consent/file/:file')
+  @Get("candidates/:id/consent/file/:file")
   async getCandidateConsentFile(
-    @Param('id') id: string,
-    @Param('file') file: string,
+    @Param("id") id: string,
+    @Param("file") file: string,
   ): Promise<any> {
     return this.recruitmentService.getConsentFile(id, file);
   }
 
-  @Post('applications/:id/prioritize')
+  @Post("applications/:id/prioritize")
   async prioritizeApplication(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body()
     body: { changedBy?: string; expedite?: boolean; expediteToStage?: string },
   ): Promise<any> {
@@ -559,33 +572,33 @@ export class RecruitmentController {
 
   // REC-009: Recruitment dashboard — monitor progress across open positions
 
-  @Get('dashboard')
+  @Get("dashboard")
   async recruitmentDashboard() {
     return this.recruitmentService.getRecruitmentDashboard();
   }
 
   // Offer endpoints (REC-014)
-  @Post('offers')
+  @Post("offers")
   async createOffer(@Body() dto: CreateOfferDto) {
     return this.recruitmentService.createOffer(dto);
   }
 
-  @Get('offers')
+  @Get("offers")
   async listOffers(
-    @Query('applicationId') applicationId?: string,
-    @Query('candidateId') candidateId?: string,
+    @Query("applicationId") applicationId?: string,
+    @Query("candidateId") candidateId?: string,
   ) {
     return this.recruitmentService.listOffers({ applicationId, candidateId });
   }
 
-  @Get('offers/:id')
-  async getOffer(@Param('id') id: string) {
+  @Get("offers/:id")
+  async getOffer(@Param("id") id: string) {
     return this.recruitmentService.findOfferById(id);
   }
 
-  @Post('offers/:id/approvers')
+  @Post("offers/:id/approvers")
   async addOfferApprover(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() dto: AddOfferApproverDto,
   ) {
     return this.recruitmentService.addOfferApproverAction(
@@ -597,30 +610,30 @@ export class RecruitmentController {
     );
   }
 
-  @Post('offers/:id/finalize')
-  async finalizeOffer(@Param('id') id: string) {
+  @Post("offers/:id/finalize")
+  async finalizeOffer(@Param("id") id: string) {
     return this.recruitmentService.finalizeOffer(id);
   }
 
-  @Post('offers/:id/respond')
+  @Post("offers/:id/respond")
   async candidateRespondOffer(
-    @Param('id') id: string,
-    @Body() body: { response: 'accepted' | 'rejected' },
+    @Param("id") id: string,
+    @Body() body: { response: "accepted" | "rejected" },
   ) {
     return this.recruitmentService.candidateRespondOffer(id, body.response);
   }
 
   // REC-029: Pre-boarding endpoints (file-backed tasks)
-  @Post('offers/:id/preboarding/trigger')
+  @Post("offers/:id/preboarding/trigger")
   async triggerPreboarding(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body()
     body: {
       startDate?: string;
       tasks?: Array<{
         title: string;
         description?: string;
-        assignee?: 'candidate' | 'hr';
+        assignee?: "candidate" | "hr";
         dueDays?: number;
       }>;
     },
@@ -631,15 +644,15 @@ export class RecruitmentController {
     });
   }
 
-  @Get('offers/:id/preboarding')
-  async listPreboarding(@Param('id') id: string): Promise<any> {
+  @Get("offers/:id/preboarding")
+  async listPreboarding(@Param("id") id: string): Promise<any> {
     return this.recruitmentService.listPreboardingTasks(id);
   }
 
-  @Post('offers/:id/preboarding/:taskId/complete')
+  @Post("offers/:id/preboarding/:taskId/complete")
   async completePreboardingTask(
-    @Param('id') id: string,
-    @Param('taskId') taskId: string,
+    @Param("id") id: string,
+    @Param("taskId") taskId: string,
     @Body() body: { completedBy?: string },
   ): Promise<any> {
     return this.recruitmentService.completePreboardingTask(
@@ -651,47 +664,47 @@ export class RecruitmentController {
 
   // ============ ONBOARDING ENDPOINTS ============
 
-  @Post('onboarding/create-checklist')
+  @Post("onboarding/create-checklist")
   async createChecklist(@Body() dto: CreateChecklistDto) {
     return this.recruitmentService.createChecklist(dto);
   }
 
-  @Post('onboarding/upload-document')
+  @Post("onboarding/upload-document")
   @UseGuards(RolesGuard)
-  @Roles('HR', 'Candidate')
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.JOB_CANDIDATE)
   @ApiOperation({
     summary:
-      'Candidate uploads signed contract and required documents to initiate onboarding',
+      "Candidate uploads signed contract and required documents to initiate onboarding",
   })
   @ApiBody({ type: UploadOnboardingDocumentDto })
   @ApiResponse({
     status: 201,
-    description: 'Document uploaded and onboarding initiated.',
+    description: "Document uploaded and onboarding initiated.",
   })
   @ApiResponse({
     status: 400,
-    description: 'Invalid employee ID or document type.',
+    description: "Invalid employee ID or document type.",
   })
   @ApiResponse({
     status: 403,
-    description: 'Forbidden: insufficient permissions.',
+    description: "Forbidden: insufficient permissions.",
   })
   async uploadDocument(@Body() dto: UploadOnboardingDocumentDto) {
     return this.recruitmentService.uploadDocument(dto);
   }
 
-  @Get('onboarding/documents/pending')
+  @Get("onboarding/documents/pending")
   @UseGuards(RolesGuard)
-  @Roles('HR')
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER)
   async listPendingDocuments() {
     return this.recruitmentService.listPendingDocuments();
   }
 
-  @Post('onboarding/document/:documentId/verify')
+  @Post("onboarding/document/:documentId/verify")
   @UseGuards(RolesGuard)
-  @Roles('HR')
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER)
   async verifyDocument(
-    @Param('documentId') documentId: string,
+    @Param("documentId") documentId: string,
     @Body() body: any,
   ): Promise<any> {
     // body should include verifiedBy and optional notes
@@ -702,11 +715,11 @@ export class RecruitmentController {
     );
   }
 
-  @Post('onboarding/document/:documentId/reject')
+  @Post("onboarding/document/:documentId/reject")
   @UseGuards(RolesGuard)
-  @Roles('HR')
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER)
   async rejectDocument(
-    @Param('documentId') documentId: string,
+    @Param("documentId") documentId: string,
     @Body() body: any,
   ): Promise<any> {
     // body should include verifiedBy, rejectionReason and optional notes
@@ -718,65 +731,65 @@ export class RecruitmentController {
     );
   }
 
-  @Get('onboarding/contract/:contractId')
+  @Get("onboarding/contract/:contractId")
   @UseGuards(RolesGuard)
-  @Roles('HR')
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER)
   @ApiOperation({
     summary:
-      'Get signed contract details (HR only). Retrieves full candidate data for profile creation.',
+      "Get signed contract details (HR only). Retrieves full candidate data for profile creation.",
   })
   @ApiResponse({
     status: 200,
-    description: 'Contract details with candidate profile data.',
+    description: "Contract details with candidate profile data.",
   })
   @ApiResponse({
     status: 400,
-    description: 'Contract not fully signed or data incomplete.',
+    description: "Contract not fully signed or data incomplete.",
   })
-  @ApiResponse({ status: 403, description: 'Forbidden: HR access only.' })
+  @ApiResponse({ status: 403, description: "Forbidden: HR access only." })
   @ApiResponse({
     status: 404,
-    description: 'Contract or related offer/candidate not found.',
+    description: "Contract or related offer/candidate not found.",
   })
-  async getContract(@Param('contractId') contractId: string) {
+  async getContract(@Param("contractId") contractId: string) {
     return this.recruitmentService.getContractDetails(contractId);
   }
 
-  @Post('onboarding/contract/:contractId/create-profile')
+  @Post("onboarding/contract/:contractId/create-profile")
   @UseGuards(RolesGuard)
-  @Roles('HR')
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER)
   @ApiOperation({
     summary:
-      'Create employee profile from signed contract (HR only). Validates signatures, prevents duplicates, generates employee number.',
+      "Create employee profile from signed contract (HR only). Validates signatures, prevents duplicates, generates employee number.",
   })
   @ApiBody({
     schema: {
-      type: 'object',
+      type: "object",
       properties: {
-        createdBy: { type: 'string', description: 'HR employee ID or name' },
+        createdBy: { type: "string", description: "HR employee ID or name" },
       },
     },
   })
   @ApiResponse({
     status: 201,
-    description: 'Employee profile created successfully.',
+    description: "Employee profile created successfully.",
   })
   @ApiResponse({
     status: 400,
-    description: 'Contract not fully signed or candidate data incomplete.',
+    description: "Contract not fully signed or candidate data incomplete.",
   })
-  @ApiResponse({ status: 403, description: 'Forbidden: HR access only.' })
+  @ApiResponse({ status: 403, description: "Forbidden: HR access only." })
   @ApiResponse({
     status: 404,
-    description: 'Contract or related data not found.',
+    description: "Contract or related data not found.",
   })
   @ApiResponse({
     status: 409,
     description:
-      'Conflict: employee profile already exists for this candidate.',
+      "Conflict: employee profile already exists for this candidate.",
   })
   async createProfileFromContract(
-    @Param('contractId') contractId: string,
+    @Param("contractId") contractId: string,
     @Body() body: { createdBy: string },
   ) {
     return this.recruitmentService.createEmployeeProfileFromContract(
@@ -785,31 +798,31 @@ export class RecruitmentController {
     );
   }
 
-  @Get('onboarding/tracker/:employeeId')
+  @Get("onboarding/tracker/:employeeId")
   @UseGuards(RolesGuard)
-  @Roles('NewHire', 'HR', 'Manager')
+  @Roles(SystemRole.DEPARTMENT_EMPLOYEE, SystemRole.HR_EMPLOYEE, SystemRole.DEPARTMENT_HEAD)
   @ApiOperation({
     summary:
-      'View onboarding progress tracker. Employee sees next steps; HR/Manager can view team trackers.',
+      "View onboarding progress tracker. Employee sees next steps; HR/Manager can view team trackers.",
   })
   @ApiResponse({
     status: 200,
-    description: 'Tracker with task list, progress, and next task to complete.',
+    description: "Tracker with task list, progress, and next task to complete.",
   })
   @ApiResponse({
     status: 403,
     description: "Forbidden: Cannot view other employees' trackers.",
   })
-  @ApiResponse({ status: 404, description: 'Onboarding not found.' })
+  @ApiResponse({ status: 404, description: "Onboarding not found." })
   async getTracker(
-    @Param('employeeId') employeeId: string,
+    @Param("employeeId") employeeId: string,
     @Request() req: any,
   ): Promise<any> {
     // Authorization: employee can only view own tracker; HR/Manager can view anyone
     if (
       (req.user?.id as string) !== employeeId &&
-      !['HR', 'Manager', 'SYSTEM_ADMIN'].includes(
-        (req.user?.role as string) || '',
+      !["HR", "Manager", "SYSTEM_ADMIN"].includes(
+        (req.user?.role as string) || "",
       )
     ) {
       throw new ForbiddenException(
@@ -819,28 +832,28 @@ export class RecruitmentController {
     return this.recruitmentService.getTracker(employeeId);
   }
 
-  @Post('onboarding/:employeeId/populate-dept-tasks')
+  @Post("onboarding/:employeeId/populate-dept-tasks")
   @UseGuards(RolesGuard)
-  @Roles('HR', 'Manager')
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.DEPARTMENT_HEAD)
   @ApiOperation({
     summary:
-      'Populate onboarding with department-specific tasks and training plans (BR 11a,11b).',
+      "Populate onboarding with department-specific tasks and training plans (BR 11a,11b).",
   })
   @ApiBody({
     schema: {
-      type: 'object',
+      type: "object",
       properties: {
         departmentId: {
-          type: 'string',
+          type: "string",
           description: "Optional dept ID to override employee's dept",
         },
       },
     },
   })
-  @ApiResponse({ status: 200, description: 'Department tasks added.' })
-  @ApiResponse({ status: 403, description: 'Forbidden: HR/Manager only.' })
+  @ApiResponse({ status: 200, description: "Department tasks added." })
+  @ApiResponse({ status: 403, description: "Forbidden: HR/Manager only." })
   async populateDepartmentTasks(
-    @Param('employeeId') employeeId: string,
+    @Param("employeeId") employeeId: string,
     @Body() body: { departmentId?: string },
   ) {
     return this.recruitmentService.populateDepartmentTasks(
@@ -849,36 +862,36 @@ export class RecruitmentController {
     );
   }
 
-  @Post('onboarding/:employeeId/task')
+  @Post("onboarding/:employeeId/task")
   async createTask(
-    @Param('employeeId') employeeId: string,
+    @Param("employeeId") employeeId: string,
     @Body() dto: CreateOnboardingTaskDto,
   ) {
     return this.recruitmentService.createTask(employeeId, dto);
   }
 
   // Provisioning endpoints
-  @Post('onboarding/:employeeId/provision')
+  @Post("onboarding/:employeeId/provision")
   @UseGuards(RolesGuard)
-  @Roles('SYSTEM_ADMIN')
+  @Roles(SystemRole.SYSTEM_ADMIN)
   async createProvision(
-    @Param('employeeId') employeeId: string,
+    @Param("employeeId") employeeId: string,
     @Body() dto: CreateProvisionDto,
   ) {
     return this.recruitmentService.createProvisionRequest(employeeId, dto);
   }
 
-  @Get('onboarding/:employeeId/provision')
-  async listProvision(@Param('employeeId') employeeId: string) {
+  @Get("onboarding/:employeeId/provision")
+  async listProvision(@Param("employeeId") employeeId: string) {
     return this.recruitmentService.listProvisionRequests(employeeId);
   }
 
-  @Put('onboarding/:employeeId/provision/:taskIndex/approve')
+  @Put("onboarding/:employeeId/provision/:taskIndex/approve")
   @UseGuards(RolesGuard)
-  @Roles('SYSTEM_ADMIN')
+  @Roles(SystemRole.SYSTEM_ADMIN)
   async approveProvision(
-    @Param('employeeId') employeeId: string,
-    @Param('taskIndex') taskIndex: string,
+    @Param("employeeId") employeeId: string,
+    @Param("taskIndex") taskIndex: string,
     @Body() dto: ApproveProvisionDto,
   ) {
     return this.recruitmentService.approveProvisionRequest(
@@ -888,12 +901,12 @@ export class RecruitmentController {
     );
   }
 
-  @Put('onboarding/:employeeId/provision/:taskIndex/reject')
+  @Put("onboarding/:employeeId/provision/:taskIndex/reject")
   @UseGuards(RolesGuard)
-  @Roles('SYSTEM_ADMIN')
+  @Roles(SystemRole.SYSTEM_ADMIN)
   async rejectProvision(
-    @Param('employeeId') employeeId: string,
-    @Param('taskIndex') taskIndex: string,
+    @Param("employeeId") employeeId: string,
+    @Param("taskIndex") taskIndex: string,
     @Body() dto: RejectProvisionDto,
   ) {
     return this.recruitmentService.rejectProvisionRequest(
@@ -904,22 +917,22 @@ export class RecruitmentController {
   }
 
   // Access provisioning
-  @Post('onboarding/:employeeId/access')
+  @Post("onboarding/:employeeId/access")
   @UseGuards(RolesGuard)
-  @Roles('SYSTEM_ADMIN')
+  @Roles(SystemRole.SYSTEM_ADMIN)
   async createAccess(
-    @Param('employeeId') employeeId: string,
+    @Param("employeeId") employeeId: string,
     @Body() dto: CreateAccessDto,
   ) {
     return this.recruitmentService.createAccessRequest(employeeId, dto);
   }
 
-  @Put('onboarding/:employeeId/access/:taskIndex/approve')
+  @Put("onboarding/:employeeId/access/:taskIndex/approve")
   @UseGuards(RolesGuard)
-  @Roles('SYSTEM_ADMIN')
+  @Roles(SystemRole.SYSTEM_ADMIN)
   async approveAccess(
-    @Param('employeeId') employeeId: string,
-    @Param('taskIndex') taskIndex: string,
+    @Param("employeeId") employeeId: string,
+    @Param("taskIndex") taskIndex: string,
     @Body() dto: ApproveAccessDto,
   ) {
     return this.recruitmentService.approveAccessRequest(
@@ -929,12 +942,12 @@ export class RecruitmentController {
     );
   }
 
-  @Put('onboarding/:employeeId/access/:taskIndex/revoke')
+  @Put("onboarding/:employeeId/access/:taskIndex/revoke")
   @UseGuards(RolesGuard)
-  @Roles('SYSTEM_ADMIN')
+  @Roles(SystemRole.SYSTEM_ADMIN)
   async revokeAccess(
-    @Param('employeeId') employeeId: string,
-    @Param('taskIndex') taskIndex: string,
+    @Param("employeeId") employeeId: string,
+    @Param("taskIndex") taskIndex: string,
     @Body() dto: RevokeAccessDto,
   ) {
     return this.recruitmentService.revokeAccess(
@@ -945,18 +958,18 @@ export class RecruitmentController {
   }
 
   // Equipment flows
-  @Post('onboarding/:employeeId/equipment')
+  @Post("onboarding/:employeeId/equipment")
   async createEquipment(
-    @Param('employeeId') employeeId: string,
+    @Param("employeeId") employeeId: string,
     @Body() dto: CreateEquipmentDto,
   ) {
     return this.recruitmentService.createEquipmentRequest(employeeId, dto);
   }
 
-  @Put('onboarding/:employeeId/equipment/:taskIndex/assign')
+  @Put("onboarding/:employeeId/equipment/:taskIndex/assign")
   async assignEquipment(
-    @Param('employeeId') employeeId: string,
-    @Param('taskIndex') taskIndex: string,
+    @Param("employeeId") employeeId: string,
+    @Param("taskIndex") taskIndex: string,
     @Body() dto: AssignEquipmentDto,
   ) {
     return this.recruitmentService.assignEquipment(
@@ -966,10 +979,10 @@ export class RecruitmentController {
     );
   }
 
-  @Put('onboarding/:employeeId/equipment/:taskIndex/return')
+  @Put("onboarding/:employeeId/equipment/:taskIndex/return")
   async returnEquipment(
-    @Param('employeeId') employeeId: string,
-    @Param('taskIndex') taskIndex: string,
+    @Param("employeeId") employeeId: string,
+    @Param("taskIndex") taskIndex: string,
     @Body() dto: ReturnEquipmentDto,
   ) {
     return this.recruitmentService.returnEquipment(
@@ -980,18 +993,18 @@ export class RecruitmentController {
   }
 
   // Payroll & Benefits initiation
-  @Post('onboarding/:employeeId/payroll')
+  @Post("onboarding/:employeeId/payroll")
   async createPayroll(
-    @Param('employeeId') employeeId: string,
+    @Param("employeeId") employeeId: string,
     @Body() dto: CreatePayrollDto,
   ) {
     return this.recruitmentService.createPayrollInitiation(employeeId, dto);
   }
 
-  @Put('onboarding/:employeeId/payroll/:taskIndex/trigger')
+  @Put("onboarding/:employeeId/payroll/:taskIndex/trigger")
   async triggerPayroll(
-    @Param('employeeId') employeeId: string,
-    @Param('taskIndex') taskIndex: string,
+    @Param("employeeId") employeeId: string,
+    @Param("taskIndex") taskIndex: string,
     @Body() dto: TriggerPayrollDto,
   ) {
     return this.recruitmentService.triggerPayroll(
@@ -1001,18 +1014,18 @@ export class RecruitmentController {
     );
   }
 
-  @Post('onboarding/:employeeId/benefits')
+  @Post("onboarding/:employeeId/benefits")
   async createBenefits(
-    @Param('employeeId') employeeId: string,
+    @Param("employeeId") employeeId: string,
     @Body() dto: CreateBenefitsDto,
   ) {
     return this.recruitmentService.createBenefitsRequest(employeeId, dto);
   }
 
-  @Put('onboarding/:employeeId/benefits/:taskIndex/approve')
+  @Put("onboarding/:employeeId/benefits/:taskIndex/approve")
   async approveBenefits(
-    @Param('employeeId') employeeId: string,
-    @Param('taskIndex') taskIndex: string,
+    @Param("employeeId") employeeId: string,
+    @Param("taskIndex") taskIndex: string,
     @Body() dto: ApproveBenefitsDto,
   ) {
     return this.recruitmentService.approveBenefitsRequest(
@@ -1022,10 +1035,10 @@ export class RecruitmentController {
     );
   }
 
-  @Put('onboarding/:employeeId/task/:taskIndex')
+  @Put("onboarding/:employeeId/task/:taskIndex")
   async updateTask(
-    @Param('employeeId') employeeId: string,
-    @Param('taskIndex') taskIndex: string,
+    @Param("employeeId") employeeId: string,
+    @Param("taskIndex") taskIndex: string,
     @Body() dto: UpdateTaskStatusDto,
   ) {
     return this.recruitmentService.updateTaskStatus(
@@ -1035,29 +1048,29 @@ export class RecruitmentController {
     );
   }
 
-  @Post('onboarding/:employeeId/remind/:taskIndex')
+  @Post("onboarding/:employeeId/remind/:taskIndex")
   @UseGuards(RolesGuard)
-  @Roles('HR', 'Manager', 'NewHire')
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.DEPARTMENT_HEAD, SystemRole.DEPARTMENT_EMPLOYEE)
   @ApiOperation({
     summary:
-      'Send task reminder to employee and task owner (HR/Manager/NewHire)',
+      "Send task reminder to employee and task owner (HR/Manager/NewHire)",
   })
-  @ApiResponse({ status: 200, description: 'Reminders sent successfully.' })
+  @ApiResponse({ status: 200, description: "Reminders sent successfully." })
   @ApiResponse({
     status: 403,
-    description: 'Forbidden: cannot send reminders for other employees.',
+    description: "Forbidden: cannot send reminders for other employees.",
   })
-  @ApiResponse({ status: 404, description: 'Task or onboarding not found.' })
+  @ApiResponse({ status: 404, description: "Task or onboarding not found." })
   async remind(
-    @Param('employeeId') employeeId: string,
-    @Param('taskIndex') taskIndex: string,
+    @Param("employeeId") employeeId: string,
+    @Param("taskIndex") taskIndex: string,
     @Request() req: any,
   ): Promise<any> {
     // Authorization: Employee can remind themselves; HR/Manager can remind anyone
     if (
       (req.user?.id as string) !== employeeId &&
-      !['HR', 'Manager', 'SYSTEM_ADMIN'].includes(
-        (req.user?.role as string) || '',
+      !["HR", "Manager", "SYSTEM_ADMIN"].includes(
+        (req.user?.role as string) || "",
       )
     ) {
       throw new ForbiddenException(
@@ -1070,17 +1083,17 @@ export class RecruitmentController {
     );
   }
 
-  @Post('onboarding/reminders/auto-send')
+  @Post("onboarding/reminders/auto-send")
   @UseGuards(RolesGuard)
-  @Roles('HR', 'Manager', 'SYSTEM_ADMIN')
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.DEPARTMENT_HEAD, SystemRole.SYSTEM_ADMIN)
   @ApiOperation({
     summary:
-      'Trigger auto-send of reminders for upcoming deadline tasks (HR/Admin only)',
+      "Trigger auto-send of reminders for upcoming deadline tasks (HR/Admin only)",
   })
-  @ApiResponse({ status: 200, description: 'Auto-reminders sent.' })
+  @ApiResponse({ status: 200, description: "Auto-reminders sent." })
   @ApiResponse({
     status: 403,
-    description: 'Forbidden: HR/Manager/Admin only.',
+    description: "Forbidden: HR/Manager/Admin only.",
   })
   async autoSendReminders() {
     return this.recruitmentService.autoSendRemindersForUpcomingDeadlines();
@@ -1088,7 +1101,7 @@ export class RecruitmentController {
 
   // ============ TERMINATION & OFFBOARDING ENDPOINTS ============
 
-  @Post('termination-reviews/initiate')
+  @Post("termination-reviews/initiate")
   async initiateTerminationReview(
     @Body() dto: InitiateTerminationReviewDto,
   ): Promise<TerminationReviewResponseDto> {
@@ -1099,16 +1112,16 @@ export class RecruitmentController {
     return this.mapToTerminationResponseDto(result);
   }
 
-  @Get('employees/:employeeId/performance-data')
-  async getEmployeePerformanceData(@Param('employeeId') employeeId: string) {
+  @Get("employees/:employeeId/performance-data")
+  async getEmployeePerformanceData(@Param("employeeId") employeeId: string) {
     return await this.recruitmentService.getEmployeePerformanceData(
       new Types.ObjectId(employeeId),
     );
   }
 
-  @Get('employees/:employeeId/termination-reviews')
+  @Get("employees/:employeeId/termination-reviews")
   async getTerminationReviewsForEmployee(
-    @Param('employeeId') employeeId: string,
+    @Param("employeeId") employeeId: string,
   ): Promise<TerminationReviewResponseDto[]> {
     const reviews =
       await this.recruitmentService.getTerminationReviewsForEmployee(
@@ -1117,7 +1130,7 @@ export class RecruitmentController {
     return reviews.map((review) => this.mapToTerminationResponseDto(review));
   }
 
-  @Get('termination-reviews/pending')
+  @Get("termination-reviews/pending")
   async getPendingTerminationReviews(): Promise<
     TerminationReviewResponseDto[]
   > {
@@ -1126,9 +1139,9 @@ export class RecruitmentController {
     return reviews.map((review) => this.mapToTerminationResponseDto(review));
   }
 
-  @Get('termination-reviews/:reviewId')
+  @Get("termination-reviews/:reviewId")
   async getTerminationReviewWithPerformance(
-    @Param('reviewId') reviewId: string,
+    @Param("reviewId") reviewId: string,
   ) {
     const { terminationRequest, performanceData } =
       await this.recruitmentService.getTerminationReviewWithPerformance(
@@ -1140,9 +1153,9 @@ export class RecruitmentController {
     };
   }
 
-  @Put('termination-reviews/:reviewId/status')
+  @Put("termination-reviews/:reviewId/status")
   async updateTerminationReviewStatus(
-    @Param('reviewId') reviewId: string,
+    @Param("reviewId") reviewId: string,
     @Body() body: { status: TerminationStatus; hrComments?: string },
   ): Promise<TerminationReviewResponseDto> {
     const result = await this.recruitmentService.updateTerminationReviewStatus(
@@ -1153,9 +1166,9 @@ export class RecruitmentController {
     return this.mapToTerminationResponseDto(result);
   }
 
-  @Post('terminations/:terminationId/revoke-access')
+  @Post("terminations/:terminationId/revoke-access")
   async revokeTerminatedEmployeeAccess(
-    @Param('terminationId') terminationId: string,
+    @Param("terminationId") terminationId: string,
     @Body()
     body: {
       employeeId: string;
@@ -1168,28 +1181,28 @@ export class RecruitmentController {
       new Types.ObjectId(terminationId),
       new Types.ObjectId(body.employeeId),
       new Types.ObjectId(body.revokedBy),
-      body.accessType || 'ALL_ACCESS',
-      body.comments || '',
+      body.accessType || "ALL_ACCESS",
+      body.comments || "",
     );
   }
 
-  @Get('terminations/access/revoked')
+  @Get("terminations/access/revoked")
   async getTerminatedEmployeesWithRevokedAccess(): Promise<any[]> {
     return await this.recruitmentService.getTerminatedEmployeesWithRevokedAccess();
   }
 
-  @Get('employees/:employeeId/access-revocation-history')
+  @Get("employees/:employeeId/access-revocation-history")
   async getEmployeeAccessRevocationHistory(
-    @Param('employeeId') employeeId: string,
+    @Param("employeeId") employeeId: string,
   ): Promise<any> {
     return await this.recruitmentService.getEmployeeAccessRevocationHistory(
       new Types.ObjectId(employeeId),
     );
   }
 
-  @Post('terminations/:terminationId/offboarding-checklist')
+  @Post("terminations/:terminationId/offboarding-checklist")
   async createOffboardingChecklist(
-    @Param('terminationId') terminationId: string,
+    @Param("terminationId") terminationId: string,
   ): Promise<OffboardingChecklistResponseDto> {
     const dto: CreateOffboardingChecklistDto = {
       terminationId: new Types.ObjectId(terminationId),
@@ -1199,18 +1212,18 @@ export class RecruitmentController {
     return this.mapOffboardingToResponseDto(result);
   }
 
-  @Get('terminations/:terminationId/offboarding-checklist')
+  @Get("terminations/:terminationId/offboarding-checklist")
   async getOffboardingChecklist(
-    @Param('terminationId') terminationId: string,
+    @Param("terminationId") terminationId: string,
   ): Promise<OffboardingChecklistResponseDto> {
     return await this.recruitmentService.getOffboardingChecklist(
       new Types.ObjectId(terminationId),
     );
   }
 
-  @Get('terminations/:terminationId/offboarding-checklist/summary')
+  @Get("terminations/:terminationId/offboarding-checklist/summary")
   async getOffboardingChecklistSummary(
-    @Param('terminationId') terminationId: string,
+    @Param("terminationId") terminationId: string,
   ): Promise<OffboardingChecklistSummaryDto> {
     return await this.recruitmentService.getOffboardingChecklistSummary(
       new Types.ObjectId(terminationId),
@@ -1218,11 +1231,11 @@ export class RecruitmentController {
   }
 
   @Put(
-    'terminations/:terminationId/offboarding-checklist/departments/:department',
+    "terminations/:terminationId/offboarding-checklist/departments/:department",
   )
   async updateDepartmentApproval(
-    @Param('terminationId') terminationId: string,
-    @Param('department') department: string,
+    @Param("terminationId") terminationId: string,
+    @Param("department") department: string,
     @Body()
     body: { status: ApprovalStatus; comments?: string; updatedBy?: string },
   ): Promise<OffboardingChecklistResponseDto> {
@@ -1239,9 +1252,9 @@ export class RecruitmentController {
     return result;
   }
 
-  @Put('terminations/:terminationId/offboarding-checklist/equipment')
+  @Put("terminations/:terminationId/offboarding-checklist/equipment")
   async updateEquipmentReturn(
-    @Param('terminationId') terminationId: string,
+    @Param("terminationId") terminationId: string,
     @Body()
     body: {
       equipmentUpdates: Array<{
@@ -1258,9 +1271,9 @@ export class RecruitmentController {
     return result;
   }
 
-  @Post('terminations/:terminationId/offboarding-checklist/complete')
+  @Post("terminations/:terminationId/offboarding-checklist/complete")
   async completeOffboarding(
-    @Param('terminationId') terminationId: string,
+    @Param("terminationId") terminationId: string,
   ): Promise<OffboardingChecklistResponseDto> {
     const result = await this.recruitmentService.completeOffboarding(
       new Types.ObjectId(terminationId),
@@ -1268,10 +1281,10 @@ export class RecruitmentController {
     return result;
   }
 
-  @Put('terminations/:terminationId/clearance/:department')
+  @Put("terminations/:terminationId/clearance/:department")
   async updateClearanceStatus(
-    @Param('terminationId') terminationId: string,
-    @Param('department') department: string,
+    @Param("terminationId") terminationId: string,
+    @Param("department") department: string,
     @Body() body: { status: string; comments?: string; approvedBy: string },
   ): Promise<any> {
     const result = await this.recruitmentService.updateClearanceStatus(
@@ -1284,9 +1297,9 @@ export class RecruitmentController {
     return result;
   }
 
-  @Get('terminations/:terminationId/clearance/status')
+  @Get("terminations/:terminationId/clearance/status")
   async getFullClearanceStatus(
-    @Param('terminationId') terminationId: string,
+    @Param("terminationId") terminationId: string,
   ): Promise<any> {
     const result = await this.recruitmentService.getFullClearanceStatus(
       new Types.ObjectId(terminationId),
@@ -1294,21 +1307,21 @@ export class RecruitmentController {
     return result;
   }
 
-  @Get('clearances/pending')
+  @Get("clearances/pending")
   async getPendingClearances(): Promise<any> {
     const result = await this.recruitmentService.getPendingClearances();
     return result;
   }
 
-  @Get('clearances/fully-cleared')
+  @Get("clearances/fully-cleared")
   async getFullyClearedTerminations(): Promise<any> {
     const result = await this.recruitmentService.getFullyClearedTerminations();
     return result;
   }
 
-  @Get('terminations/:terminationId/clearance/is-cleared')
+  @Get("terminations/:terminationId/clearance/is-cleared")
   async isEmployeeFullyCleared(
-    @Param('terminationId') terminationId: string,
+    @Param("terminationId") terminationId: string,
   ): Promise<{ isCleared: boolean }> {
     const isCleared = await this.recruitmentService.isEmployeeFullyCleared(
       new Types.ObjectId(terminationId),
@@ -1316,9 +1329,9 @@ export class RecruitmentController {
     return { isCleared };
   }
 
-  @Post('terminations/:terminationId/send-offboarding-notification')
+  @Post("terminations/:terminationId/send-offboarding-notification")
   async sendOffboardingNotification(
-    @Param('terminationId') terminationId: string,
+    @Param("terminationId") terminationId: string,
     @Body()
     body: {
       notificationType?: string;
@@ -1334,9 +1347,9 @@ export class RecruitmentController {
     return result;
   }
 
-  @Get('terminations/:terminationId/final-pay-calculation')
+  @Get("terminations/:terminationId/final-pay-calculation")
   async calculateFinalPay(
-    @Param('terminationId') terminationId: string,
+    @Param("terminationId") terminationId: string,
   ): Promise<any> {
     const result = await this.recruitmentService.calculateFinalPay(
       new Types.ObjectId(terminationId),
@@ -1345,17 +1358,17 @@ export class RecruitmentController {
     return result;
   }
 
-  @Get('employees/:employeeId/leave-balance')
-  async getLeaveBalance(@Param('employeeId') employeeId: string): Promise<any> {
+  @Get("employees/:employeeId/leave-balance")
+  async getLeaveBalance(@Param("employeeId") employeeId: string): Promise<any> {
     const result = await this.recruitmentService.getLeaveBalance(
       new Types.ObjectId(employeeId),
     );
     return result;
   }
 
-  @Get('employees/:employeeId/benefits')
+  @Get("employees/:employeeId/benefits")
   async getEmployeeBenefits(
-    @Param('employeeId') employeeId: string,
+    @Param("employeeId") employeeId: string,
   ): Promise<any> {
     const result = await this.recruitmentService.getEmployeeBenefits(
       new Types.ObjectId(employeeId),
@@ -1363,9 +1376,9 @@ export class RecruitmentController {
     return result;
   }
 
-  @Post('terminations/:terminationId/trigger-benefits-termination')
+  @Post("terminations/:terminationId/trigger-benefits-termination")
   async triggerBenefitsTermination(
-    @Param('terminationId') terminationId: string,
+    @Param("terminationId") terminationId: string,
     @Body() body: { terminationDate: string },
   ): Promise<any> {
     const result = await this.recruitmentService.triggerBenefitsTermination(
@@ -1375,9 +1388,9 @@ export class RecruitmentController {
     return result;
   }
 
-  @Get('terminations/:terminationId/offboarding-notification-history')
+  @Get("terminations/:terminationId/offboarding-notification-history")
   async getOffboardingNotificationHistory(
-    @Param('terminationId') terminationId: string,
+    @Param("terminationId") terminationId: string,
   ): Promise<any> {
     const result =
       await this.recruitmentService.getOffboardingNotificationHistory(
@@ -1386,7 +1399,7 @@ export class RecruitmentController {
     return result;
   }
 
-  @Post('resignations/submit')
+  @Post("resignations/submit")
   async submitResignationRequest(
     @Body()
     body: {
@@ -1413,9 +1426,9 @@ export class RecruitmentController {
     return result;
   }
 
-  @Get('resignations/:resignationId/status')
+  @Get("resignations/:resignationId/status")
   async getResignationStatus(
-    @Param('resignationId') resignationId: string,
+    @Param("resignationId") resignationId: string,
   ): Promise<any> {
     const result = await this.recruitmentService.getResignationStatus(
       new Types.ObjectId(resignationId),
@@ -1423,9 +1436,9 @@ export class RecruitmentController {
     return result;
   }
 
-  @Get('resignations/:resignationId/track')
+  @Get("resignations/:resignationId/track")
   async trackResignationRequest(
-    @Param('resignationId') resignationId: string,
+    @Param("resignationId") resignationId: string,
   ): Promise<any> {
     const result = await this.recruitmentService.trackResignationRequest(
       new Types.ObjectId(resignationId),
@@ -1433,9 +1446,9 @@ export class RecruitmentController {
     return result;
   }
 
-  @Get('resignations/:resignationId/history')
+  @Get("resignations/:resignationId/history")
   async getResignationHistory(
-    @Param('resignationId') resignationId: string,
+    @Param("resignationId") resignationId: string,
   ): Promise<any> {
     const result = await this.recruitmentService.getResignationHistory(
       new Types.ObjectId(resignationId),
@@ -1443,9 +1456,9 @@ export class RecruitmentController {
     return result;
   }
 
-  @Put('resignations/:resignationId/status')
+  @Put("resignations/:resignationId/status")
   async updateResignationStatus(
-    @Param('resignationId') resignationId: string,
+    @Param("resignationId") resignationId: string,
     @Body()
     body: {
       status: string;
@@ -1462,9 +1475,9 @@ export class RecruitmentController {
     return result;
   }
 
-  @Get('employees/:employeeId/resignations')
+  @Get("employees/:employeeId/resignations")
   async getEmployeeResignations(
-    @Param('employeeId') employeeId: string,
+    @Param("employeeId") employeeId: string,
   ): Promise<any> {
     const result = await this.recruitmentService.getEmployeeResignations(
       new Types.ObjectId(employeeId),

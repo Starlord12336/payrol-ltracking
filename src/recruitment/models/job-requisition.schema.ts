@@ -19,6 +19,7 @@ export class JobRequisition {
   hiringManagerId: Types.ObjectId;
 
   @Prop({
+    type: String,
     enum: ['draft', 'published', 'closed'],
     default: 'draft',
   })

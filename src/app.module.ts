@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuthModule } from './auth/auth.module';
 import { TimeManagementModule } from './time-management/time-management.module';
 import { RecruitmentModule } from './recruitment/recruitment.module';
 import { LeavesModule } from './leaves/leaves.module';
@@ -19,6 +20,7 @@ import { PayrollExecutionModule } from './payroll-execution/payroll-execution.mo
       process.env.MONGODB_URI ||
         'mongodb+srv://emad_admin:VTleW62xq1Dpywdx@payroll-cluster-system.n3cu4rw.mongodb.net/',
     ),
+    AuthModule, // Auth module must be imported first for guards and JWT
     TimeManagementModule,
     RecruitmentModule,
     LeavesModule,

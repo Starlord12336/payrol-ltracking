@@ -60,7 +60,7 @@ export class PayrollTrackingController {
    */
   @Get('employee/:employeeId/payslips/:payslipId')
   @Roles(
-    SystemRole.EMPLOYEE,
+    SystemRole.DEPARTMENT_EMPLOYEE,
     SystemRole.PAYROLL_SPECIALIST,
     SystemRole.PAYROLL_MANAGER,
   )
@@ -82,7 +82,7 @@ export class PayrollTrackingController {
    */
   @Get('employee/:employeeId/payslips')
   @Roles(
-    SystemRole.EMPLOYEE,
+    SystemRole.DEPARTMENT_EMPLOYEE,
     SystemRole.PAYROLL_SPECIALIST,
     SystemRole.PAYROLL_MANAGER,
   )
@@ -111,7 +111,7 @@ export class PayrollTrackingController {
    */
   @Get('employee/:employeeId/base-salary')
   @Roles(
-    SystemRole.EMPLOYEE,
+    SystemRole.DEPARTMENT_EMPLOYEE,
     SystemRole.PAYROLL_SPECIALIST,
     SystemRole.PAYROLL_MANAGER,
   )
@@ -222,7 +222,7 @@ export class PayrollTrackingController {
    */
   @Get('employee/:employeeId/salary-history')
   @Roles(
-    SystemRole.EMPLOYEE,
+    SystemRole.DEPARTMENT_EMPLOYEE,
     SystemRole.PAYROLL_SPECIALIST,
     SystemRole.PAYROLL_MANAGER,
   )
@@ -277,7 +277,7 @@ export class PayrollTrackingController {
    * POST /payroll-tracking/employee/:employeeId/disputes
    */
   @Post('employee/:employeeId/disputes')
-  @Roles(SystemRole.EMPLOYEE)
+  @Roles(SystemRole.DEPARTMENT_EMPLOYEE)
   @ApiOperation({ summary: 'Employee disputes payroll errors' })
   @ApiResponse({ status: 201, description: 'Dispute created successfully' })
   async createDispute(
@@ -384,7 +384,7 @@ export class PayrollTrackingController {
    * POST /payroll-tracking/employee/:employeeId/claims
    */
   @Post('employee/:employeeId/claims')
-  @Roles(SystemRole.EMPLOYEE)
+  @Roles(SystemRole.DEPARTMENT_EMPLOYEE)
   @ApiOperation({ summary: 'Employee submits expense reimbursement claims' })
   @ApiResponse({ status: 201, description: 'Claim created successfully' })
   async createClaim(
