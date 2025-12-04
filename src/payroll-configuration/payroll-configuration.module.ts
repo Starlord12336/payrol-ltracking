@@ -59,7 +59,7 @@ import { SigningBonusListener } from './listeners/signing-bonus.listener';
   providers: [
     PayrollConfigurationService,
     // Event Listeners
-    // SigningBonusListener, // TODO: Re-enable after fixing circular dependency
+    SigningBonusListener,
   ],
   exports: [PayrollConfigurationService],
 })

@@ -19,9 +19,11 @@ import {
   EmployeeProfile,
   EmployeeProfileSchema,
 } from '../employee-profile/models/employee-profile.schema';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
+    AuthModule,
     PayrollConfigurationModule,
     forwardRef(() => PayrollExecutionModule),
     MongooseModule.forFeature([

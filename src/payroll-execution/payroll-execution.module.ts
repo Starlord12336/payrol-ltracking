@@ -18,6 +18,10 @@ import {
   employeeSigningBonus,
   employeeSigningBonusSchema,
 } from './models/EmployeeSigningBonus.schema';
+import {
+  EmployeeTerminationResignation,
+  EmployeeTerminationResignationSchema,
+} from './models/EmployeeTerminationResignation.schema';
 import { payrollRuns, payrollRunsSchema } from './models/payrollRuns.schema';
 import { paySlip, paySlipSchema } from './models/payslip.schema';
 import { PayrollTrackingModule } from '../payroll-tracking/payroll-tracking.module';
@@ -25,9 +29,11 @@ import { PayrollConfigurationModule } from '../payroll-configuration/payroll-con
 import { TimeManagementModule } from '../time-management/time-management.module';
 import { EmployeeProfileModule } from '../employee-profile/employee-profile.module';
 import { LeavesModule } from '../leaves/leaves.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
+    AuthModule,
     forwardRef(() => PayrollTrackingModule),
     PayrollConfigurationModule,
     TimeManagementModule,
@@ -41,6 +47,10 @@ import { LeavesModule } from '../leaves/leaves.module';
         schema: employeePayrollDetailsSchema,
       },
       { name: employeeSigningBonus.name, schema: employeeSigningBonusSchema },
+      {
+        name: EmployeeTerminationResignation.name,
+        schema: EmployeeTerminationResignationSchema,
+      },
       {
         name: terminationAndResignationBenefits.name,
         schema: terminationAndResignationBenefitsSchema,
