@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
+import { ConfigStatus } from '../enums/payroll-configuration-enums';
 
 export type CompanyWideSettingsDocument = HydratedDocument<CompanyWideSettings>;
 
@@ -11,6 +12,20 @@ export class CompanyWideSettings {
   timeZone: string;
   @Prop({ required: true, default: 'EGP' })
   currency: string; //will allow only egp
+
+  @Prop({
+    required: true,
+    type: String,
+    enum: ConfigStatus,
+    default: ConfigStatus.DRAFT,
+  })
+  status: ConfigStatus;
+
+  @Prop({ type: Types.ObjectId, ref: 'EmployeeProfile' })
+  approvedBy?: Types.ObjectId;
+
+  @Prop({ type: Date })
+  approvedAt?: Date;
 }
 
 export const CompanyWideSettingsSchema =

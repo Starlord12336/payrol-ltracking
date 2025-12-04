@@ -17,4 +17,3 @@ export class UpdatePositionDto extends PartialType(CreatePositionDto) {
   @Min(0)
   currentHeadcount?: number;
 }
-

@@ -25,7 +25,6 @@ export class CreateShiftDto {
   @ApiProperty({ description: 'Shift type (TYPE yk)' })
   @IsEnum(ShiftType)
   shiftType: ShiftType;
-  
 
   @ApiProperty({ description: 'Start time (HH:mm)' })
   @IsString()
@@ -154,31 +153,52 @@ export class UpdateShiftAssignmentDto {
 //
 
 export class CreateShiftTypeDto {
-  @ApiProperty({ example: 'Morning Shift', description: 'Name of the shift type' })
+  @ApiProperty({
+    example: 'Morning Shift',
+    description: 'Name of the shift type',
+  })
   @IsString()
   name: string;
 
-  @ApiProperty({ example: true, description: 'Whether the shift type is active', default: true })
+  @ApiProperty({
+    example: true,
+    description: 'Whether the shift type is active',
+    default: true,
+  })
   @IsBoolean()
   @IsOptional()
   active?: boolean = true;
 }
 
 export class ShiftTypeDto {
-  @ApiProperty({ example: 'Morning Shift', description: 'Name of the shift type' })
+  @ApiProperty({
+    example: 'Morning Shift',
+    description: 'Name of the shift type',
+  })
   name: string;
 
-  @ApiProperty({ example: true, description: 'Whether the shift type is active' })
+  @ApiProperty({
+    example: true,
+    description: 'Whether the shift type is active',
+  })
   active: boolean;
 }
 
 export class UpdateShiftTypeDto {
-  @ApiProperty({ example: 'Evening Shift', description: 'Updated name of the shift type', required: false })
+  @ApiProperty({
+    example: 'Evening Shift',
+    description: 'Updated name of the shift type',
+    required: false,
+  })
   @IsString()
   @IsOptional()
   name?: string;
 
-  @ApiProperty({ example: false, description: 'Updated active status', required: false })
+  @ApiProperty({
+    example: false,
+    description: 'Updated active status',
+    required: false,
+  })
   @IsBoolean()
   @IsOptional()
   active?: boolean;

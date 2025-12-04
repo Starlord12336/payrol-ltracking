@@ -5,4 +5,3 @@ export class AssignDepartmentDto {
   @IsNotEmpty()
   departmentId: string;
 }
-

@@ -39,8 +39,9 @@ export class EmployeeProfileController {
   @Get('me')
   @HttpCode(HttpStatus.OK)
   async getMyProfile(@CurrentUser() user: JwtPayload) {
-    const profile =
-      await this.employeeProfileService.getOwnProfile(user.employeeId?.toString() || user.userid.toString());
+    const profile = await this.employeeProfileService.getOwnProfile(
+      user.employeeId?.toString() || user.userid.toString(),
+    );
 
     return {
       success: true,
@@ -59,11 +60,10 @@ export class EmployeeProfileController {
     @CurrentUser() user: JwtPayload,
     @Body() body: UpdateMyProfileDto,
   ) {
-    const updated =
-      await this.employeeProfileService.updateMyProfile(
-        user.employeeId?.toString() || user.userid.toString(),
-        body,
-      );
+    const updated = await this.employeeProfileService.updateMyProfile(
+      user.employeeId?.toString() || user.userid.toString(),
+      body,
+    );
 
     return {
       success: true,
@@ -82,11 +82,10 @@ export class EmployeeProfileController {
     @CurrentUser() user: JwtPayload,
     @Body() body: UpdateContactInfoDto,
   ) {
-    const updated =
-      await this.employeeProfileService.updateOwnContactInfo(
-        user.employeeId?.toString() || user.userid.toString(),
-        body,
-      );
+    const updated = await this.employeeProfileService.updateOwnContactInfo(
+      user.employeeId?.toString() || user.userid.toString(),
+      body,
+    );
 
     return {
       success: true,
@@ -106,11 +105,10 @@ export class EmployeeProfileController {
     @CurrentUser() user: JwtPayload,
     @Body() body: UpdateAddressDto,
   ) {
-    const updated =
-      await this.employeeProfileService.updateOwnAddress(
-        user.employeeId?.toString() || user.userid.toString(),
-        body,
-      );
+    const updated = await this.employeeProfileService.updateOwnAddress(
+      user.employeeId?.toString() || user.userid.toString(),
+      body,
+    );
 
     return {
       success: true,
@@ -127,11 +125,10 @@ export class EmployeeProfileController {
     @CurrentUser() user: JwtPayload,
     @Body() body: UpdateProfilePictureDto,
   ) {
-    const updated =
-      await this.employeeProfileService.updateOwnProfilePicture(
-        user.employeeId?.toString() || user.userid.toString(),
-        body,
-      );
+    const updated = await this.employeeProfileService.updateOwnProfilePicture(
+      user.employeeId?.toString() || user.userid.toString(),
+      body,
+    );
 
     return {
       success: true,
@@ -152,11 +149,10 @@ export class EmployeeProfileController {
     @CurrentUser() user: JwtPayload,
     @Body() body: SubmitChangeRequestDto,
   ) {
-    const result =
-      await this.employeeProfileService.submitChangeRequest(
-        user.employeeId?.toString() || user.userid.toString(),
-        body,
-      );
+    const result = await this.employeeProfileService.submitChangeRequest(
+      user.employeeId?.toString() || user.userid.toString(),
+      body,
+    );
 
     return {
       success: true,
@@ -168,8 +164,9 @@ export class EmployeeProfileController {
   @Get('me/change-requests')
   @HttpCode(HttpStatus.OK)
   async getMyChangeRequests(@CurrentUser() user: JwtPayload) {
-    const requests =
-      await this.employeeProfileService.getMyChangeRequests(user.employeeId?.toString() || user.userid.toString());
+    const requests = await this.employeeProfileService.getMyChangeRequests(
+      user.employeeId?.toString() || user.userid.toString(),
+    );
 
     return {
       success: true,
@@ -185,12 +182,16 @@ export class EmployeeProfileController {
   @Get('team')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.DEPARTMENT_HEAD, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
-  async getTeamProfiles(
-    @CurrentUser() user: JwtPayload,
-  ) {
-    const team =
-      await this.employeeProfileService.getTeamProfiles(user.employeeId?.toString() || user.userid.toString());
+  @Roles(
+    SystemRole.DEPARTMENT_HEAD,
+    SystemRole.HR_MANAGER,
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+  )
+  async getTeamProfiles(@CurrentUser() user: JwtPayload) {
+    const team = await this.employeeProfileService.getTeamProfiles(
+      user.employeeId?.toString() || user.userid.toString(),
+    );
 
     return {
       success: true,
@@ -203,11 +204,10 @@ export class EmployeeProfileController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
   @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
-  async getAllProfiles(
-    @CurrentUser() user: JwtPayload,
-  ) {
-    const employees =
-      await this.employeeProfileService.getAllProfiles(user.employeeId?.toString() || user.userid.toString());
+  async getAllProfiles(@CurrentUser() user: JwtPayload) {
+    const employees = await this.employeeProfileService.getAllProfiles(
+      user.employeeId?.toString() || user.userid.toString(),
+    );
 
     return {
       success: true,
@@ -225,8 +225,7 @@ export class EmployeeProfileController {
   @UseGuards(RolesGuard)
   @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
   async searchProfiles(@Query() query: SearchEmployeeProfilesDto) {
-    const results =
-      await this.employeeProfileService.searchProfiles(query);
+    const results = await this.employeeProfileService.searchProfiles(query);
 
     return {
       success: true,
@@ -243,13 +242,10 @@ export class EmployeeProfileController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
   @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
-  async getPendingChangeRequests(
-    @CurrentUser() user: JwtPayload,
-  ) {
-    const pending =
-      await this.employeeProfileService.getPendingChangeRequests(
-        user.employeeId?.toString() || user.userid.toString(),
-      );
+  async getPendingChangeRequests(@CurrentUser() user: JwtPayload) {
+    const pending = await this.employeeProfileService.getPendingChangeRequests(
+      user.employeeId?.toString() || user.userid.toString(),
+    );
 
     return {
       success: true,
@@ -271,7 +267,9 @@ export class EmployeeProfileController {
     @Param('id') id: string,
     @CurrentUser() user: JwtPayload,
   ) {
-    await this.employeeProfileService.ensureHrAccess(user.employeeId?.toString() || user.userid.toString());
+    await this.employeeProfileService.ensureHrAccess(
+      user.employeeId?.toString() || user.userid.toString(),
+    );
 
     const profile = await this.employeeProfileService.getProfileById(id);
 
@@ -291,12 +289,11 @@ export class EmployeeProfileController {
     @CurrentUser() user: JwtPayload,
     @Body() body: ReviewChangeRequestDto,
   ) {
-    const result =
-      await this.employeeProfileService.reviewChangeRequest(
-        user.employeeId?.toString() || user.userid.toString(),
-        id,
-        body,
-      );
+    const result = await this.employeeProfileService.reviewChangeRequest(
+      user.employeeId?.toString() || user.userid.toString(),
+      id,
+      body,
+    );
 
     return {
       success: true,
@@ -317,14 +314,15 @@ export class EmployeeProfileController {
     @CurrentUser() user: JwtPayload,
     @Body() body: UpdateEmployeeProfileAsHrDto,
   ) {
-    const updated =
-      await this.employeeProfileService.updateEmployeeProfileAsHr(id, body);
+    const updated = await this.employeeProfileService.updateEmployeeProfileAsHr(
+      id,
+      body,
+    );
 
-  return {
-    success: true,
-    message: 'Employee profile updated successfully by HR',
-    data: updated,
-  };
-}
-
+    return {
+      success: true,
+      message: 'Employee profile updated successfully by HR',
+      data: updated,
+    };
+  }
 }

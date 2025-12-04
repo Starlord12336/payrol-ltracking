@@ -12,4 +12,3 @@ export class CreateOrgChartSnapshotDto {
   @IsOptional()
   purpose?: string; // SnapshotPurpose enum doesn't exist in schema
 }
-

@@ -1,4 +1,11 @@
-import { IsMongoId, IsString, IsBoolean, IsOptional, IsArray, IsObject } from 'class-validator';
+import {
+  IsMongoId,
+  IsString,
+  IsBoolean,
+  IsOptional,
+  IsArray,
+  IsObject,
+} from 'class-validator';
 import { Types } from 'mongoose';
 import { ApprovalStatus } from '../enums/approval-status.enum';
 

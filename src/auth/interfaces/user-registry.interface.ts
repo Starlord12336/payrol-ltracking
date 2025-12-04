@@ -36,4 +36,3 @@ export interface UserTypeRegistry {
    */
   getUserIdentifier?: (user: any) => string | undefined;
 }
-

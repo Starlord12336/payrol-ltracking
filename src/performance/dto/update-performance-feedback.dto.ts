@@ -9,4 +9,3 @@ export class UpdatePerformanceFeedbackDto extends PartialType(
   @IsOptional()
   recipientResponse?: string;
 }
-

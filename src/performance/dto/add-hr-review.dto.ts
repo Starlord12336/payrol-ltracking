@@ -16,4 +16,3 @@ export class AddHrReviewDto {
   @IsOptional()
   hrComments?: string;
 }
-

@@ -7,9 +7,18 @@ import { EmployeeProfileModule } from '../employee-profile/employee-profile.modu
 import { UserRegistryService } from './services/user-registry.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
-import { EmployeeProfile, EmployeeProfileSchema } from '../employee-profile/models/employee-profile.schema';
-import { Candidate, CandidateSchema } from '../employee-profile/models/candidate.schema';
-import { EmployeeSystemRole, EmployeeSystemRoleSchema } from '../employee-profile/models/employee-system-role.schema';
+import {
+  EmployeeProfile,
+  EmployeeProfileSchema,
+} from '../employee-profile/models/employee-profile.schema';
+import {
+  Candidate,
+  CandidateSchema,
+} from '../employee-profile/models/candidate.schema';
+import {
+  EmployeeSystemRole,
+  EmployeeSystemRoleSchema,
+} from '../employee-profile/models/employee-system-role.schema';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
@@ -27,7 +36,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         const expiresIn = configService.get<string>('JWT_EXPIRES_IN') || '24h';
         return {
           global: true,
-          secret: configService.get<string>('JWT_SECRET') || 'default-secret-change-in-production',
+          secret:
+            configService.get<string>('JWT_SECRET') ||
+            'default-secret-change-in-production',
           signOptions: {
             expiresIn: expiresIn as string,
           },
@@ -39,12 +50,11 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
   controllers: [AuthController],
   providers: [AuthService, UserRegistryService, JwtAuthGuard, RolesGuard], // Add guards as providers
   exports: [
-    AuthService, 
-    UserRegistryService, 
-    JwtAuthGuard, 
+    AuthService,
+    UserRegistryService,
+    JwtAuthGuard,
     RolesGuard,
     JwtModule, // Export JwtModule so modules importing AuthModule can access JwtService
   ], // Export guards and JwtModule so other modules can use them
 })
 export class AuthModule {}
-

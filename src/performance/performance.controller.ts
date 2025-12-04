@@ -60,7 +60,8 @@ export class PerformanceController {
    */
   @Get('templates')
   async findAllTemplates(@Query('isActive') isActive?: string) {
-    const isActiveBool = isActive === 'true' ? true : isActive === 'false' ? false : undefined;
+    const isActiveBool =
+      isActive === 'true' ? true : isActive === 'false' ? false : undefined;
     return this.performanceService.findAllTemplates(isActiveBool);
   }
 
@@ -226,7 +227,10 @@ export class PerformanceController {
     @Param('employeeId') employeeId: string,
     @Query('cycleId') cycleId?: string,
   ) {
-    return this.performanceService.findAssignmentsByEmployee(employeeId, cycleId);
+    return this.performanceService.findAssignmentsByEmployee(
+      employeeId,
+      cycleId,
+    );
   }
 
   /**
@@ -238,7 +242,10 @@ export class PerformanceController {
     @Param('cycleId') cycleId: string,
     @Param('employeeId') employeeId: string,
   ) {
-    return this.performanceService.findAssignmentByEmployeeAndCycle(employeeId, cycleId);
+    return this.performanceService.findAssignmentByEmployeeAndCycle(
+      employeeId,
+      cycleId,
+    );
   }
 
   // ==================== APPRAISAL EVALUATION ENDPOINTS ====================
@@ -251,13 +258,22 @@ export class PerformanceController {
   @Post('cycles/:cycleId/employees/:employeeId/evaluation')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.DEPARTMENT_HEAD, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(
+    SystemRole.DEPARTMENT_HEAD,
+    SystemRole.HR_MANAGER,
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+  )
   async createOrUpdateEvaluation(
     @Param('cycleId') cycleId: string,
     @Param('employeeId') employeeId: string,
     @Body() createDto: CreateAppraisalEvaluationDto,
   ) {
-    return this.performanceService.createOrUpdateEvaluation(cycleId, employeeId, createDto);
+    return this.performanceService.createOrUpdateEvaluation(
+      cycleId,
+      employeeId,
+      createDto,
+    );
   }
 
   /**
@@ -269,7 +285,10 @@ export class PerformanceController {
     @Param('cycleId') cycleId: string,
     @Param('employeeId') employeeId: string,
   ) {
-    return this.performanceService.findEvaluationByCycleAndEmployee(cycleId, employeeId);
+    return this.performanceService.findEvaluationByCycleAndEmployee(
+      cycleId,
+      employeeId,
+    );
   }
 
   /**
@@ -300,7 +319,12 @@ export class PerformanceController {
    */
   @Put('evaluations/:id')
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.DEPARTMENT_HEAD, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(
+    SystemRole.DEPARTMENT_HEAD,
+    SystemRole.HR_MANAGER,
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+  )
   async updateEvaluation(
     @Param('id') id: string,
     @Body() updateDto: UpdateAppraisalEvaluationDto,
@@ -323,7 +347,13 @@ export class PerformanceController {
   @Post('disputes')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.DEPARTMENT_EMPLOYEE, SystemRole.DEPARTMENT_HEAD, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(
+    SystemRole.DEPARTMENT_EMPLOYEE,
+    SystemRole.DEPARTMENT_HEAD,
+    SystemRole.HR_MANAGER,
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+  )
   async createDispute(
     @Body('employeeId') employeeId: string,
     @Body() createDto: CreateAppraisalDisputeDto,

@@ -14,4 +14,3 @@ export class UpdateAppraisalEvaluationDto extends PartialType(
   @IsOptional()
   employeeComments?: string;
 }
-

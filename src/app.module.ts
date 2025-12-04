@@ -16,7 +16,8 @@ import { PayrollExecutionModule } from './payroll-execution/payroll-execution.mo
 @Module({
   imports: [
     MongooseModule.forRoot(
-      process.env.MONGODB_URI || 'mongodb+srv://emad_admin:VTleW62xq1Dpywdx@payroll-cluster-system.n3cu4rw.mongodb.net/',
+      process.env.MONGODB_URI ||
+        'mongodb+srv://emad_admin:VTleW62xq1Dpywdx@payroll-cluster-system.n3cu4rw.mongodb.net/',
     ),
     TimeManagementModule,
     RecruitmentModule,

@@ -1,6 +1,17 @@
-import { IsOptional, IsString, IsEnum, IsMongoId, IsInt, Min, Max } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsEnum,
+  IsMongoId,
+  IsInt,
+  Min,
+  Max,
+} from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { StructureRequestType, StructureRequestStatus } from '../enums/organization-structure.enums';
+import {
+  StructureRequestType,
+  StructureRequestStatus,
+} from '../enums/organization-structure.enums';
 
 export class QueryOrgChangeRequestDto {
   @IsOptional()
@@ -40,4 +51,3 @@ export class QueryOrgChangeRequestDto {
   @IsString()
   sortOrder?: 'asc' | 'desc' = 'desc';
 }
-

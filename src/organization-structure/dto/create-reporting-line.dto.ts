@@ -1,4 +1,11 @@
-import { IsMongoId, IsOptional, IsBoolean, IsDateString, IsString, MaxLength } from 'class-validator';
+import {
+  IsMongoId,
+  IsOptional,
+  IsBoolean,
+  IsDateString,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateReportingLineDto {
   @IsMongoId()
@@ -48,4 +55,3 @@ export class CreateReportingLineDto {
   @MaxLength(500)
   reason?: string;
 }
-

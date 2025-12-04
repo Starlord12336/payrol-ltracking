@@ -12,4 +12,3 @@ export interface JwtPayload {
   employeeNumber?: string;
   candidateNumber?: string;
 }
-

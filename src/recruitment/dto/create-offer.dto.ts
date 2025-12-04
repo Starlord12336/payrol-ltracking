@@ -1,4 +1,11 @@
-import { IsString, IsNumber, IsOptional, IsArray, IsDateString, IsMongoId } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsArray,
+  IsDateString,
+  IsMongoId,
+} from 'class-validator';
 
 export class CreateOfferDto {
   @IsMongoId()

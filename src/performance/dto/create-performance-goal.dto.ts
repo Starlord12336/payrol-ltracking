@@ -55,4 +55,3 @@ export class CreatePerformanceGoalDto {
   @IsDateString()
   dueDate: string;
 }
-

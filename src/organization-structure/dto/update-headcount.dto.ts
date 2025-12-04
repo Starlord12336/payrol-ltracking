@@ -14,4 +14,3 @@ export class UpdateHeadcountDto {
   @Min(1)
   headcountBudget?: number;
 }
-

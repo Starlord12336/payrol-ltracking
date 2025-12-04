@@ -19,6 +19,12 @@ export class signingBonus {
   })
   status: ConfigStatus; // draft, approved, rejected
 
+  @Prop({ type: String, default: 'onboarding' })
+  bonusType?: string;
+
+  @Prop({ type: String })
+  eligibilityCriteria?: string;
+
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: Employee.name })
   createdBy?: mongoose.Types.ObjectId;
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: Employee.name })

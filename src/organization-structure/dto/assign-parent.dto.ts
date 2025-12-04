@@ -5,4 +5,3 @@ export class AssignParentDto {
   @IsOptional()
   parentDepartmentId?: string; // null to remove parent (make it root)
 }
-

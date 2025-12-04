@@ -1,4 +1,12 @@
-import { IsString, IsDateString, IsOptional, IsArray, IsIn, IsNumber, IsMongoId } from 'class-validator';
+import {
+  IsString,
+  IsDateString,
+  IsOptional,
+  IsArray,
+  IsIn,
+  IsNumber,
+  IsMongoId,
+} from 'class-validator';
 
 export class ScheduleInterviewDto {
   @IsMongoId()

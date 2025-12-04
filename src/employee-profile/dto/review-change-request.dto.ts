@@ -11,8 +11,6 @@
 //   reviewComment?: string;
 // }
 
-
-
 // // You might restrict status to only APPROVED/REJECTED in the controller, but this is fine for now.
 
 // src/employee-profile/dto/review-change-request.dto.ts
@@ -23,10 +21,9 @@ import { ProfileChangeStatus } from '../enums/employee-profile.enums';
 
 export class ReviewChangeRequestDto {
   @IsEnum(ProfileChangeStatus)
-  status: ProfileChangeStatus;   // PENDING / APPROVED / REJECTED / CANCELED
+  status: ProfileChangeStatus; // PENDING / APPROVED / REJECTED / CANCELED
 
   @IsOptional()
   @IsString()
   reason?: string;
 }
-

@@ -12,7 +12,10 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { Types } from 'mongoose';
 import { SystemRole } from '../employee-profile/enums/employee-profile.enums';
-import { EmployeeStatus, CandidateStatus } from '../employee-profile/enums/employee-profile.enums';
+import {
+  EmployeeStatus,
+  CandidateStatus,
+} from '../employee-profile/enums/employee-profile.enums';
 import { EmployeeProfile } from '../employee-profile/models/employee-profile.schema';
 import { Candidate } from '../employee-profile/models/candidate.schema';
 import { UserRegistryService } from './services/user-registry.service';
@@ -33,7 +36,9 @@ export class AuthService {
    * Register a new user (works with ANY registered user type)
    * This method is generic and works with any registered user type
    */
-  async register(registerDto: RegisterDto): Promise<{ message: string; userType: UserType }> {
+  async register(
+    registerDto: RegisterDto,
+  ): Promise<{ message: string; userType: UserType }> {
     // Check if email already exists (checks ALL registered user types)
     const existingUserByEmail = await this.findUserByEmail(registerDto.email);
     if (existingUserByEmail) {
@@ -41,7 +46,9 @@ export class AuthService {
     }
 
     // Check if national ID already exists (checks ALL registered user types)
-    const existingUserByNationalId = await this.findUserByNationalId(registerDto.nationalId);
+    const existingUserByNationalId = await this.findUserByNationalId(
+      registerDto.nationalId,
+    );
     if (existingUserByNationalId) {
       throw new ConflictException('National ID already exists');
     }
@@ -55,7 +62,9 @@ export class AuthService {
     // Get registry for this user type
     const registry = this.userRegistryService.getUserType(userType);
     if (!registry) {
-      throw new BadRequestException(`User type '${userType}' is not registered`);
+      throw new BadRequestException(
+        `User type '${userType}' is not registered`,
+      );
     }
 
     // Generate full name
@@ -74,22 +83,31 @@ export class AuthService {
       personalEmail: registerDto.email,
       gender: registerDto.gender,
       maritalStatus: registerDto.maritalStatus,
-      dateOfBirth: registerDto.dateOfBirth ? new Date(registerDto.dateOfBirth) : undefined,
+      dateOfBirth: registerDto.dateOfBirth
+        ? new Date(registerDto.dateOfBirth)
+        : undefined,
       mobilePhone: registerDto.mobilePhone,
     };
 
     // Add type-specific fields based on user type
     if (userType === 'employee') {
-      const employeeNumber = registerDto.employeeNumber || await this.generateEmployeeNumber();
+      const employeeNumber =
+        registerDto.employeeNumber || (await this.generateEmployeeNumber());
       baseUserData.workEmail = registerDto.workEmail || registerDto.email;
       baseUserData.employeeNumber = employeeNumber;
-      baseUserData.dateOfHire = registerDto.dateOfHire ? new Date(registerDto.dateOfHire) : new Date();
+      baseUserData.dateOfHire = registerDto.dateOfHire
+        ? new Date(registerDto.dateOfHire)
+        : new Date();
       baseUserData.status = registerDto.status || EmployeeStatus.ACTIVE;
     } else if (userType === 'candidate') {
-      const candidateNumber = registerDto.candidateNumber || await this.generateCandidateNumber();
+      const candidateNumber =
+        registerDto.candidateNumber || (await this.generateCandidateNumber());
       baseUserData.candidateNumber = candidateNumber;
-      baseUserData.applicationDate = registerDto.applicationDate ? new Date(registerDto.applicationDate) : new Date();
-      baseUserData.status = registerDto.candidateStatus || CandidateStatus.APPLIED;
+      baseUserData.applicationDate = registerDto.applicationDate
+        ? new Date(registerDto.applicationDate)
+        : new Date();
+      baseUserData.status =
+        registerDto.candidateStatus || CandidateStatus.APPLIED;
     }
 
     // Create user using registry model
@@ -101,9 +119,7 @@ export class AuthService {
   /**
    * Sign in a user (Employee or Candidate)
    */
-  async signIn(
-    loginDto: LoginDto,
-  ): Promise<{
+  async signIn(loginDto: LoginDto): Promise<{
     access_token: string;
     payload: {
       userid: Types.ObjectId;
@@ -144,7 +160,9 @@ export class AuthService {
     // Check user status using registry's canLogin function
     const registry = this.userRegistryService.getUserType(userType);
     if (!registry) {
-      throw new UnauthorizedException(`User type '${userType}' is not registered`);
+      throw new UnauthorizedException(
+        `User type '${userType}' is not registered`,
+      );
     }
 
     if (registry.canLogin && !registry.canLogin(user)) {
@@ -157,7 +175,9 @@ export class AuthService {
     // Get user roles using registry
     let roles: SystemRole[] = [];
     if (registry.getDefaultRoles) {
-      const defaultRoles = await Promise.resolve(registry.getDefaultRoles(user));
+      const defaultRoles = await Promise.resolve(
+        registry.getDefaultRoles(user),
+      );
       roles = defaultRoles as SystemRole[];
     }
 
@@ -230,9 +250,13 @@ export class AuthService {
     // Update password based on user type
     const registry = this.userRegistryService.getUserType(userType);
     if (!registry) {
-      throw new BadRequestException(`User type '${userType}' is not registered`);
+      throw new BadRequestException(
+        `User type '${userType}' is not registered`,
+      );
     }
-    await registry.model.findByIdAndUpdate(userId, { password: hashedPassword });
+    await registry.model.findByIdAndUpdate(userId, {
+      password: hashedPassword,
+    });
 
     return { message: 'Password changed successfully' };
   }
@@ -240,22 +264,24 @@ export class AuthService {
   /**
    * Find user by email across all registered user types
    */
-  private async findUserByEmail(email: string): Promise<{ user: any; userType: UserType } | null> {
+  private async findUserByEmail(
+    email: string,
+  ): Promise<{ user: any; userType: UserType } | null> {
     const allModels = this.userRegistryService.getAllModels();
-    
+
     for (const { model, type, registry } of allModels) {
-      const user = await model.findOne({
-        $or: [
-          { personalEmail: email },
-          { workEmail: email },
-        ],
-      }).lean().exec();
-      
+      const user = await model
+        .findOne({
+          $or: [{ personalEmail: email }, { workEmail: email }],
+        })
+        .lean()
+        .exec();
+
       if (user) {
         return { user, userType: type as UserType };
       }
     }
-    
+
     return null;
   }
 
@@ -264,21 +290,24 @@ export class AuthService {
    */
   private async findUserByNationalId(nationalId: string): Promise<any> {
     const allModels = this.userRegistryService.getAllModels();
-    
+
     for (const { model } of allModels) {
       const user = await model.findOne({ nationalId }).lean().exec();
       if (user) {
         return user;
       }
     }
-    
+
     return null;
   }
 
   /**
    * Find user by ID and type
    */
-  private async findUserById(userId: Types.ObjectId, userType: UserType): Promise<any> {
+  private async findUserById(
+    userId: Types.ObjectId,
+    userType: UserType,
+  ): Promise<any> {
     const registry = this.userRegistryService.getUserType(userType);
     if (!registry) {
       return null;
@@ -289,16 +318,18 @@ export class AuthService {
   /**
    * Get employee roles from EmployeeSystemRole collection
    */
-  private async getEmployeeRoles(employeeId: Types.ObjectId): Promise<SystemRole[]> {
-    const systemRole = await this.employeeSystemRoleModel
+  private async getEmployeeRoles(
+    employeeId: Types.ObjectId,
+  ): Promise<SystemRole[]> {
+    const systemRole = (await this.employeeSystemRoleModel
       .findOne({ employeeProfileId: employeeId, isActive: true })
       .lean()
-      .exec() as any;
-    
+      .exec()) as any;
+
     if (!systemRole || !systemRole.roles) {
       return [];
     }
-    
+
     return systemRole.roles;
   }
 
@@ -309,7 +340,9 @@ export class AuthService {
   private async generateEmployeeNumber(): Promise<string> {
     const prefix = 'EMP';
     const timestamp = Date.now().toString().slice(-6);
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    const random = Math.floor(Math.random() * 1000)
+      .toString()
+      .padStart(3, '0');
     return `${prefix}${timestamp}${random}`;
   }
 
@@ -319,8 +352,9 @@ export class AuthService {
   private async generateCandidateNumber(): Promise<string> {
     const prefix = 'CAND';
     const timestamp = Date.now().toString().slice(-6);
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    const random = Math.floor(Math.random() * 1000)
+      .toString()
+      .padStart(3, '0');
     return `${prefix}${timestamp}${random}`;
   }
 }
-

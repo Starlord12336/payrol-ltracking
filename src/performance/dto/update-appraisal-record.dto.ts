@@ -18,4 +18,3 @@ export class UpdateAppraisalRecordDto extends PartialType(
   @IsOptional()
   employeeAcknowledgementComment?: string;
 }
-

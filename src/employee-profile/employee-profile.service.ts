@@ -102,78 +102,76 @@ export class EmployeeProfileService {
     return profiles;
   }
 
-  
-async getTeamProfiles(managerProfileId: string) {
-  if (!Types.ObjectId.isValid(managerProfileId)) {
-    throw new NotFoundException('Invalid manager profile ID');
+  async getTeamProfiles(managerProfileId: string) {
+    if (!Types.ObjectId.isValid(managerProfileId)) {
+      throw new NotFoundException('Invalid manager profile ID');
+    }
+
+    // ⚠️ Auth disabled here on purpose for the project
+    // await this.ensureHasRole(managerProfileId, this.MANAGER_ROLES);
+
+    const manager = await this.profileModel
+      .findById(managerProfileId)
+      .lean()
+      .exec();
+
+    if (!manager) {
+      throw new NotFoundException('Manager profile not found');
+    }
+
+    if (!manager.primaryPositionId) {
+      return [];
+    }
+
+    const team = await this.profileModel
+      .find({
+        supervisorPositionId: manager.primaryPositionId,
+        status: EmployeeStatus.ACTIVE,
+      })
+      .select(
+        'firstName lastName fullName personalEmail mobilePhone primaryDepartmentId primaryPositionId status',
+      )
+      .lean()
+      .exec();
+
+    return team;
+  } // =====================================
+  // SEARCH & FILTER (NO AUTH FOR PROJECT)
+  // =====================================
+  async searchProfiles(dto: SearchEmployeeProfilesDto) {
+    const andConditions: any[] = [];
+    const orConditions: any[] = [];
+
+    // --- Name ---
+    if (dto.fullName) {
+      const nameRegex = { $regex: dto.fullName, $options: 'i' };
+      orConditions.push(
+        { fullName: nameRegex },
+        { 'personalInfo.fullName': nameRegex },
+      );
+    }
+
+    // --- National ID ---
+    if (dto.nationalId) {
+      orConditions.push(
+        { nationalId: dto.nationalId },
+        { 'personalInfo.nationalId': dto.nationalId },
+      );
+    }
+
+    // --- Status / contract / work type ---
+    if (dto.status) andConditions.push({ status: dto.status });
+    if (dto.contractType)
+      andConditions.push({ contractType: dto.contractType });
+    if (dto.workType) andConditions.push({ workType: dto.workType });
+
+    // --- Filter building ---
+    const filter: any = {};
+    if (andConditions.length > 0) filter.$and = andConditions;
+    if (orConditions.length > 0) filter.$or = orConditions;
+
+    return await this.profileModel.find(filter).lean().exec();
   }
-
-  // ⚠️ Auth disabled here on purpose for the project
-  // await this.ensureHasRole(managerProfileId, this.MANAGER_ROLES);
-
-  const manager = await this.profileModel
-    .findById(managerProfileId)
-    .lean()
-    .exec();
-
-  if (!manager) {
-    throw new NotFoundException('Manager profile not found');
-  }
-
-  if (!manager.primaryPositionId) {
-    return [];
-  }
-
-  const team = await this.profileModel
-    .find({
-      supervisorPositionId: manager.primaryPositionId,
-      status: EmployeeStatus.ACTIVE,
-    })
-    .select(
-      'firstName lastName fullName personalEmail mobilePhone primaryDepartmentId primaryPositionId status',
-    )
-    .lean()
-    .exec();
-
-  return team;
-}// =====================================
-// SEARCH & FILTER (NO AUTH FOR PROJECT)
-// =====================================
-async searchProfiles(dto: SearchEmployeeProfilesDto) {
-  const andConditions: any[] = [];
-  const orConditions: any[] = [];
-
-  // --- Name ---
-  if (dto.fullName) {
-    const nameRegex = { $regex: dto.fullName, $options: 'i' };
-    orConditions.push(
-      { fullName: nameRegex },
-      { 'personalInfo.fullName': nameRegex },
-    );
-  }
-
-  // --- National ID ---
-  if (dto.nationalId) {
-    orConditions.push(
-      { nationalId: dto.nationalId },
-      { 'personalInfo.nationalId': dto.nationalId },
-    );
-  }
-
-  // --- Status / contract / work type ---
-  if (dto.status) andConditions.push({ status: dto.status });
-  if (dto.contractType) andConditions.push({ contractType: dto.contractType });
-  if (dto.workType) andConditions.push({ workType: dto.workType });
-
-  // --- Filter building ---
-  const filter: any = {};
-  if (andConditions.length > 0) filter.$and = andConditions;
-  if (orConditions.length > 0) filter.$or = orConditions;
-
-  return await this.profileModel.find(filter).lean().exec();
-}
-
-
 
   // =====================================
   // SELF-SERVICE: CONTACT INFO
@@ -301,10 +299,7 @@ async searchProfiles(dto: SearchEmployeeProfilesDto) {
   // SELF-SERVICE: COMBINED PROFILE UPDATE
   // =====================================
 
-  async updateMyProfile(
-    employeeProfileId: string,
-    dto: UpdateMyProfileDto,
-  ) {
+  async updateMyProfile(employeeProfileId: string, dto: UpdateMyProfileDto) {
     if (!Types.ObjectId.isValid(employeeProfileId)) {
       throw new NotFoundException('Invalid employee profile ID');
     }
@@ -353,11 +348,7 @@ async searchProfiles(dto: SearchEmployeeProfilesDto) {
     }
 
     const updated = await this.profileModel
-      .findByIdAndUpdate(
-        employeeProfileId,
-        { $set: update },
-        { new: true },
-      )
+      .findByIdAndUpdate(employeeProfileId, { $set: update }, { new: true })
       .lean()
       .exec();
 
@@ -480,69 +471,71 @@ async searchProfiles(dto: SearchEmployeeProfilesDto) {
       processedAt: request.processedAt,
     };
   }
-// src/employee-profile/employee-profile.service.ts
+  // src/employee-profile/employee-profile.service.ts
 
-async updateEmployeeProfileAsHr(
-  profileId: string,
-  dto: UpdateEmployeeProfileAsHrDto,
-) {
-  if (!Types.ObjectId.isValid(profileId)) {
-    throw new NotFoundException('Invalid employee profile ID');
-  }
-
-  const update: Record<string, any> = {};
-
-  const dateFields = [
-    'dateOfBirth',
-    'dateOfHire',
-    'contractStartDate',
-    'contractEndDate',
-    'statusEffectiveFrom',
-    'lastAppraisalDate',
-  ];
-
-  const objectIdFields = [
-    'primaryPositionId',
-    'primaryDepartmentId',
-    'supervisorPositionId',
-    'payGradeId',
-    'lastAppraisalRecordId',
-    'lastAppraisalCycleId',
-    'lastAppraisalTemplateId',
-  ];
-
-  for (const key of Object.keys(dto)) {
-    const value = (dto as any)[key];
-    if (value === undefined || value === null) continue;
-
-    if (dateFields.includes(key)) {
-      update[key] = new Date(value as string);
-    } else if (objectIdFields.includes(key)) {
-      update[key] = new Types.ObjectId(value as string);
-    } else if (key === 'city' || key === 'streetAddress' || key === 'country') {
-      // nested address
-      const map: Record<string, string> = {
-        city: 'address.city',
-        streetAddress: 'address.streetAddress',
-        country: 'address.country',
-      };
-      update[map[key]] = value;
-    } else {
-      update[key] = value;
+  async updateEmployeeProfileAsHr(
+    profileId: string,
+    dto: UpdateEmployeeProfileAsHrDto,
+  ) {
+    if (!Types.ObjectId.isValid(profileId)) {
+      throw new NotFoundException('Invalid employee profile ID');
     }
+
+    const update: Record<string, any> = {};
+
+    const dateFields = [
+      'dateOfBirth',
+      'dateOfHire',
+      'contractStartDate',
+      'contractEndDate',
+      'statusEffectiveFrom',
+      'lastAppraisalDate',
+    ];
+
+    const objectIdFields = [
+      'primaryPositionId',
+      'primaryDepartmentId',
+      'supervisorPositionId',
+      'payGradeId',
+      'lastAppraisalRecordId',
+      'lastAppraisalCycleId',
+      'lastAppraisalTemplateId',
+    ];
+
+    for (const key of Object.keys(dto)) {
+      const value = (dto as any)[key];
+      if (value === undefined || value === null) continue;
+
+      if (dateFields.includes(key)) {
+        update[key] = new Date(value as string);
+      } else if (objectIdFields.includes(key)) {
+        update[key] = new Types.ObjectId(value as string);
+      } else if (
+        key === 'city' ||
+        key === 'streetAddress' ||
+        key === 'country'
+      ) {
+        // nested address
+        const map: Record<string, string> = {
+          city: 'address.city',
+          streetAddress: 'address.streetAddress',
+          country: 'address.country',
+        };
+        update[map[key]] = value;
+      } else {
+        update[key] = value;
+      }
+    }
+
+    const updated = await this.profileModel
+      .findByIdAndUpdate(profileId, { $set: update }, { new: true })
+      .lean()
+      .exec();
+
+    if (!updated) {
+      throw new NotFoundException('Employee profile not found');
+    }
+
+    return updated;
   }
-
-  const updated = await this.profileModel
-    .findByIdAndUpdate(profileId, { $set: update }, { new: true })
-    .lean()
-    .exec();
-
-  if (!updated) {
-    throw new NotFoundException('Employee profile not found');
-  }
-
-  return updated;
-}
-
-
 }

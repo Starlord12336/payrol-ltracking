@@ -33,7 +33,11 @@ export class insuranceBrackets {
   employeeRate: number; // percentage
 
   @Prop({ required: true, min: 0, max: 100 })
+  employeePercentage: number; // percentage (same as employeeRate for compatibility)
+
+  @Prop({ required: true, min: 0, max: 100 })
   employerRate: number; // percentage
 }
 
-export const insuranceBracketsSchema = SchemaFactory.createForClass(insuranceBrackets);
+export const insuranceBracketsSchema =
+  SchemaFactory.createForClass(insuranceBrackets);

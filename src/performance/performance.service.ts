@@ -15,7 +15,10 @@ import {
   AppraisalCycle,
   AppraisalCycleDocument,
 } from './models/appraisal-cycle.schema';
-import { AppraisalCycleStatus, AppraisalAssignmentStatus } from './enums/performance.enums';
+import {
+  AppraisalCycleStatus,
+  AppraisalAssignmentStatus,
+} from './enums/performance.enums';
 import {
   AppraisalRecord,
   AppraisalRecordDocument,
@@ -31,9 +34,18 @@ import {
 } from './models/appraisal-dispute.schema';
 import { AppraisalDisputeStatus } from './enums/performance.enums';
 // Integration schemas
-import { EmployeeProfile, EmployeeProfileDocument } from '../employee-profile/models/employee-profile.schema';
-import { Department, DepartmentDocument } from '../organization-structure/models/department.schema';
-import { Position, PositionDocument } from '../organization-structure/models/position.schema';
+import {
+  EmployeeProfile,
+  EmployeeProfileDocument,
+} from '../employee-profile/models/employee-profile.schema';
+import {
+  Department,
+  DepartmentDocument,
+} from '../organization-structure/models/department.schema';
+import {
+  Position,
+  PositionDocument,
+} from '../organization-structure/models/position.schema';
 import { EmployeeStatus } from '../employee-profile/enums/employee-profile.enums';
 // DTOs
 import { CreateAppraisalTemplateDto } from './dto/create-appraisal-template.dto';
@@ -100,7 +112,10 @@ export class PerformanceService {
             (sum, criterion) => sum + (criterion.weight || 0),
             0,
           );
-          if (totalCriteriaWeight > 0 && Math.abs(totalCriteriaWeight - 100) > 0.01) {
+          if (
+            totalCriteriaWeight > 0 &&
+            Math.abs(totalCriteriaWeight - 100) > 0.01
+          ) {
             throw new BadRequestException(
               `Criteria weights in section "${section.sectionName}" must sum to 100%. Current sum: ${totalCriteriaWeight}%`,
             );
@@ -112,15 +127,16 @@ export class PerformanceService {
     // Convert string IDs to ObjectIds
     // Use a dummy user ID for createdBy/updatedBy (in real app, get from auth context)
     const dummyUserId = new Types.ObjectId('507f1f77bcf86cd799439011');
-    
+
     const template = new this.templateModel({
       ...createDto,
-      applicableDepartments: createDto.applicableDepartmentIds?.map(
-        (id) => new Types.ObjectId(id),
-      ) || [],
-      applicablePositions: createDto.applicablePositionIds?.map(
-        (id) => new Types.ObjectId(id),
-      ) || [],
+      applicableDepartments:
+        createDto.applicableDepartmentIds?.map(
+          (id) => new Types.ObjectId(id),
+        ) || [],
+      applicablePositions:
+        createDto.applicablePositionIds?.map((id) => new Types.ObjectId(id)) ||
+        [],
       createdBy: dummyUserId,
       updatedBy: dummyUserId,
     });
@@ -180,7 +196,10 @@ export class PerformanceService {
             (sum, criterion) => sum + (criterion.weight || 0),
             0,
           );
-          if (totalCriteriaWeight > 0 && Math.abs(totalCriteriaWeight - 100) > 0.01) {
+          if (
+            totalCriteriaWeight > 0 &&
+            Math.abs(totalCriteriaWeight - 100) > 0.01
+          ) {
             throw new BadRequestException(
               `Criteria weights in section "${section.sectionName}" must sum to 100%. Current sum: ${totalCriteriaWeight}%`,
             );
@@ -228,23 +247,30 @@ export class PerformanceService {
     if (createDto.templateId && Types.ObjectId.isValid(createDto.templateId)) {
       templateId = new Types.ObjectId(createDto.templateId);
     }
-    
+
     // Build templateAssignments array (required by schema)
     const templateAssignments: any[] = [];
     if (templateId) {
       templateAssignments.push({
         templateId,
-        departmentIds: createDto.targetDepartmentIds?.map(id => new Types.ObjectId(id)) || [],
+        departmentIds:
+          createDto.targetDepartmentIds?.map((id) => new Types.ObjectId(id)) ||
+          [],
       });
     }
-    
+
     const cycle = new this.cycleModel({
-      name: createDto.cycleName || createDto.cycleCode || `Cycle ${new Date().toISOString()}`,
+      name:
+        createDto.cycleName ||
+        createDto.cycleCode ||
+        `Cycle ${new Date().toISOString()}`,
       description: createDto.description,
       cycleType: createDto.appraisalType || 'ANNUAL',
       startDate,
       endDate,
-      managerDueDate: createDto.managerReviewDeadline ? new Date(createDto.managerReviewDeadline) : undefined,
+      managerDueDate: createDto.managerReviewDeadline
+        ? new Date(createDto.managerReviewDeadline)
+        : undefined,
       employeeAcknowledgementDueDate: undefined, // Set later if needed
       templateAssignments,
       status: AppraisalCycleStatus.PLANNED,
@@ -256,7 +282,9 @@ export class PerformanceService {
   /**
    * Get all cycles
    */
-  async findAllCycles(status?: AppraisalCycleStatus): Promise<AppraisalCycleDocument[]> {
+  async findAllCycles(
+    status?: AppraisalCycleStatus,
+  ): Promise<AppraisalCycleDocument[]> {
     const filter: any = {};
     if (status) {
       filter.status = status;
@@ -290,7 +318,7 @@ export class PerformanceService {
     updateDto: UpdateAppraisalCycleDto,
   ): Promise<AppraisalCycleDocument> {
     const updateData: any = { ...updateDto };
-    
+
     if (updateDto.startDate) {
       updateData.startDate = new Date(updateDto.startDate);
     }
@@ -319,7 +347,7 @@ export class PerformanceService {
    */
   async activateCycle(id: string): Promise<AppraisalCycleDocument> {
     const cycle = await this.findCycleById(id);
-    
+
     if (cycle.status !== AppraisalCycleStatus.PLANNED) {
       throw new BadRequestException(
         `Cannot activate cycle. Current status: ${cycle.status}`,
@@ -337,14 +365,18 @@ export class PerformanceService {
    * Auto-assign appraisals for a cycle
    * Integrates with Employee Profile and Organization Structure modules
    */
-  private async autoAssignAppraisals(cycle: AppraisalCycleDocument): Promise<void> {
+  private async autoAssignAppraisals(
+    cycle: AppraisalCycleDocument,
+  ): Promise<void> {
     // Get template from cycle's templateAssignments
     const templateAssignment = cycle.templateAssignments?.[0];
     if (!templateAssignment) {
       throw new BadRequestException('Cycle has no template assignments');
     }
-    
-    const template = await this.templateModel.findById(templateAssignment.templateId).exec();
+
+    const template = await this.templateModel
+      .findById(templateAssignment.templateId)
+      .exec();
     if (!template || !template.isActive) {
       throw new BadRequestException('Template not found or inactive');
     }
@@ -355,10 +387,20 @@ export class PerformanceService {
     };
 
     // Filter by template's applicable departments
-    if (templateAssignment.departmentIds && templateAssignment.departmentIds.length > 0) {
-      employeeQuery.primaryDepartmentId = { $in: templateAssignment.departmentIds };
-    } else if (template.applicableDepartmentIds && template.applicableDepartmentIds.length > 0) {
-      employeeQuery.primaryDepartmentId = { $in: template.applicableDepartmentIds };
+    if (
+      templateAssignment.departmentIds &&
+      templateAssignment.departmentIds.length > 0
+    ) {
+      employeeQuery.primaryDepartmentId = {
+        $in: templateAssignment.departmentIds,
+      };
+    } else if (
+      template.applicableDepartmentIds &&
+      template.applicableDepartmentIds.length > 0
+    ) {
+      employeeQuery.primaryDepartmentId = {
+        $in: template.applicableDepartmentIds,
+      };
     }
 
     const employees = await this.employeeModel.find(employeeQuery).exec();
@@ -442,7 +484,7 @@ export class PerformanceService {
    */
   async publishCycle(id: string): Promise<AppraisalCycleDocument> {
     const cycle = await this.findCycleById(id);
-    
+
     if (cycle.status !== AppraisalCycleStatus.ACTIVE) {
       throw new BadRequestException(
         `Cannot publish cycle. Current status: ${cycle.status}`,
@@ -450,25 +492,29 @@ export class PerformanceService {
     }
 
     // Update all evaluations to PUBLISHED status
-    await this.evaluationModel.updateMany(
-      { cycleId: new Types.ObjectId(id) },
-      { 
-        status: AppraisalRecordStatus.HR_PUBLISHED,
-        hrPublishedAt: new Date(),
-      },
-    ).exec();
+    await this.evaluationModel
+      .updateMany(
+        { cycleId: new Types.ObjectId(id) },
+        {
+          status: AppraisalRecordStatus.HR_PUBLISHED,
+          hrPublishedAt: new Date(),
+        },
+      )
+      .exec();
 
     // Update cycle assignments status
-    await this.assignmentModel.updateMany(
-      { 
-        cycleId: new Types.ObjectId(id),
-        status: AppraisalAssignmentStatus.SUBMITTED,
-      },
-      {
-        status: AppraisalAssignmentStatus.PUBLISHED,
-        publishedAt: new Date(),
-      },
-    ).exec();
+    await this.assignmentModel
+      .updateMany(
+        {
+          cycleId: new Types.ObjectId(id),
+          status: AppraisalAssignmentStatus.SUBMITTED,
+        },
+        {
+          status: AppraisalAssignmentStatus.PUBLISHED,
+          publishedAt: new Date(),
+        },
+      )
+      .exec();
 
     cycle.publishedAt = new Date();
     return cycle.save();
@@ -479,7 +525,7 @@ export class PerformanceService {
    */
   async closeCycle(id: string): Promise<AppraisalCycleDocument> {
     const cycle = await this.findCycleById(id);
-    
+
     if (cycle.status !== AppraisalCycleStatus.ACTIVE) {
       throw new BadRequestException(
         `Cannot close cycle. Current status: ${cycle.status}`,
@@ -495,7 +541,9 @@ export class PerformanceService {
   /**
    * Get all assignments for a cycle
    */
-  async findAssignmentsByCycle(cycleId: string): Promise<AppraisalAssignmentDocument[]> {
+  async findAssignmentsByCycle(
+    cycleId: string,
+  ): Promise<AppraisalAssignmentDocument[]> {
     return this.assignmentModel
       .find({ cycleId: new Types.ObjectId(cycleId) })
       .populate('employeeProfileId')
@@ -571,10 +619,12 @@ export class PerformanceService {
     createDto: CreateAppraisalEvaluationDto,
   ): Promise<AppraisalRecordDocument> {
     const cycle = await this.findCycleById(cycleId);
-    
+
     // Check if cycle is active
     if (cycle.status !== AppraisalCycleStatus.ACTIVE) {
-      throw new BadRequestException('Cannot modify evaluation for inactive cycle');
+      throw new BadRequestException(
+        'Cannot modify evaluation for inactive cycle',
+      );
     }
 
     // Verify assignment exists
@@ -598,7 +648,10 @@ export class PerformanceService {
     const template = await this.findTemplateById(createDto.templateId);
 
     // Convert manager evaluation to ratings array (AppraisalRecord uses ratings, not managerEvaluation)
-    const ratings = this.convertEvaluationToRatings(createDto.managerEvaluation, template as any);
+    const ratings = this.convertEvaluationToRatings(
+      createDto.managerEvaluation,
+      template as any,
+    );
 
     // Calculate total score
     const totalScore = this.calculateTotalScore(ratings, template as any);
@@ -615,9 +668,13 @@ export class PerformanceService {
       // Update existing evaluation
       evaluation.ratings = ratings;
       evaluation.totalScore = totalScore;
-      evaluation.managerSummary = createDto.managerEvaluation?.strengths || evaluation.managerSummary;
-      evaluation.strengths = createDto.managerEvaluation?.strengths || evaluation.strengths;
-      evaluation.improvementAreas = createDto.managerEvaluation?.areasForImprovement || evaluation.improvementAreas;
+      evaluation.managerSummary =
+        createDto.managerEvaluation?.strengths || evaluation.managerSummary;
+      evaluation.strengths =
+        createDto.managerEvaluation?.strengths || evaluation.strengths;
+      evaluation.improvementAreas =
+        createDto.managerEvaluation?.areasForImprovement ||
+        evaluation.improvementAreas;
       evaluation.managerSubmittedAt = new Date();
       evaluation.status = AppraisalRecordStatus.MANAGER_SUBMITTED;
     } else {
@@ -682,7 +739,9 @@ export class PerformanceService {
       .populate('assignmentId')
       .exec();
     if (!evaluation) {
-      throw new NotFoundException(`Appraisal evaluation with ID ${id} not found`);
+      throw new NotFoundException(
+        `Appraisal evaluation with ID ${id} not found`,
+      );
     }
     return evaluation;
   }
@@ -725,7 +784,7 @@ export class PerformanceService {
     template: AppraisalTemplateDocument,
   ): any[] {
     const ratings: any[] = [];
-    
+
     if (managerEvaluation?.sections) {
       managerEvaluation.sections.forEach((sectionRating: any) => {
         if (sectionRating.criteria) {
@@ -734,32 +793,40 @@ export class PerformanceService {
               key: criterionRating.criteriaId || criterionRating.key,
               title: criterionRating.title || '',
               ratingValue: criterionRating.rating || 0,
-              ratingLabel: this.getRatingLabel(criterionRating.rating, template.ratingScale),
-              weightedScore: criterionRating.weight ? (criterionRating.rating * criterionRating.weight / 100) : 0,
+              ratingLabel: this.getRatingLabel(
+                criterionRating.rating,
+                template.ratingScale,
+              ),
+              weightedScore: criterionRating.weight
+                ? (criterionRating.rating * criterionRating.weight) / 100
+                : 0,
               comments: criterionRating.comments,
             });
           });
         }
       });
     }
-    
+
     return ratings;
   }
 
   /**
    * Calculate total score from ratings
    */
-  private calculateTotalScore(ratings: any[], template: AppraisalTemplateDocument): number {
+  private calculateTotalScore(
+    ratings: any[],
+    template: AppraisalTemplateDocument,
+  ): number {
     if (ratings.length === 0) return 0;
-    
+
     const totalWeightedScore = ratings.reduce((sum, rating) => {
       return sum + (rating.weightedScore || 0);
     }, 0);
-    
+
     const totalWeight = template.criteria.reduce((sum, criterion) => {
       return sum + (criterion.weight || 0);
     }, 0);
-    
+
     return totalWeight > 0 ? (totalWeightedScore / totalWeight) * 100 : 0;
   }
 
@@ -770,8 +837,13 @@ export class PerformanceService {
     if (!ratingScale.labels || ratingScale.labels.length === 0) {
       return rating.toString();
     }
-    const index = Math.round((rating - ratingScale.min) / (ratingScale.step || 1));
-    return ratingScale.labels[Math.min(index, ratingScale.labels.length - 1)] || rating.toString();
+    const index = Math.round(
+      (rating - ratingScale.min) / (ratingScale.step || 1),
+    );
+    return (
+      ratingScale.labels[Math.min(index, ratingScale.labels.length - 1)] ||
+      rating.toString()
+    );
   }
 
   /**
@@ -782,7 +854,7 @@ export class PerformanceService {
     template: AppraisalTemplateDocument,
   ): any[] {
     const ratings: any[] = [];
-    
+
     if (selfAssessmentDto.sections) {
       selfAssessmentDto.sections.forEach((section: any) => {
         if (section.criteria) {
@@ -791,14 +863,17 @@ export class PerformanceService {
               key: criterion.criteriaId || criterion.key,
               title: criterion.title || '',
               ratingValue: criterion.rating || 0,
-              ratingLabel: this.getRatingLabel(criterion.rating || 0, template.ratingScale),
+              ratingLabel: this.getRatingLabel(
+                criterion.rating || 0,
+                template.ratingScale,
+              ),
               comments: criterion.comments || selfAssessmentDto.overallComments,
             });
           });
         }
       });
     }
-    
+
     return ratings;
   }
 
@@ -811,7 +886,8 @@ export class PerformanceService {
     employeeId: string,
     createDto: CreateAppraisalDisputeDto,
   ): Promise<AppraisalDisputeDocument> {
-    const evaluationId = (createDto as any).evaluationId || (createDto as any).appraisalId;
+    const evaluationId =
+      (createDto as any).evaluationId || (createDto as any).appraisalId;
     if (!evaluationId) {
       throw new BadRequestException('evaluationId or appraisalId is required');
     }
@@ -819,21 +895,26 @@ export class PerformanceService {
 
     // Verify the employee is the one who received the evaluation
     if (evaluation.employeeProfileId.toString() !== employeeId) {
-      throw new BadRequestException(
-        'You can only dispute your own appraisals',
-      );
+      throw new BadRequestException('You can only dispute your own appraisals');
     }
 
     // Check if dispute already exists
     const existingDispute = await this.disputeModel
       .findOne({
         appraisalId: evaluation._id,
-        status: { $in: [AppraisalDisputeStatus.OPEN, AppraisalDisputeStatus.UNDER_REVIEW] },
+        status: {
+          $in: [
+            AppraisalDisputeStatus.OPEN,
+            AppraisalDisputeStatus.UNDER_REVIEW,
+          ],
+        },
       })
       .exec();
 
     if (existingDispute) {
-      throw new ConflictException('An active dispute already exists for this evaluation');
+      throw new ConflictException(
+        'An active dispute already exists for this evaluation',
+      );
     }
 
     const assignment = await this.assignmentModel
@@ -860,7 +941,9 @@ export class PerformanceService {
   /**
    * Get all disputes
    */
-  async findAllDisputes(status?: AppraisalDisputeStatus): Promise<AppraisalDisputeDocument[]> {
+  async findAllDisputes(
+    status?: AppraisalDisputeStatus,
+  ): Promise<AppraisalDisputeDocument[]> {
     const filter: any = {};
     if (status) {
       filter.status = status;
@@ -878,7 +961,9 @@ export class PerformanceService {
   /**
    * Get disputes for a specific employee
    */
-  async findDisputesByEmployee(employeeId: string): Promise<AppraisalDisputeDocument[]> {
+  async findDisputesByEmployee(
+    employeeId: string,
+  ): Promise<AppraisalDisputeDocument[]> {
     return this.disputeModel
       .find({ raisedByEmployeeId: new Types.ObjectId(employeeId) })
       .populate('appraisalId')
@@ -926,14 +1011,20 @@ export class PerformanceService {
       );
     }
 
-    dispute.status = resolveDto.status === 'RESOLVED' ? AppraisalDisputeStatus.ADJUSTED : AppraisalDisputeStatus.REJECTED;
-    dispute.resolutionSummary = resolveDto.resolutionNotes || (resolveDto as any).resolutionSummary;
+    dispute.status =
+      resolveDto.status === 'RESOLVED'
+        ? AppraisalDisputeStatus.ADJUSTED
+        : AppraisalDisputeStatus.REJECTED;
+    dispute.resolutionSummary =
+      resolveDto.resolutionNotes || (resolveDto as any).resolutionSummary;
     dispute.resolvedAt = new Date();
     dispute.resolvedByEmployeeId = new Types.ObjectId(reviewerId);
 
     // If adjusted, update the evaluation totalScore
     if (resolveDto.status === 'RESOLVED' && resolveDto.adjustedRating) {
-      const evaluation = await this.findEvaluationById(dispute.appraisalId.toString());
+      const evaluation = await this.findEvaluationById(
+        dispute.appraisalId.toString(),
+      );
       evaluation.totalScore = resolveDto.adjustedRating;
       await evaluation.save();
     }
@@ -966,7 +1057,7 @@ export class PerformanceService {
     const assignments = await this.assignmentModel
       .find({ cycleId: new Types.ObjectId(cycleId) })
       .exec();
-    
+
     const total = assignments.length;
     const notStarted = assignments.filter(
       (a) => a.status === AppraisalAssignmentStatus.NOT_STARTED,
@@ -1003,9 +1094,11 @@ export class PerformanceService {
     selfAssessmentDto: SubmitSelfAssessmentDto,
   ): Promise<AppraisalRecordDocument> {
     const cycle = await this.findCycleById(cycleId);
-    
+
     if (cycle.status !== AppraisalCycleStatus.ACTIVE) {
-      throw new BadRequestException('Cannot submit self-assessment for inactive cycle');
+      throw new BadRequestException(
+        'Cannot submit self-assessment for inactive cycle',
+      );
     }
 
     const assignment = await this.assignmentModel
@@ -1020,15 +1113,19 @@ export class PerformanceService {
       );
     }
 
-    if (assignment.status !== AppraisalAssignmentStatus.IN_PROGRESS &&
-        assignment.status !== AppraisalAssignmentStatus.NOT_STARTED) {
+    if (
+      assignment.status !== AppraisalAssignmentStatus.IN_PROGRESS &&
+      assignment.status !== AppraisalAssignmentStatus.NOT_STARTED
+    ) {
       throw new BadRequestException(
         `Cannot submit self-assessment. Current status: ${assignment.status}`,
       );
     }
 
     // Get template from assignment
-    const template = await this.findTemplateById(assignment.templateId.toString());
+    const template = await this.findTemplateById(
+      assignment.templateId.toString(),
+    );
 
     // Get or create evaluation
     let evaluation = await this.evaluationModel
@@ -1039,7 +1136,10 @@ export class PerformanceService {
       .exec();
 
     // Convert self-assessment to ratings (AppraisalRecord uses ratings, not selfAssessment)
-    const ratings = this.convertSelfAssessmentToRatings(selfAssessmentDto, template as any);
+    const ratings = this.convertSelfAssessmentToRatings(
+      selfAssessmentDto,
+      template as any,
+    );
 
     if (evaluation) {
       evaluation.ratings = ratings;
@@ -1074,8 +1174,10 @@ export class PerformanceService {
   ): Promise<AppraisalRecordDocument> {
     const evaluation = await this.findEvaluationById(evaluationId);
 
-    if (evaluation.status !== AppraisalRecordStatus.MANAGER_SUBMITTED &&
-        evaluation.status !== AppraisalRecordStatus.HR_PUBLISHED) {
+    if (
+      evaluation.status !== AppraisalRecordStatus.MANAGER_SUBMITTED &&
+      evaluation.status !== AppraisalRecordStatus.HR_PUBLISHED
+    ) {
       throw new BadRequestException(
         `Cannot add HR review. Current status: ${evaluation.status}`,
       );
@@ -1089,7 +1191,9 @@ export class PerformanceService {
     // Update status and published info
     evaluation.status = AppraisalRecordStatus.HR_PUBLISHED;
     evaluation.hrPublishedAt = new Date();
-    evaluation.publishedByEmployeeId = new Types.ObjectId(hrReviewDto.reviewedBy);
+    evaluation.publishedByEmployeeId = new Types.ObjectId(
+      hrReviewDto.reviewedBy,
+    );
 
     return evaluation.save();
   }
@@ -1099,24 +1203,25 @@ export class PerformanceService {
   /**
    * Create a performance goal
    */
-  async createGoal(
-    createDto: CreatePerformanceGoalDto,
-  ): Promise<any> {
+  async createGoal(createDto: CreatePerformanceGoalDto): Promise<any> {
     // Note: PerformanceGoal schema doesn't exist
-    throw new BadRequestException('Performance goals feature not yet implemented');
+    throw new BadRequestException(
+      'Performance goals feature not yet implemented',
+    );
   }
 
-  async findGoalsByEmployee(
-    employeeId: string,
-    status?: any,
-  ): Promise<any[]> {
+  async findGoalsByEmployee(employeeId: string, status?: any): Promise<any[]> {
     // Note: PerformanceGoal schema doesn't exist
-    throw new BadRequestException('Performance goals feature not yet implemented');
+    throw new BadRequestException(
+      'Performance goals feature not yet implemented',
+    );
   }
 
   async findGoalById(id: string): Promise<any> {
     // Note: PerformanceGoal schema doesn't exist
-    throw new BadRequestException('Performance goals feature not yet implemented');
+    throw new BadRequestException(
+      'Performance goals feature not yet implemented',
+    );
   }
 
   async updateGoal(
@@ -1124,19 +1229,23 @@ export class PerformanceService {
     updateDto: UpdatePerformanceGoalDto,
   ): Promise<any> {
     // Note: PerformanceGoal schema doesn't exist
-    throw new BadRequestException('Performance goals feature not yet implemented');
+    throw new BadRequestException(
+      'Performance goals feature not yet implemented',
+    );
   }
 
   async deleteGoal(id: string): Promise<void> {
     // Note: PerformanceGoal schema doesn't exist
-    throw new BadRequestException('Performance goals feature not yet implemented');
+    throw new BadRequestException(
+      'Performance goals feature not yet implemented',
+    );
   }
 
-  async createFeedback(
-    createDto: CreatePerformanceFeedbackDto,
-  ): Promise<any> {
+  async createFeedback(createDto: CreatePerformanceFeedbackDto): Promise<any> {
     // Note: PerformanceFeedback schema doesn't exist
-    throw new BadRequestException('Performance feedback feature not yet implemented');
+    throw new BadRequestException(
+      'Performance feedback feature not yet implemented',
+    );
   }
 
   async findFeedbackByRecipient(
@@ -1144,12 +1253,16 @@ export class PerformanceService {
     status?: any,
   ): Promise<any[]> {
     // Note: PerformanceFeedback schema doesn't exist
-    throw new BadRequestException('Performance feedback feature not yet implemented');
+    throw new BadRequestException(
+      'Performance feedback feature not yet implemented',
+    );
   }
 
   async findFeedbackById(id: string): Promise<any> {
     // Note: PerformanceFeedback schema doesn't exist
-    throw new BadRequestException('Performance feedback feature not yet implemented');
+    throw new BadRequestException(
+      'Performance feedback feature not yet implemented',
+    );
   }
 
   async updateFeedback(
@@ -1157,14 +1270,15 @@ export class PerformanceService {
     updateDto: UpdatePerformanceFeedbackDto,
   ): Promise<any> {
     // Note: PerformanceFeedback schema doesn't exist
-    throw new BadRequestException('Performance feedback feature not yet implemented');
+    throw new BadRequestException(
+      'Performance feedback feature not yet implemented',
+    );
   }
 
   async deleteFeedback(id: string): Promise<void> {
     // Note: PerformanceFeedback schema doesn't exist
-    throw new BadRequestException('Performance feedback feature not yet implemented');
+    throw new BadRequestException(
+      'Performance feedback feature not yet implemented',
+    );
   }
-
-
 }
-

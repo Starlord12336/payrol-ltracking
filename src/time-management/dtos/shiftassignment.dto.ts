@@ -1,8 +1,14 @@
-import { Types } from "mongoose";
-import { IsDate, IsEnum, IsMongoId, IsOptional, IsNotEmpty } from "class-validator";
-import { Type } from "class-transformer";
+import { Types } from 'mongoose';
+import {
+  IsDate,
+  IsEnum,
+  IsMongoId,
+  IsOptional,
+  IsNotEmpty,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ShiftAssignmentStatus } from "../models/enums";
+import { ShiftAssignmentStatus } from '../models/enums';
 
 export class ShiftAssignmentDto {
   _id?: Types.ObjectId;
@@ -22,7 +28,7 @@ export class CreateShiftAssignmentDtoDepartment {
   @ApiProperty({
     description: 'ID of the department to assign the shift to',
     example: '507f1f77bcf86cd799439011',
-    type: 'string'
+    type: 'string',
   })
   @IsOptional()
   @IsMongoId()
@@ -32,7 +38,7 @@ export class CreateShiftAssignmentDtoDepartment {
     description: 'ID of the shift to assign',
     example: '507f1f77bcf86cd799439012',
     type: 'string',
-    required: true
+    required: true,
   })
   @IsNotEmpty()
   @IsMongoId()
@@ -41,7 +47,7 @@ export class CreateShiftAssignmentDtoDepartment {
   @ApiProperty({
     description: 'ID of the schedule rule governing this assignment',
     example: '507f1f77bcf86cd799439013',
-    type: 'string'
+    type: 'string',
   })
   @IsOptional()
   @IsMongoId()
@@ -51,7 +57,7 @@ export class CreateShiftAssignmentDtoDepartment {
     description: 'Start date of the shift assignment',
     example: '2024-01-15T00:00:00.000Z',
     type: 'string',
-    format: 'date-time'
+    format: 'date-time',
   })
   @IsNotEmpty()
   @IsDate()
@@ -59,10 +65,11 @@ export class CreateShiftAssignmentDtoDepartment {
   startDate: Date;
 
   @ApiProperty({
-    description: 'End date of the shift assignment (optional for ongoing assignments)',
+    description:
+      'End date of the shift assignment (optional for ongoing assignments)',
     example: '2024-12-31T23:59:59.999Z',
     type: 'string',
-    format: 'date-time'
+    format: 'date-time',
   })
   @IsOptional()
   @IsDate()
@@ -73,7 +80,7 @@ export class CreateShiftAssignmentDtoDepartment {
     description: 'Status of the shift assignment',
     enum: ShiftAssignmentStatus,
     example: ShiftAssignmentStatus.APPROVED,
-    default: ShiftAssignmentStatus.APPROVED
+    default: ShiftAssignmentStatus.APPROVED,
   })
   @IsOptional()
   @IsEnum(ShiftAssignmentStatus)
@@ -84,7 +91,7 @@ export class UpdateShiftAssignmentDtoDepartment {
   @ApiProperty({
     description: 'ID of the department to assign the shift to',
     example: '507f1f77bcf86cd799439011',
-    type: 'string'
+    type: 'string',
   })
   @IsOptional()
   @IsMongoId()
@@ -93,7 +100,7 @@ export class UpdateShiftAssignmentDtoDepartment {
   @ApiProperty({
     description: 'ID of the shift to assign',
     example: '507f1f77bcf86cd799439012',
-    type: 'string'
+    type: 'string',
   })
   @IsOptional()
   @IsMongoId()
@@ -102,7 +109,7 @@ export class UpdateShiftAssignmentDtoDepartment {
   @ApiProperty({
     description: 'ID of the schedule rule governing this assignment',
     example: '507f1f77bcf86cd799439013',
-    type: 'string'
+    type: 'string',
   })
   @IsOptional()
   @IsMongoId()
@@ -112,7 +119,7 @@ export class UpdateShiftAssignmentDtoDepartment {
     description: 'Start date of the shift assignment',
     example: '2024-01-15T00:00:00.000Z',
     type: 'string',
-    format: 'date-time'
+    format: 'date-time',
   })
   @IsOptional()
   @IsDate()
@@ -123,7 +130,7 @@ export class UpdateShiftAssignmentDtoDepartment {
     description: 'End date of the shift assignment',
     example: '2024-12-31T23:59:59.999Z',
     type: 'string',
-    format: 'date-time'
+    format: 'date-time',
   })
   @IsOptional()
   @IsDate()
@@ -133,7 +140,7 @@ export class UpdateShiftAssignmentDtoDepartment {
   @ApiProperty({
     description: 'Status of the shift assignment',
     enum: ShiftAssignmentStatus,
-    example: ShiftAssignmentStatus.APPROVED
+    example: ShiftAssignmentStatus.APPROVED,
   })
   @IsOptional()
   @IsEnum(ShiftAssignmentStatus)
@@ -144,7 +151,7 @@ export class CreateShiftAssignmentDtoEmployee {
   @ApiProperty({
     description: 'ID of the employee to assign the shift to',
     example: '507f1f77bcf86cd799439014',
-    type: 'string'
+    type: 'string',
   })
   @IsOptional()
   @IsMongoId()
@@ -154,7 +161,7 @@ export class CreateShiftAssignmentDtoEmployee {
     description: 'ID of the shift to assign',
     example: '507f1f77bcf86cd799439012',
     type: 'string',
-    required: true
+    required: true,
   })
   @IsNotEmpty()
   @IsMongoId()
@@ -163,7 +170,7 @@ export class CreateShiftAssignmentDtoEmployee {
   @ApiProperty({
     description: 'ID of the schedule rule governing this assignment',
     example: '507f1f77bcf86cd799439013',
-    type: 'string'
+    type: 'string',
   })
   @IsOptional()
   @IsMongoId()
@@ -173,7 +180,7 @@ export class CreateShiftAssignmentDtoEmployee {
     description: 'Start date of the shift assignment',
     example: '2024-01-15T00:00:00.000Z',
     type: 'string',
-    format: 'date-time'
+    format: 'date-time',
   })
   @IsNotEmpty()
   @IsDate()
@@ -181,10 +188,11 @@ export class CreateShiftAssignmentDtoEmployee {
   startDate: Date;
 
   @ApiProperty({
-    description: 'End date of the shift assignment (optional for ongoing assignments)',
+    description:
+      'End date of the shift assignment (optional for ongoing assignments)',
     example: '2024-12-31T23:59:59.999Z',
     type: 'string',
-    format: 'date-time'
+    format: 'date-time',
   })
   @IsOptional()
   @IsDate()
@@ -195,7 +203,7 @@ export class CreateShiftAssignmentDtoEmployee {
     description: 'Status of the shift assignment',
     enum: ShiftAssignmentStatus,
     example: ShiftAssignmentStatus.APPROVED,
-    default: ShiftAssignmentStatus.APPROVED
+    default: ShiftAssignmentStatus.APPROVED,
   })
   @IsOptional()
   @IsEnum(ShiftAssignmentStatus)
@@ -206,7 +214,7 @@ export class UpdateShiftAssignmentDtoEmployee {
   @ApiProperty({
     description: 'ID of the employee to assign the shift to',
     example: '507f1f77bcf86cd799439014',
-    type: 'string'
+    type: 'string',
   })
   @IsOptional()
   @IsMongoId()
@@ -215,7 +223,7 @@ export class UpdateShiftAssignmentDtoEmployee {
   @ApiProperty({
     description: 'ID of the shift to assign',
     example: '507f1f77bcf86cd799439012',
-    type: 'string'
+    type: 'string',
   })
   @IsOptional()
   @IsMongoId()
@@ -224,7 +232,7 @@ export class UpdateShiftAssignmentDtoEmployee {
   @ApiProperty({
     description: 'ID of the schedule rule governing this assignment',
     example: '507f1f77bcf86cd799439013',
-    type: 'string'
+    type: 'string',
   })
   @IsOptional()
   @IsMongoId()
@@ -234,7 +242,7 @@ export class UpdateShiftAssignmentDtoEmployee {
     description: 'Start date of the shift assignment',
     example: '2024-01-15T00:00:00.000Z',
     type: 'string',
-    format: 'date-time'
+    format: 'date-time',
   })
   @IsOptional()
   @IsDate()
@@ -245,68 +253,7 @@ export class UpdateShiftAssignmentDtoEmployee {
     description: 'End date of the shift assignment',
     example: '2024-12-31T23:59:59.999Z',
     type: 'string',
-    format: 'date-time'
-  })
-  @IsOptional()
-  @IsDate()
-  @Type(() => Date)
-  endDate?: Date;
-
-  @ApiProperty({
-    description: 'Status of the shift assignment',
-    enum: ShiftAssignmentStatus,
-    example: ShiftAssignmentStatus.APPROVED
-  })
-  @IsOptional()
-  @IsEnum(ShiftAssignmentStatus)
-  status?: ShiftAssignmentStatus;
-}
-
-export class CreateShiftAssignmentDtoPosition {
-  @ApiProperty({
-    description: 'ID of the position to assign the shift to',
-    example: '507f1f77bcf86cd799439015',
-    type: 'string'
-  })
-  @IsOptional()
-  @IsMongoId()
-  positionId?: Types.ObjectId;
-
-  @ApiProperty({
-    description: 'ID of the shift to assign',
-    example: '507f1f77bcf86cd799439012',
-    type: 'string',
-    required: true
-  })
-  @IsNotEmpty()
-  @IsMongoId()
-  shiftId: Types.ObjectId;
-
-  @ApiProperty({
-    description: 'ID of the schedule rule governing this assignment',
-    example: '507f1f77bcf86cd799439013',
-    type: 'string'
-  })
-  @IsOptional()
-  @IsMongoId()
-  scheduleRuleId?: Types.ObjectId;
-
-  @ApiProperty({
-    description: 'Start date of the shift assignment',
-    example: '2024-01-15T00:00:00.000Z',
-    type: 'string',
-    format: 'date-time'
-  })
-  @IsNotEmpty()
-  @IsDate()
-  @Type(() => Date)
-  startDate: Date;
-
-  @ApiProperty({
-    description: 'End date of the shift assignment (optional for ongoing assignments)',
-    example: '2024-12-31T23:59:59.999Z',
-    type: 'string',
-    format: 'date-time'
+    format: 'date-time',
   })
   @IsOptional()
   @IsDate()
@@ -317,7 +264,69 @@ export class CreateShiftAssignmentDtoPosition {
     description: 'Status of the shift assignment',
     enum: ShiftAssignmentStatus,
     example: ShiftAssignmentStatus.APPROVED,
-    default: ShiftAssignmentStatus.APPROVED
+  })
+  @IsOptional()
+  @IsEnum(ShiftAssignmentStatus)
+  status?: ShiftAssignmentStatus;
+}
+
+export class CreateShiftAssignmentDtoPosition {
+  @ApiProperty({
+    description: 'ID of the position to assign the shift to',
+    example: '507f1f77bcf86cd799439015',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsMongoId()
+  positionId?: Types.ObjectId;
+
+  @ApiProperty({
+    description: 'ID of the shift to assign',
+    example: '507f1f77bcf86cd799439012',
+    type: 'string',
+    required: true,
+  })
+  @IsNotEmpty()
+  @IsMongoId()
+  shiftId: Types.ObjectId;
+
+  @ApiProperty({
+    description: 'ID of the schedule rule governing this assignment',
+    example: '507f1f77bcf86cd799439013',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsMongoId()
+  scheduleRuleId?: Types.ObjectId;
+
+  @ApiProperty({
+    description: 'Start date of the shift assignment',
+    example: '2024-01-15T00:00:00.000Z',
+    type: 'string',
+    format: 'date-time',
+  })
+  @IsNotEmpty()
+  @IsDate()
+  @Type(() => Date)
+  startDate: Date;
+
+  @ApiProperty({
+    description:
+      'End date of the shift assignment (optional for ongoing assignments)',
+    example: '2024-12-31T23:59:59.999Z',
+    type: 'string',
+    format: 'date-time',
+  })
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  endDate?: Date;
+
+  @ApiProperty({
+    description: 'Status of the shift assignment',
+    enum: ShiftAssignmentStatus,
+    example: ShiftAssignmentStatus.APPROVED,
+    default: ShiftAssignmentStatus.APPROVED,
   })
   @IsOptional()
   @IsEnum(ShiftAssignmentStatus)
@@ -328,7 +337,7 @@ export class UpdateShiftAssignmentDtoPosition {
   @ApiProperty({
     description: 'ID of the position to assign the shift to',
     example: '507f1f77bcf86cd799439015',
-    type: 'string'
+    type: 'string',
   })
   @IsOptional()
   @IsMongoId()
@@ -337,7 +346,7 @@ export class UpdateShiftAssignmentDtoPosition {
   @ApiProperty({
     description: 'ID of the shift to assign',
     example: '507f1f77bcf86cd799439012',
-    type: 'string'
+    type: 'string',
   })
   @IsOptional()
   @IsMongoId()
@@ -346,7 +355,7 @@ export class UpdateShiftAssignmentDtoPosition {
   @ApiProperty({
     description: 'ID of the schedule rule governing this assignment',
     example: '507f1f77bcf86cd799439013',
-    type: 'string'
+    type: 'string',
   })
   @IsOptional()
   @IsMongoId()
@@ -356,7 +365,7 @@ export class UpdateShiftAssignmentDtoPosition {
     description: 'Start date of the shift assignment',
     example: '2024-01-15T00:00:00.000Z',
     type: 'string',
-    format: 'date-time'
+    format: 'date-time',
   })
   @IsOptional()
   @IsDate()
@@ -367,7 +376,7 @@ export class UpdateShiftAssignmentDtoPosition {
     description: 'End date of the shift assignment',
     example: '2024-12-31T23:59:59.999Z',
     type: 'string',
-    format: 'date-time'
+    format: 'date-time',
   })
   @IsOptional()
   @IsDate()
@@ -377,7 +386,7 @@ export class UpdateShiftAssignmentDtoPosition {
   @ApiProperty({
     description: 'Status of the shift assignment',
     enum: ShiftAssignmentStatus,
-    example: ShiftAssignmentStatus.APPROVED
+    example: ShiftAssignmentStatus.APPROVED,
   })
   @IsOptional()
   @IsEnum(ShiftAssignmentStatus)

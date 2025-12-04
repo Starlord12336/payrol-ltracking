@@ -54,4 +54,3 @@ export class CreateAppraisalRecordDto {
   @IsOptional()
   improvementAreas?: string;
 }
-

@@ -1,10 +1,29 @@
-import { CorrectionRequestStatus, HolidayType, PunchPolicy, TimeExceptionStatus, TimeExceptionType } from '../models/enums';
-import { IsArray, ValidateNested, IsDate, IsBoolean, IsDateString, IsEnum, IsMongoId, IsNumber, IsOptional, IsString, Min, IsNotEmpty } from 'class-validator';
+import {
+  CorrectionRequestStatus,
+  HolidayType,
+  PunchPolicy,
+  TimeExceptionStatus,
+  TimeExceptionType,
+} from '../models/enums';
+import {
+  IsArray,
+  ValidateNested,
+  IsDate,
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+  IsMongoId,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+  IsNotEmpty,
+} from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { PunchType } from '../models/enums';
-import { Types } from "mongoose";
+import { Types } from 'mongoose';
 
 export class PunchDto {
   type: PunchType;
@@ -46,7 +65,7 @@ export class CreateAttendanceRecordDto {
   @IsMongoId()
   employeeId: Types.ObjectId;
 
-  @ApiProperty({ example: "IN" })
+  @ApiProperty({ example: 'IN' })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreatePunchDto)
@@ -68,7 +87,7 @@ export class UpdateAttendanceRecordDto {
   @IsOptional()
   employeeId?: Types.ObjectId;
 
-  @ApiProperty({ example: "IN" })
+  @ApiProperty({ example: 'IN' })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => UpdatePunchDto)
@@ -86,7 +105,7 @@ export class UpdateAttendanceRecordDto {
 }
 
 export class CreateHolidayDTO {
-  @ApiProperty({example: 'ORGANIZATIONAL'})
+  @ApiProperty({ example: 'ORGANIZATIONAL' })
   @IsEnum(HolidayType)
   type: HolidayType;
 
@@ -111,7 +130,7 @@ export class CreateHolidayDTO {
 }
 
 export class UpdateHolidayDTO {
-  @ApiProperty({ example: 'ORGANIZATIONAL'})
+  @ApiProperty({ example: 'ORGANIZATIONAL' })
   @IsEnum(HolidayType)
   type: HolidayType;
 
@@ -154,8 +173,6 @@ export class HolidayDto {
   @IsBoolean()
   active?: boolean;
 }
-
-
 
 export class TimeExceptionDto {
   @IsMongoId()
@@ -201,7 +218,7 @@ export class UpdateTimeExceptionDto {
   @IsMongoId()
   @IsOptional()
   EmployeeId?: Types.ObjectId;
-  
+
   @IsEnum(TimeExceptionType)
   @IsOptional()
   type?: TimeExceptionType;
@@ -274,31 +291,31 @@ export class UpdateLatenessRuleDto {
 }
 
 export class CreateAttendanceCorrectionRequestDto {
-    @IsNotEmpty()
-    employeeId: Types.ObjectId;
+  @IsNotEmpty()
+  employeeId: Types.ObjectId;
 
-    @IsNotEmpty()
-    attendanceRecord: Types.ObjectId;
+  @IsNotEmpty()
+  attendanceRecord: Types.ObjectId;
 
-    @IsOptional()
-    reason?: string;
+  @IsOptional()
+  reason?: string;
 }
 
 export class UpdateAttendanceCorrectionRequestDto {
-    @IsOptional()
-    reason?: string;
+  @IsOptional()
+  reason?: string;
 
-    @IsOptional()
-    @IsEnum(CorrectionRequestStatus)
-    status?: CorrectionRequestStatus;
+  @IsOptional()
+  @IsEnum(CorrectionRequestStatus)
+  status?: CorrectionRequestStatus;
 }
 
 export class AttendanceCorrectionRequestDto {
-    employeeId: Types.ObjectId;
-    attendanceRecord: Types.ObjectId;
-    reason?: string;
-    status: CorrectionRequestStatus;
-    _id: Types.ObjectId;
-    createdAt?: Date;
-    updatedAt?: Date;
+  employeeId: Types.ObjectId;
+  attendanceRecord: Types.ObjectId;
+  reason?: string;
+  status: CorrectionRequestStatus;
+  _id: Types.ObjectId;
+  createdAt?: Date;
+  updatedAt?: Date;
 }

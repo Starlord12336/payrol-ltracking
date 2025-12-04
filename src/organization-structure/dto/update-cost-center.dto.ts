@@ -8,4 +8,3 @@ export class UpdateCostCenterDto {
   @Transform(({ value }) => value?.trim())
   costCenter?: string; // null or empty string to remove cost center
 }
-

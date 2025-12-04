@@ -9,4 +9,3 @@ export class ReviewOrgChangeRequestDto {
   @MaxLength(1000)
   comments?: string;
 }
-

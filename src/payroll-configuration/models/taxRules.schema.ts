@@ -14,6 +14,15 @@ export class taxRules {
   @Prop({ required: true, min: 0 })
   rate: number; // tax rate in percentage
 
+  @Prop({ type: Number, default: 0 })
+  minSalary: number;
+
+  @Prop({ type: Number })
+  maxSalary?: number;
+
+  @Prop({ type: Number, required: true })
+  taxRate: number; // tax rate in percentage (same as rate field for compatibility)
+
   @Prop({
     required: true,
     type: String,

@@ -36,4 +36,4 @@ export class StructureApproval {
 }
 
 export const StructureApprovalSchema =
-  SchemaFactory.createForClass(StructureApproval);  
+  SchemaFactory.createForClass(StructureApproval);

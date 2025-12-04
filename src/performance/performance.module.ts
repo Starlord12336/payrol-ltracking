@@ -25,9 +25,18 @@ import {
   AppraisalDisputeSchema,
 } from './models/appraisal-dispute.schema';
 // Integration schemas
-import { EmployeeProfile, EmployeeProfileSchema } from '../employee-profile/models/employee-profile.schema';
-import { Department, DepartmentSchema } from '../organization-structure/models/department.schema';
-import { Position, PositionSchema } from '../organization-structure/models/position.schema';
+import {
+  EmployeeProfile,
+  EmployeeProfileSchema,
+} from '../employee-profile/models/employee-profile.schema';
+import {
+  Department,
+  DepartmentSchema,
+} from '../organization-structure/models/department.schema';
+import {
+  Position,
+  PositionSchema,
+} from '../organization-structure/models/position.schema';
 
 @Module({
   imports: [

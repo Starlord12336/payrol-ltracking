@@ -1,13 +1,30 @@
 // Consolidated Organization Structure Service
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Department, DepartmentDocument } from './models/department.schema';
 import { Position, PositionDocument } from './models/position.schema';
-import { StructureChangeRequest, StructureChangeRequestDocument } from './models/structure-change-request.schema';
-import { StructureApproval, StructureApprovalDocument } from './models/structure-approval.schema';
-import { StructureChangeLog, StructureChangeLogDocument } from './models/structure-change-log.schema';
-import { PositionAssignment, PositionAssignmentDocument } from './models/position-assignment.schema';
+import {
+  StructureChangeRequest,
+  StructureChangeRequestDocument,
+} from './models/structure-change-request.schema';
+import {
+  StructureApproval,
+  StructureApprovalDocument,
+} from './models/structure-approval.schema';
+import {
+  StructureChangeLog,
+  StructureChangeLogDocument,
+} from './models/structure-change-log.schema';
+import {
+  PositionAssignment,
+  PositionAssignmentDocument,
+} from './models/position-assignment.schema';
 import {
   CreateDepartmentDto,
   UpdateDepartmentDto,
@@ -24,7 +41,12 @@ import {
   ReviewOrgChangeRequestDto,
   ApproveOrgChangeRequestDto,
 } from './dto';
-import { StructureRequestType, StructureRequestStatus, ApprovalDecision, ChangeLogAction } from './enums/organization-structure.enums';
+import {
+  StructureRequestType,
+  StructureRequestStatus,
+  ApprovalDecision,
+  ChangeLogAction,
+} from './enums/organization-structure.enums';
 
 @Injectable()
 export class OrganizationStructureService {
@@ -47,13 +69,18 @@ export class OrganizationStructureService {
   // DEPARTMENT METHODS
   // =====================================
 
-  async createDepartment(createDepartmentDto: CreateDepartmentDto, userId: string): Promise<Department> {
+  async createDepartment(
+    createDepartmentDto: CreateDepartmentDto,
+    userId: string,
+  ): Promise<Department> {
     const existingDepartment = await this.departmentModel.findOne({
       code: createDepartmentDto.code,
     });
 
     if (existingDepartment) {
-      throw new ConflictException(`Department with code '${createDepartmentDto.code}' already exists`);
+      throw new ConflictException(
+        `Department with code '${createDepartmentDto.code}' already exists`,
+      );
     }
 
     if (createDepartmentDto.headPositionId) {
@@ -75,7 +102,16 @@ export class OrganizationStructureService {
     limit: number;
     totalPages: number;
   }> {
-    const { page = 1, limit = 10, search, code, isActive, headPositionId, sortBy = 'createdAt', sortOrder = 'desc' } = queryDto;
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      code,
+      isActive,
+      headPositionId,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = queryDto;
 
     const filter: any = {};
 
@@ -150,17 +186,26 @@ export class OrganizationStructureService {
     return department;
   }
 
-  async updateDepartment(id: string, updateDepartmentDto: UpdateDepartmentDto, userId: string): Promise<Department> {
+  async updateDepartment(
+    id: string,
+    updateDepartmentDto: UpdateDepartmentDto,
+    userId: string,
+  ): Promise<Department> {
     const department = await this.findDepartmentById(id);
 
-    if (updateDepartmentDto.code && updateDepartmentDto.code !== department.code) {
+    if (
+      updateDepartmentDto.code &&
+      updateDepartmentDto.code !== department.code
+    ) {
       const existingDepartment = await this.departmentModel.findOne({
         code: updateDepartmentDto.code,
         _id: { $ne: id },
       });
 
       if (existingDepartment) {
-        throw new ConflictException(`Department with code '${updateDepartmentDto.code}' already exists`);
+        throw new ConflictException(
+          `Department with code '${updateDepartmentDto.code}' already exists`,
+        );
       }
     }
 
@@ -169,11 +214,10 @@ export class OrganizationStructureService {
     }
 
     const updatedDepartment = await this.departmentModel
-      .findByIdAndUpdate(
-        id,
-        updateDepartmentDto,
-        { new: true, runValidators: true },
-      )
+      .findByIdAndUpdate(id, updateDepartmentDto, {
+        new: true,
+        runValidators: true,
+      })
       .populate('headPositionId', 'code title')
       .exec();
 
@@ -215,7 +259,11 @@ export class OrganizationStructureService {
     };
   }
 
-  async assignDepartmentHead(departmentId: string, positionId: string | null, userId: string): Promise<Department> {
+  async assignDepartmentHead(
+    departmentId: string,
+    positionId: string | null,
+    userId: string,
+  ): Promise<Department> {
     const department = await this.findDepartmentById(departmentId);
 
     if (positionId) {
@@ -224,7 +272,7 @@ export class OrganizationStructureService {
 
     const departmentDoc = department as DepartmentDocument;
     departmentDoc.headPositionId = positionId
-      ? new Types.ObjectId(positionId) as any
+      ? (new Types.ObjectId(positionId) as any)
       : undefined;
 
     return departmentDoc.save();
@@ -234,13 +282,18 @@ export class OrganizationStructureService {
   // POSITION METHODS
   // =====================================
 
-  async createPosition(createPositionDto: CreatePositionDto, userId: string): Promise<Position> {
+  async createPosition(
+    createPositionDto: CreatePositionDto,
+    userId: string,
+  ): Promise<Position> {
     const existingPosition = await this.positionModel.findOne({
       code: createPositionDto.code,
     });
 
     if (existingPosition) {
-      throw new ConflictException(`Position with code '${createPositionDto.code}' already exists`);
+      throw new ConflictException(
+        `Position with code '${createPositionDto.code}' already exists`,
+      );
     }
 
     await this.validateDepartmentExists(createPositionDto.departmentId);
@@ -264,7 +317,17 @@ export class OrganizationStructureService {
     limit: number;
     totalPages: number;
   }> {
-    const { page = 1, limit = 10, search, code, departmentId, reportsToPositionId, isActive, sortBy = 'createdAt', sortOrder = 'desc' } = queryDto;
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      code,
+      departmentId,
+      reportsToPositionId,
+      isActive,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = queryDto;
 
     const filter: any = {};
 
@@ -346,7 +409,11 @@ export class OrganizationStructureService {
     return position;
   }
 
-  async updatePosition(id: string, updatePositionDto: UpdatePositionDto, userId: string): Promise<Position> {
+  async updatePosition(
+    id: string,
+    updatePositionDto: UpdatePositionDto,
+    userId: string,
+  ): Promise<Position> {
     const position = await this.findPositionById(id);
 
     if (updatePositionDto.code && updatePositionDto.code !== position.code) {
@@ -356,7 +423,9 @@ export class OrganizationStructureService {
       });
 
       if (existingPosition) {
-        throw new ConflictException(`Position with code '${updatePositionDto.code}' already exists`);
+        throw new ConflictException(
+          `Position with code '${updatePositionDto.code}' already exists`,
+        );
       }
     }
 
@@ -369,16 +438,17 @@ export class OrganizationStructureService {
         if (updatePositionDto.reportsToPositionId === id) {
           throw new BadRequestException('Position cannot report to itself');
         }
-        await this.validatePositionExists(updatePositionDto.reportsToPositionId);
+        await this.validatePositionExists(
+          updatePositionDto.reportsToPositionId,
+        );
       }
     }
 
     const updatedPosition = await this.positionModel
-      .findByIdAndUpdate(
-        id,
-        updatePositionDto,
-        { new: true, runValidators: true },
-      )
+      .findByIdAndUpdate(id, updatePositionDto, {
+        new: true,
+        runValidators: true,
+      })
       .populate('departmentId', 'code name')
       .populate('reportsToPositionId', 'code title')
       .exec();
@@ -406,7 +476,11 @@ export class OrganizationStructureService {
     return positionDoc.save();
   }
 
-  async assignReportingPosition(positionId: string, reportsToPositionId: string | null, userId: string): Promise<Position> {
+  async assignReportingPosition(
+    positionId: string,
+    reportsToPositionId: string | null,
+    userId: string,
+  ): Promise<Position> {
     const position = await this.findPositionById(positionId);
 
     if (reportsToPositionId) {
@@ -420,7 +494,7 @@ export class OrganizationStructureService {
 
     const positionDoc = position as PositionDocument;
     positionDoc.reportsToPositionId = reportsToPositionId
-      ? new Types.ObjectId(reportsToPositionId) as any
+      ? (new Types.ObjectId(reportsToPositionId) as any)
       : undefined;
 
     return positionDoc.save();
@@ -487,14 +561,20 @@ export class OrganizationStructureService {
 
       return {
         ...pos.toObject(),
-        reportingPositions: await Promise.all(reportingPositions.map((rp: any) => buildTree(rp))),
+        reportingPositions: await Promise.all(
+          reportingPositions.map((rp: any) => buildTree(rp)),
+        ),
       };
     };
 
     return Promise.all(rootPositions.map((pos: any) => buildTree(pos)));
   }
 
-  async assignDepartmentToPosition(positionId: string, departmentId: string, userId: string): Promise<Position> {
+  async assignDepartmentToPosition(
+    positionId: string,
+    departmentId: string,
+    userId: string,
+  ): Promise<Position> {
     const position = await this.findPositionById(positionId);
 
     await this.validateDepartmentExists(departmentId);
@@ -503,17 +583,26 @@ export class OrganizationStructureService {
     let currentDepartmentId: string;
     if (positionDoc.departmentId instanceof Types.ObjectId) {
       currentDepartmentId = positionDoc.departmentId.toString();
-    } else if (typeof positionDoc.departmentId === 'object' && positionDoc.departmentId !== null) {
-      currentDepartmentId = (positionDoc.departmentId as any)._id?.toString() || (positionDoc.departmentId as any).toString();
+    } else if (
+      typeof positionDoc.departmentId === 'object' &&
+      positionDoc.departmentId !== null
+    ) {
+      currentDepartmentId =
+        (positionDoc.departmentId as any)._id?.toString() ||
+        (positionDoc.departmentId as any).toString();
     } else {
       currentDepartmentId = String(positionDoc.departmentId);
     }
 
-    const normalizedCurrent = new Types.ObjectId(currentDepartmentId).toString();
+    const normalizedCurrent = new Types.ObjectId(
+      currentDepartmentId,
+    ).toString();
     const normalizedNew = new Types.ObjectId(departmentId).toString();
 
     if (normalizedCurrent === normalizedNew) {
-      throw new BadRequestException('Position is already assigned to this department');
+      throw new BadRequestException(
+        'Position is already assigned to this department',
+      );
     }
 
     positionDoc.departmentId = new Types.ObjectId(departmentId) as any;
@@ -539,15 +628,22 @@ export class OrganizationStructureService {
   // CHANGE REQUEST METHODS (using StructureChangeRequest)
   // =====================================
 
-  async createChangeRequest(createDto: CreateOrgChangeRequestDto, userId: string): Promise<StructureChangeRequest> {
+  async createChangeRequest(
+    createDto: CreateOrgChangeRequestDto,
+    userId: string,
+  ): Promise<StructureChangeRequest> {
     const requestNumber = await this.generateRequestNumber();
 
     const changeRequest = new this.changeRequestModel({
       requestNumber,
       requestedByEmployeeId: new Types.ObjectId(userId),
       requestType: createDto.requestType,
-      targetDepartmentId: createDto.targetDepartmentId ? new Types.ObjectId(createDto.targetDepartmentId) : undefined,
-      targetPositionId: createDto.targetPositionId ? new Types.ObjectId(createDto.targetPositionId) : undefined,
+      targetDepartmentId: createDto.targetDepartmentId
+        ? new Types.ObjectId(createDto.targetDepartmentId)
+        : undefined,
+      targetPositionId: createDto.targetPositionId
+        ? new Types.ObjectId(createDto.targetPositionId)
+        : undefined,
       details: createDto.details,
       reason: createDto.reason,
       status: StructureRequestStatus.DRAFT,
@@ -629,20 +725,28 @@ export class OrganizationStructureService {
     return changeRequest;
   }
 
-  async findChangeRequestByNumber(requestNumber: string): Promise<StructureChangeRequest> {
+  async findChangeRequestByNumber(
+    requestNumber: string,
+  ): Promise<StructureChangeRequest> {
     const changeRequest = await this.changeRequestModel
       .findOne({ requestNumber: requestNumber.toUpperCase() })
       .populate('requestedByEmployeeId', 'firstName lastName')
       .exec();
 
     if (!changeRequest) {
-      throw new NotFoundException(`Change request with number '${requestNumber}' not found`);
+      throw new NotFoundException(
+        `Change request with number '${requestNumber}' not found`,
+      );
     }
 
     return changeRequest;
   }
 
-  async updateChangeRequest(id: string, updateDto: UpdateOrgChangeRequestDto, userId: string): Promise<StructureChangeRequest> {
+  async updateChangeRequest(
+    id: string,
+    updateDto: UpdateOrgChangeRequestDto,
+    userId: string,
+  ): Promise<StructureChangeRequest> {
     const changeRequest = await this.findChangeRequestById(id);
 
     if (changeRequest.status !== StructureRequestStatus.DRAFT) {
@@ -654,11 +758,15 @@ export class OrganizationStructureService {
     };
 
     if (updateDto.targetDepartmentId !== undefined) {
-      updateData.targetDepartmentId = updateDto.targetDepartmentId ? new Types.ObjectId(updateDto.targetDepartmentId) : undefined;
+      updateData.targetDepartmentId = updateDto.targetDepartmentId
+        ? new Types.ObjectId(updateDto.targetDepartmentId)
+        : undefined;
     }
 
     if (updateDto.targetPositionId !== undefined) {
-      updateData.targetPositionId = updateDto.targetPositionId ? new Types.ObjectId(updateDto.targetPositionId) : undefined;
+      updateData.targetPositionId = updateDto.targetPositionId
+        ? new Types.ObjectId(updateDto.targetPositionId)
+        : undefined;
     }
 
     const updatedRequest = await this.changeRequestModel
@@ -669,11 +777,16 @@ export class OrganizationStructureService {
     return updatedRequest;
   }
 
-  async submitChangeRequestForReview(id: string, userId: string): Promise<StructureChangeRequest> {
+  async submitChangeRequestForReview(
+    id: string,
+    userId: string,
+  ): Promise<StructureChangeRequest> {
     const changeRequest = await this.findChangeRequestById(id);
 
     if (changeRequest.status !== StructureRequestStatus.DRAFT) {
-      throw new BadRequestException('Only DRAFT requests can be submitted for review');
+      throw new BadRequestException(
+        'Only DRAFT requests can be submitted for review',
+      );
     }
 
     const changeRequestDoc = changeRequest as StructureChangeRequestDocument;
@@ -684,7 +797,11 @@ export class OrganizationStructureService {
     return changeRequestDoc.save();
   }
 
-  async reviewChangeRequest(id: string, reviewDto: ReviewOrgChangeRequestDto, userId: string): Promise<StructureChangeRequest> {
+  async reviewChangeRequest(
+    id: string,
+    reviewDto: ReviewOrgChangeRequestDto,
+    userId: string,
+  ): Promise<StructureChangeRequest> {
     const changeRequest = await this.findChangeRequestById(id);
 
     if (changeRequest.status !== StructureRequestStatus.SUBMITTED) {
@@ -694,7 +811,9 @@ export class OrganizationStructureService {
     const approval = new this.approvalModel({
       changeRequestId: new Types.ObjectId(id),
       approverEmployeeId: new Types.ObjectId(userId),
-      decision: reviewDto.approved ? ApprovalDecision.APPROVED : ApprovalDecision.REJECTED,
+      decision: reviewDto.approved
+        ? ApprovalDecision.APPROVED
+        : ApprovalDecision.REJECTED,
       decidedAt: new Date(),
       comments: reviewDto.comments,
     });
@@ -702,12 +821,18 @@ export class OrganizationStructureService {
     await approval.save();
 
     const changeRequestDoc = changeRequest as StructureChangeRequestDocument;
-    changeRequestDoc.status = reviewDto.approved ? StructureRequestStatus.APPROVED : StructureRequestStatus.REJECTED;
+    changeRequestDoc.status = reviewDto.approved
+      ? StructureRequestStatus.APPROVED
+      : StructureRequestStatus.REJECTED;
 
     return changeRequestDoc.save();
   }
 
-  async approveChangeRequest(id: string, approveDto: ApproveOrgChangeRequestDto, userId: string): Promise<StructureChangeRequest> {
+  async approveChangeRequest(
+    id: string,
+    approveDto: ApproveOrgChangeRequestDto,
+    userId: string,
+  ): Promise<StructureChangeRequest> {
     const changeRequest = await this.findChangeRequestById(id);
 
     if (changeRequest.status !== StructureRequestStatus.SUBMITTED) {
@@ -730,7 +855,11 @@ export class OrganizationStructureService {
     return changeRequestDoc.save();
   }
 
-  async rejectChangeRequest(id: string, reason: string, userId: string): Promise<StructureChangeRequest> {
+  async rejectChangeRequest(
+    id: string,
+    reason: string,
+    userId: string,
+  ): Promise<StructureChangeRequest> {
     const changeRequest = await this.findChangeRequestById(id);
 
     if (changeRequest.status !== StructureRequestStatus.SUBMITTED) {
@@ -753,11 +882,21 @@ export class OrganizationStructureService {
     return changeRequestDoc.save();
   }
 
-  async cancelChangeRequest(id: string, userId: string): Promise<StructureChangeRequest> {
+  async cancelChangeRequest(
+    id: string,
+    userId: string,
+  ): Promise<StructureChangeRequest> {
     const changeRequest = await this.findChangeRequestById(id);
 
-    if (![StructureRequestStatus.DRAFT, StructureRequestStatus.SUBMITTED].includes(changeRequest.status)) {
-      throw new BadRequestException('Only DRAFT or SUBMITTED requests can be cancelled');
+    if (
+      ![
+        StructureRequestStatus.DRAFT,
+        StructureRequestStatus.SUBMITTED,
+      ].includes(changeRequest.status)
+    ) {
+      throw new BadRequestException(
+        'Only DRAFT or SUBMITTED requests can be cancelled',
+      );
     }
 
     const changeRequestDoc = changeRequest as StructureChangeRequestDocument;
@@ -779,7 +918,9 @@ export class OrganizationStructureService {
         .populate('headPositionId')
         .exec();
       if (!department) {
-        throw new NotFoundException(`Department with ID ${departmentId} not found`);
+        throw new NotFoundException(
+          `Department with ID ${departmentId} not found`,
+        );
       }
       departments = [department];
     } else {
@@ -885,11 +1026,15 @@ export class OrganizationStructureService {
 
     const department = await this.departmentModel.findById(departmentId).exec();
     if (!department) {
-      throw new NotFoundException(`Department with ID '${departmentId}' not found`);
+      throw new NotFoundException(
+        `Department with ID '${departmentId}' not found`,
+      );
     }
 
     if (!department.isActive) {
-      throw new BadRequestException(`Department with ID '${departmentId}' is not active`);
+      throw new BadRequestException(
+        `Department with ID '${departmentId}' is not active`,
+      );
     }
   }
 
@@ -904,11 +1049,16 @@ export class OrganizationStructureService {
     }
 
     if (!position.isActive) {
-      throw new BadRequestException(`Position with ID '${positionId}' is not active`);
+      throw new BadRequestException(
+        `Position with ID '${positionId}' is not active`,
+      );
     }
   }
 
-  private async validateNoCircularReporting(positionId: string, reportsToPositionId: string): Promise<void> {
+  private async validateNoCircularReporting(
+    positionId: string,
+    reportsToPositionId: string,
+  ): Promise<void> {
     let currentId = reportsToPositionId;
     const visited = new Set<string>();
 
@@ -918,7 +1068,9 @@ export class OrganizationStructureService {
       }
 
       if (currentId === positionId) {
-        throw new BadRequestException('Circular reporting relationship detected. This would create a loop in the hierarchy.');
+        throw new BadRequestException(
+          'Circular reporting relationship detected. This would create a loop in the hierarchy.',
+        );
       }
 
       visited.add(currentId);
@@ -932,7 +1084,9 @@ export class OrganizationStructureService {
     }
   }
 
-  private async buildPositionTree(positions: PositionDocument[]): Promise<any[]> {
+  private async buildPositionTree(
+    positions: PositionDocument[],
+  ): Promise<any[]> {
     const rootPositions = positions.filter((p) => !p.reportsToPositionId);
 
     const buildTree = (position: PositionDocument): any => {
@@ -966,11 +1120,13 @@ export class OrganizationStructureService {
 
     let sequence = 1;
     if (latest) {
-      const lastSequence = parseInt(latest.requestNumber.split('-').pop() || '0', 10);
+      const lastSequence = parseInt(
+        latest.requestNumber.split('-').pop() || '0',
+        10,
+      );
       sequence = lastSequence + 1;
     }
 
     return `${prefix}${sequence.toString().padStart(4, '0')}`;
   }
 }
-

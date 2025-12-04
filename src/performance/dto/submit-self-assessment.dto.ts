@@ -1,4 +1,10 @@
-import { IsArray, ValidateNested, IsString, IsOptional, ArrayMinSize } from 'class-validator';
+import {
+  IsArray,
+  ValidateNested,
+  IsString,
+  IsOptional,
+  ArrayMinSize,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { SectionRatingDto } from './create-appraisal-evaluation.dto';
 
@@ -13,4 +19,3 @@ export class SubmitSelfAssessmentDto {
   @IsOptional()
   overallComments?: string;
 }
-

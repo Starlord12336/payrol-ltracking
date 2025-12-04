@@ -6,7 +6,12 @@ import {
   IsEnum,
   IsDateString,
 } from 'class-validator';
-import { Gender, MaritalStatus, EmployeeStatus, CandidateStatus } from '../../employee-profile/enums/employee-profile.enums';
+import {
+  Gender,
+  MaritalStatus,
+  EmployeeStatus,
+  CandidateStatus,
+} from '../../employee-profile/enums/employee-profile.enums';
 
 export type UserType = 'employee' | 'candidate';
 
@@ -83,4 +88,3 @@ export class RegisterDto {
   @IsEnum(CandidateStatus)
   candidateStatus?: CandidateStatus; // For candidates
 }
-

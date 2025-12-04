@@ -5,4 +5,3 @@ export class AssignReportingPositionDto {
   @IsOptional()
   reportsToPositionId?: string; // null to remove reporting relationship (make it top-level)
 }
-

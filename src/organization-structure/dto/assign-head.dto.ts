@@ -5,4 +5,3 @@ export class AssignHeadDto {
   @IsOptional()
   headPositionId?: string; // null to remove department head position
 }
-

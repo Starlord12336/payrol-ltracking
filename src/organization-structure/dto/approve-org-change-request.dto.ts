@@ -6,4 +6,3 @@ export class ApproveOrgChangeRequestDto {
   @MaxLength(1000)
   comments?: string;
 }
-

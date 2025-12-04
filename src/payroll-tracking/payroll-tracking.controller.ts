@@ -9,6 +9,20 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
+
+// Auth Guards & Decorators
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { SystemRole } from '../employee-profile/enums/employee-profile.enums';
+
 import { PayrollTrackingService } from './payroll-tracking.service';
 import { CreateDisputeDto } from './dto/create-dispute.dto';
 import { CreateClaimDto } from './dto/create-claim.dto';
@@ -16,7 +30,21 @@ import { ReviewDisputeDto } from './dto/review-dispute.dto';
 import { ReviewClaimDto } from './dto/review-claim.dto';
 import { GenerateReportDto } from './dto/generate-report.dto';
 
+/**
+ * PayrollTrackingController
+ *
+ * REST API endpoints for Payroll Tracking:
+ * - Employee Self-Service (ESS) - View payslips, salary history, tax documents
+ * - Disputes Management - Create and track payroll disputes
+ * - Expense Claims - Submit and track reimbursement claims
+ * - Reports Generation - Various payroll reports for management
+ *
+ * Implements requirements REQ-PY-1 to REQ-PY-46 (Tracking module)
+ */
+@ApiTags('Payroll Tracking')
+@ApiBearerAuth()
 @Controller('payroll-tracking')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class PayrollTrackingController {
   constructor(
     private readonly payrollTrackingService: PayrollTrackingService,
@@ -31,6 +59,13 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/employee/:employeeId/payslips/:payslipId
    */
   @Get('employee/:employeeId/payslips/:payslipId')
+  @Roles(
+    SystemRole.EMPLOYEE,
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+  )
+  @ApiOperation({ summary: 'Get specific payslip for employee' })
+  @ApiResponse({ status: 200, description: 'Payslip retrieved successfully' })
   async getEmployeePayslip(
     @Param('employeeId') employeeId: string,
     @Param('payslipId') payslipId: string,
@@ -46,6 +81,13 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/employee/:employeeId/payslips
    */
   @Get('employee/:employeeId/payslips')
+  @Roles(
+    SystemRole.EMPLOYEE,
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+  )
+  @ApiOperation({ summary: 'Get all payslips for employee' })
+  @ApiResponse({ status: 200, description: 'Payslips retrieved successfully' })
   async getEmployeePayslips(
     @Param('employeeId') employeeId: string,
     @Query('startDate') startDate?: string,
@@ -68,6 +110,18 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/employee/:employeeId/base-salary
    */
   @Get('employee/:employeeId/base-salary')
+  @Roles(
+    SystemRole.EMPLOYEE,
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+  )
+  @ApiOperation({
+    summary: 'Get employee base salary according to employment contract',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Base salary retrieved successfully',
+  })
   async getEmployeeBaseSalary(@Param('employeeId') employeeId: string) {
     return await this.payrollTrackingService.getEmployeeBaseSalary(employeeId);
   }
@@ -167,6 +221,16 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/employee/:employeeId/salary-history
    */
   @Get('employee/:employeeId/salary-history')
+  @Roles(
+    SystemRole.EMPLOYEE,
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+  )
+  @ApiOperation({ summary: 'View salary history for employee' })
+  @ApiResponse({
+    status: 200,
+    description: 'Salary history retrieved successfully',
+  })
   async getSalaryHistory(
     @Param('employeeId') employeeId: string,
     @Query('limit') limit?: number,
@@ -201,10 +265,7 @@ export class PayrollTrackingController {
     @Param('employeeId') employeeId: string,
     @Query('year') year?: number,
   ) {
-    return await this.payrollTrackingService.getTaxDocuments(
-      employeeId,
-      year,
-    );
+    return await this.payrollTrackingService.getTaxDocuments(employeeId, year);
   }
 
   // ============================================
@@ -216,6 +277,9 @@ export class PayrollTrackingController {
    * POST /payroll-tracking/employee/:employeeId/disputes
    */
   @Post('employee/:employeeId/disputes')
+  @Roles(SystemRole.EMPLOYEE)
+  @ApiOperation({ summary: 'Employee disputes payroll errors' })
+  @ApiResponse({ status: 201, description: 'Dispute created successfully' })
   async createDispute(
     @Param('employeeId') employeeId: string,
     @Body() createDisputeDto: CreateDisputeDto,
@@ -255,6 +319,11 @@ export class PayrollTrackingController {
    * PATCH /payroll-tracking/specialist/:specialistId/disputes/:disputeId/review
    */
   @Patch('specialist/:specialistId/disputes/:disputeId/review')
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
+  @ApiOperation({
+    summary: 'Payroll Specialist reviews and approves/rejects dispute',
+  })
+  @ApiResponse({ status: 200, description: 'Dispute reviewed successfully' })
   async reviewDisputeBySpecialist(
     @Param('specialistId') specialistId: string,
     @Param('disputeId') disputeId: string,
@@ -272,6 +341,11 @@ export class PayrollTrackingController {
    * PATCH /payroll-tracking/manager/:managerId/disputes/:disputeId/confirm
    */
   @Patch('manager/:managerId/disputes/:disputeId/confirm')
+  @Roles(SystemRole.PAYROLL_MANAGER)
+  @ApiOperation({
+    summary: 'Payroll Manager confirms dispute approval (multi-step)',
+  })
+  @ApiResponse({ status: 200, description: 'Dispute approval confirmed' })
   async confirmDisputeApprovalByManager(
     @Param('managerId') managerId: string,
     @Param('disputeId') disputeId: string,
@@ -289,6 +363,12 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/finance/disputes/approved
    */
   @Get('finance/disputes/approved')
+  @Roles(SystemRole.FINANCE_STAFF)
+  @ApiOperation({ summary: 'Finance staff notification of approved disputes' })
+  @ApiResponse({
+    status: 200,
+    description: 'Approved disputes retrieved successfully',
+  })
   async getApprovedDisputes(@Query('financeStaffId') financeStaffId?: string) {
     return await this.payrollTrackingService.getApprovedDisputes(
       financeStaffId,
@@ -304,6 +384,9 @@ export class PayrollTrackingController {
    * POST /payroll-tracking/employee/:employeeId/claims
    */
   @Post('employee/:employeeId/claims')
+  @Roles(SystemRole.EMPLOYEE)
+  @ApiOperation({ summary: 'Employee submits expense reimbursement claims' })
+  @ApiResponse({ status: 201, description: 'Claim created successfully' })
   async createClaim(
     @Param('employeeId') employeeId: string,
     @Body() createClaimDto: CreateClaimDto,
@@ -343,6 +426,9 @@ export class PayrollTrackingController {
    * PATCH /payroll-tracking/specialist/:specialistId/claims/:claimId/review
    */
   @Patch('specialist/:specialistId/claims/:claimId/review')
+  @Roles(SystemRole.PAYROLL_SPECIALIST)
+  @ApiOperation({ summary: 'Payroll Specialist reviews expense claim' })
+  @ApiResponse({ status: 200, description: 'Claim reviewed successfully' })
   async reviewClaimBySpecialist(
     @Param('specialistId') specialistId: string,
     @Param('claimId') claimId: string,
@@ -360,6 +446,9 @@ export class PayrollTrackingController {
    * PATCH /payroll-tracking/manager/:managerId/claims/:claimId/confirm
    */
   @Patch('manager/:managerId/claims/:claimId/confirm')
+  @Roles(SystemRole.PAYROLL_MANAGER)
+  @ApiOperation({ summary: 'Payroll Manager confirms expense claim approval' })
+  @ApiResponse({ status: 200, description: 'Claim approval confirmed' })
   async confirmClaimApprovalByManager(
     @Param('managerId') managerId: string,
     @Param('claimId') claimId: string,
@@ -427,6 +516,16 @@ export class PayrollTrackingController {
    * POST /payroll-tracking/reports/generate
    */
   @Post('reports/generate')
+  @Roles(
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+    SystemRole.FINANCE_STAFF,
+  )
+  @ApiOperation({
+    summary:
+      'Generate payroll reports (payroll summary, tax, insurance, benefits)',
+  })
+  @ApiResponse({ status: 200, description: 'Report generated successfully' })
   async generateReport(@Body() reportDto: GenerateReportDto) {
     return await this.payrollTrackingService.generateReport(reportDto);
   }
@@ -436,6 +535,16 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/reports/department/:departmentId
    */
   @Get('reports/department/:departmentId')
+  @Roles(
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+    SystemRole.FINANCE_STAFF,
+  )
+  @ApiOperation({ summary: 'Generate payroll report by department' })
+  @ApiResponse({
+    status: 200,
+    description: 'Department report generated successfully',
+  })
   async generateDepartmentReport(
     @Param('departmentId') departmentId: string,
     @Query('startDate') startDate?: string,

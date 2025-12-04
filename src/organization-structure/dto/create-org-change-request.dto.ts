@@ -52,4 +52,3 @@ export class CreateOrgChangeRequestDto {
   @MaxLength(2000)
   reason?: string;
 }
-

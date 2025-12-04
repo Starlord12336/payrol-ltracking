@@ -16,15 +16,9 @@ import {
 } from './enums/payroll-tracking-enum';
 import { CreateDisputeDto } from './dto/create-dispute.dto';
 import { CreateClaimDto } from './dto/create-claim.dto';
-import {
-  ReviewDisputeDto,
-  ReviewAction,
-} from './dto/review-dispute.dto';
+import { ReviewDisputeDto, ReviewAction } from './dto/review-dispute.dto';
 import { ReviewClaimDto } from './dto/review-claim.dto';
-import {
-  GenerateReportDto,
-  ReportType,
-} from './dto/generate-report.dto';
+import { GenerateReportDto, ReportType } from './dto/generate-report.dto';
 import { employeePayrollDetails } from '../payroll-execution/models/employeePayrollDetails.schema';
 import { EmployeeProfile } from '../employee-profile/models/employee-profile.schema';
 
@@ -69,11 +63,14 @@ export class PayrollTrackingService {
   /**
    * REQ-PY-1, REQ-PY-2: Get all payslips for an employee
    */
-  async getEmployeePayslips(employeeId: string, filters?: {
-    startDate?: Date;
-    endDate?: Date;
-    status?: string;
-  }) {
+  async getEmployeePayslips(
+    employeeId: string,
+    filters?: {
+      startDate?: Date;
+      endDate?: Date;
+      status?: string;
+    },
+  ) {
     const query: any = { employeeId: new Types.ObjectId(employeeId) };
 
     if (filters?.status) {
@@ -186,7 +183,8 @@ export class PayrollTrackingService {
       payslipId: payslip._id,
       taxes: payslip.deductionsDetails?.taxes || [],
       totalTaxDeduction: payslip.deductionsDetails?.taxes?.reduce(
-        (sum, tax: any) => sum + ((tax.rate * payslip.totalGrossSalary / 100) || 0),
+        (sum, tax: any) =>
+          sum + ((tax.rate * payslip.totalGrossSalary) / 100 || 0),
         0,
       ),
     };
@@ -212,7 +210,8 @@ export class PayrollTrackingService {
       payslipId: payslip._id,
       insurances: payslip.deductionsDetails?.insurances || [],
       totalInsuranceDeduction: payslip.deductionsDetails?.insurances?.reduce(
-        (sum, ins: any) => sum + ((ins.employeeRate * payslip.totalGrossSalary / 100) || 0),
+        (sum, ins: any) =>
+          sum + ((ins.employeeRate * payslip.totalGrossSalary) / 100 || 0),
         0,
       ),
     };
@@ -259,7 +258,8 @@ export class PayrollTrackingService {
     // Unpaid leave deductions are part of penalties
     const unpaidLeaveDeduction =
       payslip.deductionsDetails?.penalties?.penalties?.reduce(
-        (sum: number, p: any) => sum + (p.reason?.toLowerCase().includes('unpaid') ? p.amount : 0),
+        (sum: number, p: any) =>
+          sum + (p.reason?.toLowerCase().includes('unpaid') ? p.amount : 0),
         0,
       ) || 0;
 
@@ -315,7 +315,8 @@ export class PayrollTrackingService {
     const employerContributions = {
       insurances: payslip.deductionsDetails?.insurances?.map((ins: any) => ({
         insuranceName: ins.name,
-        employerContribution: (ins.employerRate * payslip.totalGrossSalary / 100) || 0,
+        employerContribution:
+          (ins.employerRate * payslip.totalGrossSalary) / 100 || 0,
       })),
       allowances: payslip.earningsDetails?.allowances || [],
     };
@@ -343,7 +344,8 @@ export class PayrollTrackingService {
 
     const totalTaxes = payslips.reduce((sum, p: any) => {
       const taxAmount = p.deductionsDetails?.taxes?.reduce(
-        (tSum: number, t: any) => tSum + ((t.rate * p.totalGrossSalary / 100) || 0),
+        (tSum: number, t: any) =>
+          tSum + ((t.rate * p.totalGrossSalary) / 100 || 0),
         0,
       );
       return sum + (taxAmount || 0);
@@ -358,7 +360,8 @@ export class PayrollTrackingService {
         month: p.createdAt,
         taxes: p.deductionsDetails?.taxes || [],
         totalTax: p.deductionsDetails?.taxes?.reduce(
-          (sum: number, t: any) => sum + ((t.rate * p.totalGrossSalary / 100) || 0),
+          (sum: number, t: any) =>
+            sum + ((t.rate * p.totalGrossSalary) / 100 || 0),
           0,
         ),
       })),
@@ -383,7 +386,9 @@ export class PayrollTrackingService {
       .exec();
 
     if (!payslip) {
-      throw new NotFoundException('Payslip not found or does not belong to you');
+      throw new NotFoundException(
+        'Payslip not found or does not belong to you',
+      );
     }
 
     // Generate unique disputeId
@@ -464,7 +469,8 @@ export class PayrollTrackingService {
     } else {
       dispute.status = DisputeStatus.REJECTED;
       dispute.payrollSpecialistId = new Types.ObjectId(specialistId);
-      dispute.rejectionReason = reviewDto.rejectionReason || 'Rejected by specialist';
+      dispute.rejectionReason =
+        reviewDto.rejectionReason || 'Rejected by specialist';
     }
 
     return await dispute.save();
@@ -485,9 +491,7 @@ export class PayrollTrackingService {
     }
 
     if (dispute.status !== DisputeStatus.PENDING_MANAGER_APPROVAL) {
-      throw new BadRequestException(
-        'Dispute is not pending manager approval',
-      );
+      throw new BadRequestException('Dispute is not pending manager approval');
     }
 
     if (reviewDto.action === ReviewAction.APPROVE) {
@@ -502,7 +506,8 @@ export class PayrollTrackingService {
     } else {
       dispute.status = DisputeStatus.REJECTED;
       dispute.payrollManagerId = new Types.ObjectId(managerId);
-      dispute.rejectionReason = reviewDto.rejectionReason || 'Rejected by manager';
+      dispute.rejectionReason =
+        reviewDto.rejectionReason || 'Rejected by manager';
     }
 
     return await dispute.save();
@@ -647,7 +652,8 @@ export class PayrollTrackingService {
     } else {
       claim.status = ClaimStatus.REJECTED;
       claim.payrollSpecialistId = new Types.ObjectId(specialistId);
-      claim.rejectionReason = reviewDto.rejectionReason || 'Rejected by specialist';
+      claim.rejectionReason =
+        reviewDto.rejectionReason || 'Rejected by specialist';
     }
 
     return await claim.save();
@@ -686,7 +692,8 @@ export class PayrollTrackingService {
     } else {
       claim.status = ClaimStatus.REJECTED;
       claim.payrollManagerId = new Types.ObjectId(managerId);
-      claim.rejectionReason = reviewDto.rejectionReason || 'Rejected by manager';
+      claim.rejectionReason =
+        reviewDto.rejectionReason || 'Rejected by manager';
     }
 
     return await claim.save();
@@ -949,8 +956,9 @@ export class PayrollTrackingService {
     return {
       year,
       period: { startDate, endDate },
-      totalEmployees: new Set(payrollDetails.map((p) => p.employeeId.toString()))
-        .size,
+      totalEmployees: new Set(
+        payrollDetails.map((p) => p.employeeId.toString()),
+      ).size,
       totalGrossSalary,
       totalDeductions,
       totalNetPay,
@@ -983,7 +991,8 @@ export class PayrollTrackingService {
             count: 0,
           };
         }
-        acc[key].totalAmount += (tax.rate * payslip.totalGrossSalary / 100) || 0;
+        acc[key].totalAmount +=
+          (tax.rate * payslip.totalGrossSalary) / 100 || 0;
         acc[key].count += 1;
       });
       return acc;
@@ -1024,8 +1033,10 @@ export class PayrollTrackingService {
             count: 0,
           };
         }
-        acc[key].totalEmployeeContribution += (ins.employeeRate * payslip.totalGrossSalary / 100) || 0;
-        acc[key].totalEmployerContribution += (ins.employerRate * payslip.totalGrossSalary / 100) || 0;
+        acc[key].totalEmployeeContribution +=
+          (ins.employeeRate * payslip.totalGrossSalary) / 100 || 0;
+        acc[key].totalEmployerContribution +=
+          (ins.employerRate * payslip.totalGrossSalary) / 100 || 0;
         acc[key].count += 1;
       });
       return acc;
@@ -1090,7 +1101,9 @@ export class PayrollTrackingService {
    * Generic report generator
    */
   async generateReport(reportDto: GenerateReportDto) {
-    const startDate = reportDto.startDate ? new Date(reportDto.startDate) : undefined;
+    const startDate = reportDto.startDate
+      ? new Date(reportDto.startDate)
+      : undefined;
     const endDate = reportDto.endDate ? new Date(reportDto.endDate) : undefined;
 
     switch (reportDto.reportType) {
@@ -1107,12 +1120,18 @@ export class PayrollTrackingService {
         );
 
       case ReportType.MONTH_END_SUMMARY:
-        const month = startDate ? startDate.getMonth() + 1 : new Date().getMonth() + 1;
-        const year = startDate ? startDate.getFullYear() : new Date().getFullYear();
+        const month = startDate
+          ? startDate.getMonth() + 1
+          : new Date().getMonth() + 1;
+        const year = startDate
+          ? startDate.getFullYear()
+          : new Date().getFullYear();
         return await this.generateMonthEndSummary(year, month);
 
       case ReportType.YEAR_END_SUMMARY:
-        const reportYear = startDate ? startDate.getFullYear() : new Date().getFullYear();
+        const reportYear = startDate
+          ? startDate.getFullYear()
+          : new Date().getFullYear();
         return await this.generateYearEndSummary(reportYear);
 
       case ReportType.TAX_REPORT:

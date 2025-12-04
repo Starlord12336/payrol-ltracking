@@ -2,9 +2,19 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { UserTypeRegistry } from '../interfaces/user-registry.interface';
-import { EmployeeProfile, EmployeeProfileDocument } from '../../employee-profile/models/employee-profile.schema';
-import { Candidate, CandidateDocument } from '../../employee-profile/models/candidate.schema';
-import { EmployeeStatus, CandidateStatus, SystemRole } from '../../employee-profile/enums/employee-profile.enums';
+import {
+  EmployeeProfile,
+  EmployeeProfileDocument,
+} from '../../employee-profile/models/employee-profile.schema';
+import {
+  Candidate,
+  CandidateDocument,
+} from '../../employee-profile/models/candidate.schema';
+import {
+  EmployeeStatus,
+  CandidateStatus,
+  SystemRole,
+} from '../../employee-profile/enums/employee-profile.enums';
 
 /**
  * Service to manage all user types that extend UserProfileBase
@@ -84,7 +94,11 @@ export class UserRegistryService implements OnModuleInit {
   /**
    * Get all models for querying across all user types
    */
-  getAllModels(): Array<{ model: Model<any>; type: string; registry: UserTypeRegistry }> {
+  getAllModels(): Array<{
+    model: Model<any>;
+    type: string;
+    registry: UserTypeRegistry;
+  }> {
     return Array.from(this.userTypes.entries()).map(([type, registry]) => ({
       model: registry.model,
       type,
@@ -92,4 +106,3 @@ export class UserRegistryService implements OnModuleInit {
     }));
   }
 }
-

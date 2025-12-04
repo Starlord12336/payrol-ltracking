@@ -7,4 +7,3 @@ export class UpdateDepartmentDto extends PartialType(CreateDepartmentDto) {
   @IsOptional()
   isActive?: boolean;
 }
-

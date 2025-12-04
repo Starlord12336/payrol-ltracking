@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, IsOptional, IsMongoId, MaxLength, MinLength } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsMongoId,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class CreatePositionDto {
@@ -30,4 +37,3 @@ export class CreatePositionDto {
   @IsOptional()
   reportsToPositionId?: string;
 }
-

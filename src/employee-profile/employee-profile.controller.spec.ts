@@ -89,10 +89,7 @@ describe('EmployeeProfileController', () => {
 
       const result = await controller.updateMyProfile(mockUser, dto);
 
-      expect(service.updateMyProfile).toHaveBeenCalledWith(
-        mockProfileId,
-        dto,
-      );
+      expect(service.updateMyProfile).toHaveBeenCalledWith(mockProfileId, dto);
       expect(result.success).toBe(true);
       expect(result.data).toEqual(updatedProfile);
       expect(result.message).toBe('Profile updated successfully');

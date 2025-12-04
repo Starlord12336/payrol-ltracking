@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, IsOptional, IsMongoId, MaxLength, MinLength } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsMongoId,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class CreateDepartmentDto {
@@ -32,4 +39,3 @@ export class CreateDepartmentDto {
   @Transform(({ value }) => value?.trim())
   costCenter?: string;
 }
-

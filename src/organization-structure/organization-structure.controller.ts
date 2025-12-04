@@ -38,7 +38,9 @@ import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 @Controller('organization-structure')
 @UseGuards(JwtAuthGuard)
 export class OrganizationStructureController {
-  constructor(private readonly orgStructureService: OrganizationStructureService) {}
+  constructor(
+    private readonly orgStructureService: OrganizationStructureService,
+  ) {}
 
   // =====================================
   // DEPARTMENT ENDPOINTS
@@ -77,7 +79,8 @@ export class OrganizationStructureController {
 
   @Get('departments/hierarchy')
   async getDepartmentHierarchy(@Query('departmentId') departmentId?: string) {
-    const hierarchy = await this.orgStructureService.getDepartmentHierarchy(departmentId);
+    const hierarchy =
+      await this.orgStructureService.getDepartmentHierarchy(departmentId);
 
     return {
       success: true,
@@ -88,7 +91,8 @@ export class OrganizationStructureController {
 
   @Get('departments/code/:code')
   async findDepartmentByCode(@Param('code') code: string) {
-    const department = await this.orgStructureService.findDepartmentByCode(code);
+    const department =
+      await this.orgStructureService.findDepartmentByCode(code);
 
     return {
       success: true,
@@ -148,7 +152,8 @@ export class OrganizationStructureController {
     @Body() updateDepartmentDto: UpdateDepartmentDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    const department = await this.orgStructureService.findDepartmentByCode(code);
+    const department =
+      await this.orgStructureService.findDepartmentByCode(code);
     const updatedDepartment = await this.orgStructureService.updateDepartment(
       (department as any)._id.toString(),
       updateDepartmentDto,
@@ -188,7 +193,8 @@ export class OrganizationStructureController {
     @Param('code') code: string,
     @CurrentUser() user: JwtPayload,
   ) {
-    const department = await this.orgStructureService.findDepartmentByCode(code);
+    const department =
+      await this.orgStructureService.findDepartmentByCode(code);
     const deletedDepartment = await this.orgStructureService.removeDepartment(
       (department as any)._id.toString(),
       user.employeeId?.toString() || user.userid.toString(),
@@ -232,12 +238,14 @@ export class OrganizationStructureController {
     @Body() assignHeadDto: AssignHeadDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    const department = await this.orgStructureService.findDepartmentByCode(code);
-    const updatedDepartment = await this.orgStructureService.assignDepartmentHead(
-      (department as any)._id.toString(),
-      assignHeadDto.headPositionId || null,
-      user.employeeId?.toString() || user.userid.toString(),
-    );
+    const department =
+      await this.orgStructureService.findDepartmentByCode(code);
+    const updatedDepartment =
+      await this.orgStructureService.assignDepartmentHead(
+        (department as any)._id.toString(),
+        assignHeadDto.headPositionId || null,
+        user.employeeId?.toString() || user.userid.toString(),
+      );
 
     return {
       success: true,
@@ -285,7 +293,8 @@ export class OrganizationStructureController {
 
   @Get('positions/hierarchy')
   async getPositionHierarchy(@Query('positionId') positionId?: string) {
-    const hierarchy = await this.orgStructureService.getPositionHierarchy(positionId);
+    const hierarchy =
+      await this.orgStructureService.getPositionHierarchy(positionId);
 
     return {
       success: true,
@@ -296,7 +305,8 @@ export class OrganizationStructureController {
 
   @Get('positions/department/:departmentId')
   async getPositionsByDepartment(@Param('departmentId') departmentId: string) {
-    const positions = await this.orgStructureService.getPositionsByDepartment(departmentId);
+    const positions =
+      await this.orgStructureService.getPositionsByDepartment(departmentId);
 
     return {
       success: true,
@@ -444,11 +454,12 @@ export class OrganizationStructureController {
     @CurrentUser() user: JwtPayload,
   ) {
     const position = await this.orgStructureService.findPositionByCode(code);
-    const updatedPosition = await this.orgStructureService.assignReportingPosition(
-      (position as any)._id.toString(),
-      assignReportingPositionDto.reportsToPositionId || null,
-      user.employeeId?.toString() || user.userid.toString(),
-    );
+    const updatedPosition =
+      await this.orgStructureService.assignReportingPosition(
+        (position as any)._id.toString(),
+        assignReportingPositionDto.reportsToPositionId || null,
+        user.employeeId?.toString() || user.userid.toString(),
+      );
 
     return {
       success: true,
@@ -461,7 +472,8 @@ export class OrganizationStructureController {
 
   @Get('positions/:id/reporting-positions')
   async getReportingPositions(@Param('id') id: string) {
-    const reportingPositions = await this.orgStructureService.getReportingPositions(id);
+    const reportingPositions =
+      await this.orgStructureService.getReportingPositions(id);
 
     return {
       success: true,
@@ -473,9 +485,10 @@ export class OrganizationStructureController {
   @Get('positions/code/:code/reporting-positions')
   async getReportingPositionsByCode(@Param('code') code: string) {
     const position = await this.orgStructureService.findPositionByCode(code);
-    const reportingPositions = await this.orgStructureService.getReportingPositions(
-      (position as any)._id.toString(),
-    );
+    const reportingPositions =
+      await this.orgStructureService.getReportingPositions(
+        (position as any)._id.toString(),
+      );
 
     return {
       success: true,
@@ -539,11 +552,12 @@ export class OrganizationStructureController {
     @CurrentUser() user: JwtPayload,
   ) {
     const position = await this.orgStructureService.findPositionByCode(code);
-    const updatedPosition = await this.orgStructureService.assignDepartmentToPosition(
-      (position as any)._id.toString(),
-      assignDepartmentDto.departmentId,
-      user.employeeId?.toString() || user.userid.toString(),
-    );
+    const updatedPosition =
+      await this.orgStructureService.assignDepartmentToPosition(
+        (position as any)._id.toString(),
+        assignDepartmentDto.departmentId,
+        user.employeeId?.toString() || user.userid.toString(),
+      );
 
     return {
       success: true,
@@ -559,7 +573,11 @@ export class OrganizationStructureController {
   @Post('change-requests')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN, SystemRole.DEPARTMENT_HEAD)
+  @Roles(
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+    SystemRole.DEPARTMENT_HEAD,
+  )
   async createChangeRequest(
     @Body() createDto: CreateOrgChangeRequestDto,
     @CurrentUser() user: JwtPayload,
@@ -578,7 +596,8 @@ export class OrganizationStructureController {
 
   @Get('change-requests')
   async findAllChangeRequests(@Query() queryDto: QueryOrgChangeRequestDto) {
-    const result = await this.orgStructureService.findAllChangeRequests(queryDto);
+    const result =
+      await this.orgStructureService.findAllChangeRequests(queryDto);
 
     return {
       success: true,
@@ -589,7 +608,8 @@ export class OrganizationStructureController {
 
   @Get('change-requests/:id')
   async findChangeRequestById(@Param('id') id: string) {
-    const changeRequest = await this.orgStructureService.findChangeRequestById(id);
+    const changeRequest =
+      await this.orgStructureService.findChangeRequestById(id);
 
     return {
       success: true,
@@ -599,8 +619,11 @@ export class OrganizationStructureController {
   }
 
   @Get('change-requests/number/:requestNumber')
-  async findChangeRequestByNumber(@Param('requestNumber') requestNumber: string) {
-    const changeRequest = await this.orgStructureService.findChangeRequestByNumber(requestNumber);
+  async findChangeRequestByNumber(
+    @Param('requestNumber') requestNumber: string,
+  ) {
+    const changeRequest =
+      await this.orgStructureService.findChangeRequestByNumber(requestNumber);
 
     return {
       success: true,
@@ -611,7 +634,11 @@ export class OrganizationStructureController {
 
   @Put('change-requests/:id')
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN, SystemRole.DEPARTMENT_HEAD)
+  @Roles(
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+    SystemRole.DEPARTMENT_HEAD,
+  )
   async updateChangeRequest(
     @Param('id') id: string,
     @Body() updateDto: UpdateOrgChangeRequestDto,
@@ -633,15 +660,20 @@ export class OrganizationStructureController {
   @Post('change-requests/:id/submit')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN, SystemRole.DEPARTMENT_HEAD)
+  @Roles(
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+    SystemRole.DEPARTMENT_HEAD,
+  )
   async submitChangeRequestForReview(
     @Param('id') id: string,
     @CurrentUser() user: JwtPayload,
   ) {
-    const changeRequest = await this.orgStructureService.submitChangeRequestForReview(
-      id,
-      user.employeeId?.toString() || user.userid.toString(),
-    );
+    const changeRequest =
+      await this.orgStructureService.submitChangeRequestForReview(
+        id,
+        user.employeeId?.toString() || user.userid.toString(),
+      );
 
     return {
       success: true,
@@ -719,7 +751,11 @@ export class OrganizationStructureController {
   @Delete('change-requests/:id')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN, SystemRole.DEPARTMENT_HEAD)
+  @Roles(
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+    SystemRole.DEPARTMENT_HEAD,
+  )
   async cancelChangeRequest(
     @Param('id') id: string,
     @CurrentUser() user: JwtPayload,
@@ -751,7 +787,8 @@ export class OrganizationStructureController {
 
   @Get('org-chart/department/:departmentId')
   async getDepartmentOrgChart(@Param('departmentId') departmentId: string) {
-    const orgChart = await this.orgStructureService.getDepartmentOrgChart(departmentId);
+    const orgChart =
+      await this.orgStructureService.getDepartmentOrgChart(departmentId);
     return {
       success: true,
       data: orgChart,
@@ -778,7 +815,10 @@ export class OrganizationStructureController {
 
     if (res) {
       res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Content-Disposition', `attachment; filename="org-chart-${Date.now()}.json"`);
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="org-chart-${Date.now()}.json"`,
+      );
       res.json(orgChart);
     } else {
       return {
@@ -798,7 +838,8 @@ export class OrganizationStructureController {
       ? await this.orgStructureService.getDepartmentOrgChart(departmentId)
       : await this.orgStructureService.generateOrgChart();
 
-    let csv = 'Department Code,Department Name,Position Code,Position Title,Reports To Position Code\n';
+    let csv =
+      'Department Code,Department Name,Position Code,Position Title,Reports To Position Code\n';
 
     if (Array.isArray(orgChart.departments)) {
       for (const dept of orgChart.departments) {
@@ -817,8 +858,10 @@ export class OrganizationStructureController {
     }
 
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="org-chart-${Date.now()}.csv"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="org-chart-${Date.now()}.csv"`,
+    );
     res.send(csv);
   }
 }
-

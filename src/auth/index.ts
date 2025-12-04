@@ -13,4 +13,3 @@ export type { JwtPayload } from './interfaces/jwt-payload.interface';
 // Export services (if needed)
 export { AuthService } from './auth.service';
 export { UserRegistryService } from './services/user-registry.service';
-

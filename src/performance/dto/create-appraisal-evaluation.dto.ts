@@ -116,4 +116,3 @@ export class CreateAppraisalEvaluationDto {
   @IsOptional()
   status?: AppraisalRecordStatus;
 }
-

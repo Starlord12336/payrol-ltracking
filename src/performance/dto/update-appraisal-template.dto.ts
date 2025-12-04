@@ -9,4 +9,3 @@ export class UpdateAppraisalTemplateDto extends PartialType(
   @IsOptional()
   isActive?: boolean;
 }
-

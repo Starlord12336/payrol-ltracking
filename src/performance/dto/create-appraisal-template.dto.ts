@@ -11,7 +11,10 @@ import {
   ArrayMinSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { AppraisalTemplateType, AppraisalRatingScaleType } from '../enums/performance.enums';
+import {
+  AppraisalTemplateType,
+  AppraisalRatingScaleType,
+} from '../enums/performance.enums';
 
 export class RatingLabelDto {
   @IsNumber()

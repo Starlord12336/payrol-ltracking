@@ -18,4 +18,3 @@ export class UpdatePerformanceGoalDto extends PartialType(
   @IsOptional()
   finalComments?: string;
 }
-

@@ -1,4 +1,10 @@
-import { IsString, IsEnum, IsOptional, IsNumber, IsPositive } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsOptional,
+  IsNumber,
+  IsPositive,
+} from 'class-validator';
 
 export enum ReviewAction {
   APPROVE = 'approve',

@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsDate, IsNumber, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsDate,
+  IsNumber,
+  IsBoolean,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { OnboardingTaskStatus } from '../enums/onboarding-task-status.enum';
 

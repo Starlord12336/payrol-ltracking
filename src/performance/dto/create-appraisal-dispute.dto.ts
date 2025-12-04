@@ -1,9 +1,4 @@
-import {
-  IsString,
-  IsArray,
-  IsOptional,
-  IsNumber,
-} from 'class-validator';
+import { IsString, IsArray, IsOptional, IsNumber } from 'class-validator';
 
 export class CreateAppraisalDisputeDto {
   @IsString()

@@ -1,4 +1,4 @@
-import { PunchPolicy } from '../models/enums'
+import { PunchPolicy } from '../models/enums';
 import { ShiftDocument } from '../models/shift.schema';
 import { Types } from 'mongoose';
 
