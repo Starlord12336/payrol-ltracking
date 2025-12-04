@@ -496,4 +496,79 @@ export class LeavesService {
     const months = (endDate.getFullYear() - startDate.getFullYear()) * 12;
     return months - startDate.getMonth() + endDate.getMonth();
   }
+
+  // ========== PAYROLL INTEGRATION STUBS ==========
+  // These methods are called by payroll-execution service
+  // TODO: Implement full logic when payroll integration is completed
+
+  /**
+   * Get the number of unpaid leave days for an employee in a payroll period
+   * Used by payroll-execution to calculate salary deductions
+   */
+  async getUnpaidLeaveDays(employeeId: string, periodDate: Date): Promise<number> {
+    try {
+      const startOfMonth = new Date(periodDate.getFullYear(), periodDate.getMonth(), 1);
+      const endOfMonth = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 0);
+
+      const unpaidLeaves = await this.leaveRequestModel.find({
+        employeeId: new Types.ObjectId(employeeId),
+        status: LeaveStatus.APPROVED,
+        'dates.from': { $lte: endOfMonth },
+        'dates.to': { $gte: startOfMonth },
+      }).populate('leaveTypeId');
+
+      let totalUnpaidDays = 0;
+      for (const leave of unpaidLeaves) {
+        const leaveType = leave.leaveTypeId as any;
+        if (leaveType && !leaveType.isPaid) {
+          // Calculate overlapping days within the period
+          const overlapStart = new Date(Math.max(leave.dates.from.getTime(), startOfMonth.getTime()));
+          const overlapEnd = new Date(Math.min(leave.dates.to.getTime(), endOfMonth.getTime()));
+          const days = Math.ceil((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+          totalUnpaidDays += days;
+        }
+      }
+
+      return totalUnpaidDays;
+    } catch (error) {
+      console.error('Error calculating unpaid leave days:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Get employee leave balance for leave encashment calculation
+   * Used by payroll-execution for end-of-year leave encashment
+   */
+  async getEmployeeLeaveBalance(employeeId: Types.ObjectId | string): Promise<{ available: number; used: number; total: number } | null> {
+    try {
+      const empId = typeof employeeId === 'string' ? new Types.ObjectId(employeeId) : employeeId;
+      const entitlements = await this.leaveEntitlementModel.find({
+        employeeId: empId,
+      });
+
+      if (!entitlements || entitlements.length === 0) {
+        return null;
+      }
+
+      let totalAvailable = 0;
+      let totalUsed = 0;
+      let totalEntitled = 0;
+
+      for (const entitlement of entitlements) {
+        totalAvailable += entitlement.remaining || 0;
+        totalUsed += entitlement.taken || 0;
+        totalEntitled += entitlement.yearlyEntitlement || 0;
+      }
+
+      return {
+        available: totalAvailable,
+        used: totalUsed,
+        total: totalEntitled,
+      };
+    } catch (error) {
+      console.error('Error fetching employee leave balance:', error);
+      return null;
+    }
+  }
 }

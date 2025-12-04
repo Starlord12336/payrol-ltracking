@@ -1114,5 +1114,63 @@ export class TimeManagementService {
         return request.save();
     }
 
+    // ========== PAYROLL INTEGRATION STUBS ==========
+    // These methods are called by payroll-execution service
+    // TODO: Implement full logic when payroll integration is completed
+
+    /**
+     * Get the number of working days in a month
+     * Used by payroll-execution to calculate daily rate
+     */
+    async getWorkDaysInMonth(periodDate: Date): Promise<number> {
+        try {
+            const year = periodDate.getFullYear();
+            const month = periodDate.getMonth();
+            const startOfMonth = new Date(year, month, 1);
+            const endOfMonth = new Date(year, month + 1, 0);
+
+            // Get holidays for the month
+            const holidays = await this.holidayModel.find({
+                startDate: {
+                    $gte: startOfMonth,
+                    $lte: endOfMonth,
+                },
+                active: true,
+            });
+
+            // Build list of holiday dates (including multi-day holidays)
+            const holidayDates: string[] = [];
+            for (const holiday of holidays) {
+                const end = holiday.endDate || holiday.startDate;
+                let current = new Date(holiday.startDate);
+                while (current <= end) {
+                    holidayDates.push(current.toDateString());
+                    current.setDate(current.getDate() + 1);
+                }
+            }
+
+            let workDays = 0;
+
+            // Count weekdays that are not holidays
+            for (let day = 1; day <= endOfMonth.getDate(); day++) {
+                const currentDate = new Date(year, month, day);
+                const dayOfWeek = currentDate.getDay();
+
+                // Skip weekends (Saturday = 6, Sunday = 0)
+                if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+
+                // Skip holidays
+                if (holidayDates.includes(currentDate.toDateString())) continue;
+
+                workDays++;
+            }
+
+            return workDays || 22; // Default to 22 if calculation fails
+        } catch (error) {
+            console.error('Error calculating work days in month:', error);
+            return 22; // Default working days per month
+        }
+    }
+
 
 }
