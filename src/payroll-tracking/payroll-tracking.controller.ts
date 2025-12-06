@@ -7,13 +7,12 @@ import {
   Query,
   Patch,
   UseGuards,
-  Request,
+  ParseIntPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiParam,
   ApiBearerAuth,
 } from '@nestjs/swagger';
 
@@ -131,6 +130,11 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/employee/:employeeId/payslips/:payslipId/leave-compensation
    */
   @Get('employee/:employeeId/payslips/:payslipId/leave-compensation')
+  @Roles(
+    SystemRole.DEPARTMENT_EMPLOYEE,
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+  )
   async getLeaveCompensation(
     @Param('employeeId') employeeId: string,
     @Param('payslipId') payslipId: string,
@@ -146,6 +150,11 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/employee/:employeeId/payslips/:payslipId/transportation
    */
   @Get('employee/:employeeId/payslips/:payslipId/transportation')
+  @Roles(
+    SystemRole.DEPARTMENT_EMPLOYEE,
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+  )
   async getTransportationAllowance(
     @Param('employeeId') employeeId: string,
     @Param('payslipId') payslipId: string,
@@ -161,6 +170,11 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/employee/:employeeId/payslips/:payslipId/tax-deductions
    */
   @Get('employee/:employeeId/payslips/:payslipId/tax-deductions')
+  @Roles(
+    SystemRole.DEPARTMENT_EMPLOYEE,
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+  )
   async getTaxDeductions(
     @Param('employeeId') employeeId: string,
     @Param('payslipId') payslipId: string,
@@ -176,6 +190,11 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/employee/:employeeId/payslips/:payslipId/insurance-deductions
    */
   @Get('employee/:employeeId/payslips/:payslipId/insurance-deductions')
+  @Roles(
+    SystemRole.DEPARTMENT_EMPLOYEE,
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+  )
   async getInsuranceDeductions(
     @Param('employeeId') employeeId: string,
     @Param('payslipId') payslipId: string,
@@ -191,6 +210,11 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/employee/:employeeId/payslips/:payslipId/penalties
    */
   @Get('employee/:employeeId/payslips/:payslipId/penalties')
+  @Roles(
+    SystemRole.DEPARTMENT_EMPLOYEE,
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+  )
   async getMisconductPenalties(
     @Param('employeeId') employeeId: string,
     @Param('payslipId') payslipId: string,
@@ -206,6 +230,11 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/employee/:employeeId/payslips/:payslipId/unpaid-leave
    */
   @Get('employee/:employeeId/payslips/:payslipId/unpaid-leave')
+  @Roles(
+    SystemRole.DEPARTMENT_EMPLOYEE,
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+  )
   async getUnpaidLeaveDeductions(
     @Param('employeeId') employeeId: string,
     @Param('payslipId') payslipId: string,
@@ -233,7 +262,7 @@ export class PayrollTrackingController {
   })
   async getSalaryHistory(
     @Param('employeeId') employeeId: string,
-    @Query('limit') limit?: number,
+    @Query('limit', ParseIntPipe) limit?: number,
   ) {
     return await this.payrollTrackingService.getSalaryHistory(
       employeeId,
@@ -246,6 +275,11 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/employee/:employeeId/payslips/:payslipId/employer-contributions
    */
   @Get('employee/:employeeId/payslips/:payslipId/employer-contributions')
+  @Roles(
+    SystemRole.DEPARTMENT_EMPLOYEE,
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+  )
   async getEmployerContributions(
     @Param('employeeId') employeeId: string,
     @Param('payslipId') payslipId: string,
@@ -261,9 +295,14 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/employee/:employeeId/tax-documents
    */
   @Get('employee/:employeeId/tax-documents')
+  @Roles(
+    SystemRole.DEPARTMENT_EMPLOYEE,
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+  )
   async getTaxDocuments(
     @Param('employeeId') employeeId: string,
-    @Query('year') year?: number,
+    @Query('year', ParseIntPipe) year?: number,
   ) {
     return await this.payrollTrackingService.getTaxDocuments(employeeId, year);
   }
@@ -295,6 +334,11 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/employee/:employeeId/disputes
    */
   @Get('employee/:employeeId/disputes')
+  @Roles(
+    SystemRole.DEPARTMENT_EMPLOYEE,
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+  )
   async getEmployeeDisputes(@Param('employeeId') employeeId: string) {
     return await this.payrollTrackingService.getEmployeeDisputes(employeeId);
   }
@@ -304,6 +348,11 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/employee/:employeeId/disputes/:disputeId
    */
   @Get('employee/:employeeId/disputes/:disputeId')
+  @Roles(
+    SystemRole.DEPARTMENT_EMPLOYEE,
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+  )
   async getDisputeStatus(
     @Param('employeeId') employeeId: string,
     @Param('disputeId') disputeId: string,
@@ -402,6 +451,11 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/employee/:employeeId/claims
    */
   @Get('employee/:employeeId/claims')
+  @Roles(
+    SystemRole.DEPARTMENT_EMPLOYEE,
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+  )
   async getEmployeeClaims(@Param('employeeId') employeeId: string) {
     return await this.payrollTrackingService.getEmployeeClaims(employeeId);
   }
@@ -411,6 +465,11 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/employee/:employeeId/claims/:claimId
    */
   @Get('employee/:employeeId/claims/:claimId')
+  @Roles(
+    SystemRole.DEPARTMENT_EMPLOYEE,
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+  )
   async getClaimStatus(
     @Param('employeeId') employeeId: string,
     @Param('claimId') claimId: string,
@@ -466,6 +525,7 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/finance/claims/approved
    */
   @Get('finance/claims/approved')
+  @Roles(SystemRole.FINANCE_STAFF)
   async getApprovedClaims(@Query('financeStaffId') financeStaffId?: string) {
     return await this.payrollTrackingService.getApprovedClaims(financeStaffId);
   }
@@ -479,6 +539,12 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/employee/:employeeId/refunds
    */
   @Get('employee/:employeeId/refunds')
+  @Roles(
+    SystemRole.DEPARTMENT_EMPLOYEE,
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+    SystemRole.FINANCE_STAFF,
+  )
   async getEmployeeRefunds(@Param('employeeId') employeeId: string) {
     return await this.payrollTrackingService.getEmployeeRefunds(employeeId);
   }
@@ -488,6 +554,11 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/refunds/pending
    */
   @Get('refunds/pending')
+  @Roles(
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+    SystemRole.FINANCE_STAFF,
+  )
   async getPendingRefunds() {
     return await this.payrollTrackingService.getPendingRefunds();
   }
@@ -497,6 +568,11 @@ export class PayrollTrackingController {
    * PATCH /payroll-tracking/refunds/:refundId/mark-paid
    */
   @Patch('refunds/:refundId/mark-paid')
+  @Roles(
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+    SystemRole.FINANCE_STAFF,
+  )
   async markRefundAsPaid(
     @Param('refundId') refundId: string,
     @Body('payrollRunId') payrollRunId: string,
@@ -562,9 +638,14 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/reports/month-end
    */
   @Get('reports/month-end')
+  @Roles(
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+    SystemRole.FINANCE_STAFF,
+  )
   async generateMonthEndSummary(
-    @Query('year') year: number,
-    @Query('month') month: number,
+    @Query('year', ParseIntPipe) year: number,
+    @Query('month', ParseIntPipe) month: number,
   ) {
     return await this.payrollTrackingService.generateMonthEndSummary(
       year,
@@ -577,7 +658,14 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/reports/year-end
    */
   @Get('reports/year-end')
-  async generateYearEndSummary(@Query('year') year: number) {
+  @Roles(
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+    SystemRole.FINANCE_STAFF,
+  )
+  async generateYearEndSummary(
+    @Query('year', ParseIntPipe) year: number,
+  ) {
     return await this.payrollTrackingService.generateYearEndSummary(year);
   }
 
@@ -586,6 +674,11 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/reports/tax
    */
   @Get('reports/tax')
+  @Roles(
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+    SystemRole.FINANCE_STAFF,
+  )
   async generateTaxReport(
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
@@ -601,6 +694,11 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/reports/insurance
    */
   @Get('reports/insurance')
+  @Roles(
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+    SystemRole.FINANCE_STAFF,
+  )
   async generateInsuranceReport(
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
@@ -616,6 +714,11 @@ export class PayrollTrackingController {
    * GET /payroll-tracking/reports/benefits
    */
   @Get('reports/benefits')
+  @Roles(
+    SystemRole.PAYROLL_SPECIALIST,
+    SystemRole.PAYROLL_MANAGER,
+    SystemRole.FINANCE_STAFF,
+  )
   async generateBenefitsReport(
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
