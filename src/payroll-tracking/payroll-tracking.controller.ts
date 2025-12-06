@@ -201,10 +201,7 @@ export class PayrollTrackingController {
     @Param('employeeId') employeeId: string,
     @Query('year') year?: number,
   ) {
-    return await this.payrollTrackingService.getTaxDocuments(
-      employeeId,
-      year,
-    );
+    return await this.payrollTrackingService.getTaxDocuments(employeeId, year);
   }
 
   // ============================================

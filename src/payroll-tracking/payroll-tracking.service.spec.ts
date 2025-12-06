@@ -16,3 +16,7 @@ describe('PayrollTrackingService', () => {
     expect(service).toBeDefined();
   });
 });
+function expect(service: PayrollTrackingService) {
+  throw new Error('Function not implemented.');
+}
+

@@ -16,17 +16,63 @@ import {
 } from './enums/payroll-tracking-enum';
 import { CreateDisputeDto } from './dto/create-dispute.dto';
 import { CreateClaimDto } from './dto/create-claim.dto';
-import {
-  ReviewDisputeDto,
-  ReviewAction,
-} from './dto/review-dispute.dto';
+import { ReviewDisputeDto, ReviewAction } from './dto/review-dispute.dto';
 import { ReviewClaimDto } from './dto/review-claim.dto';
-import {
-  GenerateReportDto,
-  ReportType,
-} from './dto/generate-report.dto';
+import { GenerateReportDto, ReportType } from './dto/generate-report.dto';
 import { employeePayrollDetails } from '../payroll-execution/models/employeePayrollDetails.schema';
 import { EmployeeProfile } from '../employee-profile/models/employee-profile.schema';
+interface Penalty {
+  reason?: string;
+  amount: number;
+}
+interface Payslip {
+  earningsDetails: any;
+  map(
+    arg0: (p: any) => { payslipId: any; month: any; taxes: any; totalTax: any },
+  ): unknown;
+  _id: string;
+  payrollRunId: string;
+  totalGrossSalary: number;
+  totalDeductions: number;
+  netPay: number;
+  paymentStatus: string;
+  createdAt: Date;
+}
+interface Insurance {
+  name: string;
+  employerRate: number;
+}
+interface Tax {
+  rate: number;
+}
+
+interface Payslip {
+  _id: string;
+  createdAt: Date;
+  totalGrossSalary: number;
+  deductionsDetails?: {
+    insurances: any[];
+    taxes?: Tax[];
+  };
+}
+interface Tax {
+  rate: number;
+}
+type Benefit = {
+  name?: string;
+  amount: number;
+};
+type BenefitSummary = {
+  benefitType: string;
+  totalAmount: number;
+  count: number;
+};
+type InsuranceSummary = {
+  insuranceType: string;
+  totalEmployeeContribution: number;
+  totalEmployerContribution: number;
+  count: number;
+};
 
 @Injectable()
 export class PayrollTrackingService {
@@ -42,7 +88,7 @@ export class PayrollTrackingService {
   ) {}
 
   // ============================================
-  // ESS - Employee Self Service Methods 
+  // ESS - Employee Self Service Methods
   // ============================================
 
   /**
@@ -69,11 +115,14 @@ export class PayrollTrackingService {
   /**
    * REQ-PY-1, REQ-PY-2: Get all payslips for an employee
    */
-  async getEmployeePayslips(employeeId: string, filters?: {
-    startDate?: Date;
-    endDate?: Date;
-    status?: string;
-  }) {
+  async getEmployeePayslips(
+    employeeId: string,
+    filters?: {
+      startDate?: Date;
+      endDate?: Date;
+      status?: string;
+    },
+  ) {
     const query: any = { employeeId: new Types.ObjectId(employeeId) };
 
     if (filters?.status) {
@@ -186,7 +235,8 @@ export class PayrollTrackingService {
       payslipId: payslip._id,
       taxes: payslip.deductionsDetails?.taxes || [],
       totalTaxDeduction: payslip.deductionsDetails?.taxes?.reduce(
-        (sum, tax: any) => sum + ((tax.rate * payslip.totalGrossSalary / 100) || 0),
+        (sum, tax: any) =>
+          sum + ((tax.rate * payslip.totalGrossSalary) / 100 || 0),
         0,
       ),
     };
@@ -212,7 +262,8 @@ export class PayrollTrackingService {
       payslipId: payslip._id,
       insurances: payslip.deductionsDetails?.insurances || [],
       totalInsuranceDeduction: payslip.deductionsDetails?.insurances?.reduce(
-        (sum, ins: any) => sum + ((ins.employeeRate * payslip.totalGrossSalary / 100) || 0),
+        (sum, ins: any) =>
+          sum + ((ins.employeeRate * payslip.totalGrossSalary) / 100 || 0),
         0,
       ),
     };
@@ -241,7 +292,7 @@ export class PayrollTrackingService {
   }
 
   /**
-   * REQ-PY-11: View deductions for unpaid leave day
+   * REQ-PY-11: View deductions for unpaid leave day-amr hany-
    */
   async getUnpaidLeaveDeductions(employeeId: string, payslipId: string) {
     const payslip = await this.paySlipModel
@@ -259,10 +310,10 @@ export class PayrollTrackingService {
     // Unpaid leave deductions are part of penalties
     const unpaidLeaveDeduction =
       payslip.deductionsDetails?.penalties?.penalties?.reduce(
-        (sum: number, p: any) => sum + (p.reason?.toLowerCase().includes('unpaid') ? p.amount : 0),
+        (sum: number, p: Penalty) =>
+          sum + (p.reason?.toLowerCase().includes('unpaid') ? p.amount : 0),
         0,
       ) || 0;
-
     return {
       payslipId: payslip._id,
       unpaidLeaveDeduction,
@@ -271,24 +322,24 @@ export class PayrollTrackingService {
   }
 
   /**
-   * REQ-PY-13: View salary history
+   * REQ-PY-13: View salary history-amr hany-
    */
   async getSalaryHistory(employeeId: string, limit: number = 12) {
-    const payslips = await this.paySlipModel
+    const payslips = (await this.paySlipModel
       .find({ employeeId: new Types.ObjectId(employeeId) })
       .populate('payrollRunId')
       .sort({ createdAt: -1 })
       .limit(limit)
       .lean()
-      .exec();
+      .exec()) as unknown as Payslip[];
 
     return {
       employeeId,
-      history: payslips.map((p: any) => ({
+      history: payslips.map((p: Payslip) => ({
         payslipId: p._id,
         payrollRunId: p.payrollRunId,
         totalGrossSalary: p.totalGrossSalary,
-        totalDeductions: p.totaDeductions,
+        totalDeductions: p.totalDeductions,
         netPay: p.netPay,
         paymentStatus: p.paymentStatus,
         createdAt: p.createdAt,
@@ -297,7 +348,7 @@ export class PayrollTrackingService {
   }
 
   /**
-   * REQ-PY-14: View employer contributions
+   * REQ-PY-14: View employer contributions-amr hany-
    */
   async getEmployerContributions(employeeId: string, payslipId: string) {
     const payslip = await this.paySlipModel
@@ -313,10 +364,13 @@ export class PayrollTrackingService {
     }
 
     const employerContributions = {
-      insurances: payslip.deductionsDetails?.insurances?.map((ins: any) => ({
-        insuranceName: ins.name,
-        employerContribution: (ins.employerRate * payslip.totalGrossSalary / 100) || 0,
-      })),
+      insurances: payslip.deductionsDetails?.insurances?.map(
+        (ins: Insurance) => ({
+          insuranceName: ins.name,
+          employerContribution:
+            (ins.employerRate * payslip.totalGrossSalary) / 100 || 0,
+        }),
+      ),
       allowances: payslip.earningsDetails?.allowances || [],
     };
 
@@ -327,7 +381,7 @@ export class PayrollTrackingService {
   }
 
   /**
-   * REQ-PY-15: Download tax documents
+   * REQ-PY-15: Download tax documents-amr hany-
    */
   async getTaxDocuments(employeeId: string, year?: number) {
     const startDate = new Date(year || new Date().getFullYear(), 0, 1);
@@ -338,17 +392,27 @@ export class PayrollTrackingService {
         employeeId: new Types.ObjectId(employeeId),
         createdAt: { $gte: startDate, $lte: endDate },
       })
-      .lean()
+      .lean<Payslip>() // 👈 this is the key
       .exec();
 
-    const totalTaxes = payslips.reduce((sum, p: any) => {
+    const totalTaxes = (payslips as unknown as Payslip[]).reduce((sum, p) => {
       const taxAmount = p.deductionsDetails?.taxes?.reduce(
-        (tSum: number, t: any) => tSum + ((t.rate * p.totalGrossSalary / 100) || 0),
+        (innerSum, t: Tax) =>
+          innerSum + ((t.rate * p.totalGrossSalary) / 100 || 0),
         0,
       );
       return sum + (taxAmount || 0);
     }, 0);
 
+    const monthlyBreakdown = (payslips as unknown as Payslip[]).map((p) => ({
+      payslipId: p._id,
+      month: p.createdAt,
+      taxes: p.deductionsDetails?.taxes || [],
+      totalTax: p.deductionsDetails?.taxes?.reduce(
+        (sum, t: Tax) => sum + ((t.rate * p.totalGrossSalary) / 100 || 0),
+        0,
+      ),
+    }));
     return {
       employeeId,
       year: year || new Date().getFullYear(),
@@ -358,7 +422,8 @@ export class PayrollTrackingService {
         month: p.createdAt,
         taxes: p.deductionsDetails?.taxes || [],
         totalTax: p.deductionsDetails?.taxes?.reduce(
-          (sum: number, t: any) => sum + ((t.rate * p.totalGrossSalary / 100) || 0),
+          (sum: number, t: any) =>
+            sum + ((t.rate * p.totalGrossSalary) / 100 || 0),
           0,
         ),
       })),
@@ -383,7 +448,9 @@ export class PayrollTrackingService {
       .exec();
 
     if (!payslip) {
-      throw new NotFoundException('Payslip not found or does not belong to you');
+      throw new NotFoundException(
+        'Payslip not found or does not belong to you',
+      );
     }
 
     // Generate unique disputeId
@@ -485,9 +552,7 @@ export class PayrollTrackingService {
     }
 
     if (dispute.status !== DisputeStatus.PENDING_MANAGER_APPROVAL) {
-      throw new BadRequestException(
-        'Dispute is not pending manager approval',
-      );
+      throw new BadRequestException('Dispute is not pending manager approval');
     }
 
     if (reviewDto.action === ReviewAction.APPROVE) {
@@ -502,7 +567,8 @@ export class PayrollTrackingService {
     } else {
       dispute.status = DisputeStatus.REJECTED;
       dispute.payrollManagerId = new Types.ObjectId(managerId);
-      dispute.rejectionReason = reviewDto.rejectionReason || 'Rejected by manager';
+      dispute.rejectionReason =
+        reviewDto.rejectionReason || 'Rejected by manager';
     }
 
     return await dispute.save();
@@ -790,14 +856,14 @@ export class PayrollTrackingService {
   // ============================================
 
   /**
-   * REQ-PY-38: Generate payroll report by department
+   * REQ-PY-38: Generate payroll report by department-amr hany-
    */
   async generatePayrollReportByDepartment(
     departmentId: string,
     startDate?: Date,
     endDate?: Date,
   ) {
-    const query: any = {};
+    const query: Record<string, unknown> = {};
 
     if (startDate && endDate) {
       query.createdAt = { $gte: startDate, $lte: endDate };
@@ -929,9 +995,9 @@ export class PayrollTrackingService {
       const monthStart = new Date(year, month - 1, 1);
       const monthEnd = new Date(year, month, 0);
 
-      const monthData = payrollDetails.filter((p: any) => {
+      const monthData = payrollDetails.filter((p: { createdAt: Date }) => {
         const createdDate = new Date(p.createdAt);
-        return createdDate >= monthStart && createdDate <= monthEnd;
+        return createdDate >= monthStart && createdDate < monthEnd;
       });
 
       monthlyBreakdown.push({
@@ -964,7 +1030,7 @@ export class PayrollTrackingService {
    * REQ-PY-25: Generate tax report
    */
   async generateTaxReport(startDate?: Date, endDate?: Date) {
-    const query: any = {};
+    const query: Record<string, unknown> = {};
 
     if (startDate && endDate) {
       query.createdAt = { $gte: startDate, $lte: endDate };
@@ -972,27 +1038,40 @@ export class PayrollTrackingService {
 
     const payslips = await this.paySlipModel.find(query).lean().exec();
 
-    const taxBreakdown = payslips.reduce((acc, payslip: any) => {
-      const taxes = payslip.deductionsDetails?.taxes || [];
-      taxes.forEach((tax: any) => {
-        const key = tax.name || 'other';
-        if (!acc[key]) {
-          acc[key] = {
-            taxType: key,
-            totalAmount: 0,
-            count: 0,
-          };
-        }
-        acc[key].totalAmount += (tax.rate * payslip.totalGrossSalary / 100) || 0;
-        acc[key].count += 1;
-      });
-      return acc;
-    }, {} as any);
+    type Tax = { name?: string; rate: number };
+    type Payslip = {
+      totalGrossSalary: number;
+      deductionsDetails?: { taxes?: Tax[] };
+    };
 
+    const taxBreakdown = payslips.reduce(
+      (acc, payslip: Payslip) => {
+        const taxes = payslip.deductionsDetails?.taxes || [];
+        taxes.forEach((tax: Tax) => {
+          const key = tax.name || 'other';
+          if (!acc[key]) {
+            acc[key] = {
+              taxType: key,
+              totalAmount: 0,
+              count: 0,
+            };
+          }
+          acc[key].totalAmount +=
+            (tax.rate * payslip.totalGrossSalary) / 100 || 0;
+          acc[key].count += 1;
+        });
+        return acc;
+      },
+      {} as Record<
+        string,
+        { taxType: string; totalAmount: number; count: number }
+      >,
+    );
     return {
       period: { startDate, endDate },
       totalTaxCollected: Object.values(taxBreakdown).reduce(
-        (sum: number, item: any) => sum + item.totalAmount,
+        (sum, item: { taxType: string; totalAmount: number; count: number }) =>
+          sum + item.totalAmount,
         0,
       ),
       breakdown: Object.values(taxBreakdown),
@@ -1004,7 +1083,7 @@ export class PayrollTrackingService {
    * REQ-PY-25: Generate insurance report
    */
   async generateInsuranceReport(startDate?: Date, endDate?: Date) {
-    const query: any = {};
+    const query: Record<string, unknown> = {};
 
     if (startDate && endDate) {
       query.createdAt = { $gte: startDate, $lte: endDate };
@@ -1012,33 +1091,37 @@ export class PayrollTrackingService {
 
     const payslips = await this.paySlipModel.find(query).lean().exec();
 
-    const insuranceBreakdown = payslips.reduce((acc, payslip: any) => {
-      const insurances = payslip.deductionsDetails?.insurances || [];
-      insurances.forEach((ins: any) => {
-        const key = ins.name || 'other';
-        if (!acc[key]) {
-          acc[key] = {
-            insuranceType: key,
-            totalEmployeeContribution: 0,
-            totalEmployerContribution: 0,
-            count: 0,
-          };
-        }
-        acc[key].totalEmployeeContribution += (ins.employeeRate * payslip.totalGrossSalary / 100) || 0;
-        acc[key].totalEmployerContribution += (ins.employerRate * payslip.totalGrossSalary / 100) || 0;
-        acc[key].count += 1;
-      });
-      return acc;
-    }, {} as any);
-
+    const insuranceBreakdown = (payslips as unknown as Payslip[]).reduce(
+      (acc: Record<string, InsuranceSummary>, payslip: Payslip) => {
+        const insurances = payslip.deductionsDetails?.insurances || [];
+        insurances.forEach((ins: Insurance) => {
+          const key = ins.name || 'other';
+          if (!acc[key]) {
+            acc[key] = {
+              insuranceType: key,
+              totalEmployeeContribution: 0,
+              totalEmployerContribution: 0,
+              count: 0,
+            };
+          }
+          acc[key].totalEmployeeContribution +=
+            (ins.employerRate * payslip.totalGrossSalary) / 100 || 0;
+          acc[key].totalEmployerContribution +=
+            (ins.employerRate * payslip.totalGrossSalary) / 100 || 0;
+          acc[key].count += 1;
+        });
+        return acc;
+      },
+      {} as Record<string, InsuranceSummary>,
+    );
     return {
       period: { startDate, endDate },
       totalEmployeeContribution: Object.values(insuranceBreakdown).reduce(
-        (sum: number, item: any) => sum + item.totalEmployeeContribution,
+        (sum, item) => sum + item.totalEmployeeContribution,
         0,
       ),
       totalEmployerContribution: Object.values(insuranceBreakdown).reduce(
-        (sum: number, item: any) => sum + item.totalEmployerContribution,
+        (sum, item) => sum + item.totalEmployerContribution,
         0,
       ),
       breakdown: Object.values(insuranceBreakdown),
@@ -1047,34 +1130,38 @@ export class PayrollTrackingService {
   }
 
   /**
-   * REQ-PY-25: Generate benefits report
+   * REQ-PY-25: Generate benefits report-amr hany-
    */
   async generateBenefitsReport(startDate?: Date, endDate?: Date) {
-    const query: any = {};
+    const query: Record<string, unknown> = {};
 
     if (startDate && endDate) {
       query.createdAt = { $gte: startDate, $lte: endDate };
     }
 
-    const payslips = await this.paySlipModel.find(query).lean().exec();
-
-    const benefitsBreakdown = payslips.reduce((acc, payslip: any) => {
-      const benefits = payslip.earningsDetails?.benefits || [];
-      benefits.forEach((benefit: any) => {
-        const key = benefit.name || 'other';
-        if (!acc[key]) {
-          acc[key] = {
-            benefitType: key,
-            totalAmount: 0,
-            count: 0,
-          };
-        }
-        acc[key].totalAmount += benefit.amount || 0;
-        acc[key].count += 1;
-      });
-      return acc;
-    }, {} as any);
-
+    const payslips = await this.paySlipModel
+      .find(query)
+      .lean<Payslip[]>()
+      .exec();
+    const benefitsBreakdown = (payslips as unknown as Payslip[]).reduce(
+      (acc: Record<string, BenefitSummary>, payslip: Payslip) => {
+        const benefits = payslip.earningsDetails?.benefits || [];
+        benefits.forEach((benefit: Benefit) => {
+          const key = benefit.name || 'other';
+          if (!acc[key]) {
+            acc[key] = {
+              benefitType: key,
+              totalAmount: 0,
+              count: 0,
+            };
+          }
+          acc[key].totalAmount += benefit.amount || 0;
+          acc[key].count += 1;
+        });
+        return acc;
+      },
+      {} as Record<string, BenefitSummary>,
+    );
     return {
       period: { startDate, endDate },
       totalBenefits: Object.values(benefitsBreakdown).reduce(
@@ -1107,9 +1194,11 @@ export class PayrollTrackingService {
         );
 
       case ReportType.MONTH_END_SUMMARY:
-        const month = startDate ? startDate.getMonth() + 1 : new Date().getMonth() + 1;
-        const year = startDate ? startDate.getFullYear() : new Date().getFullYear();
-        return await this.generateMonthEndSummary(year, month);
+        { const month = startDate ? startDate.getMonth() + 1 : new Date().getMonth() + 1;
+        const year = startDate
+          ? startDate.getFullYear()
+          : new Date().getFullYear();
+        return await this.generateMonthEndSummary(year, month); }
 
       case ReportType.YEAR_END_SUMMARY:
         const reportYear = startDate ? startDate.getFullYear() : new Date().getFullYear();

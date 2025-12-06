@@ -1,12 +1,9 @@
-
-import { Prop, Schema, SchemaFactory, } from '@nestjs/mongoose';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import mongoose, { HydratedDocument } from 'mongoose';
 import { EmployeeProfile as Employee } from '../../employee-profile/models/employee-profile.schema';
 import { DisputeStatus } from '../enums/payroll-tracking-enum';
 
-export type disputesDocument = HydratedDocument<disputes>
-
-
+export type disputesDocument = HydratedDocument<disputes>;
 
 @Schema({ timestamps: true })
 export class disputes {
@@ -16,7 +13,11 @@ export class disputes {
   @Prop({ required: true })
   description: string;
 
-  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: Employee.name, required: true })
+  @Prop({
+    type: mongoose.Schema.Types.ObjectId,
+    ref: Employee.name,
+    required: true,
+  })
   employeeId: mongoose.Types.ObjectId;
 
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: Employee.name })
@@ -28,11 +29,20 @@ export class disputes {
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: Employee.name })
   payrollManagerId?: mongoose.Types.ObjectId;
 
-  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'paySlip', required: true })
+  @Prop({
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'paySlip',
+    required: true,
+  })
   payslipId: mongoose.Types.ObjectId;
 
-  @Prop({ required: true, type: String, enum: DisputeStatus, default: DisputeStatus.UNDER_REVIEW })
-  status: DisputeStatus;// under review,pending_manager_approval, approved, rejected
+  @Prop({
+    required: true,
+    type: String,
+    enum: DisputeStatus,
+    default: DisputeStatus.UNDER_REVIEW,
+  })
+  status: DisputeStatus; // under review,pending_manager_approval, approved, rejected
 
   @Prop()
   rejectionReason?: string;

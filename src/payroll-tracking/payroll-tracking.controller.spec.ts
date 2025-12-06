@@ -18,3 +18,11 @@ describe('PayrollTrackingController', () => {
     expect(controller).toBeDefined();
   });
 });
+function beforeEach(arg0: () => Promise<void>) {
+  throw new Error('Function not implemented.');
+}
+
+function expect(controller: PayrollTrackingController) {
+  throw new Error('Function not implemented.');
+}
+

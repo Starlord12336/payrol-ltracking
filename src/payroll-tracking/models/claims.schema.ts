@@ -1,9 +1,9 @@
-import { Prop, Schema, SchemaFactory, } from '@nestjs/mongoose';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import mongoose, { HydratedDocument } from 'mongoose';
 import { EmployeeProfile as Employee } from '../../employee-profile/models/employee-profile.schema';
 import { ClaimStatus } from '../enums/payroll-tracking-enum';
 
-export type claimsDocument = HydratedDocument<claims>
+export type claimsDocument = HydratedDocument<claims>;
 
 @Schema({ timestamps: true })
 export class claims {
@@ -14,9 +14,13 @@ export class claims {
   description: string;
 
   @Prop({ required: true })
-  claimType: string // for example: medical, etc
+  claimType: string; // for example: medical, etc
 
-  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: Employee.name, required: true })
+  @Prop({
+    type: mongoose.Schema.Types.ObjectId,
+    ref: Employee.name,
+    required: true,
+  })
   employeeId: mongoose.Types.ObjectId;
 
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: Employee.name })
@@ -34,15 +38,19 @@ export class claims {
   @Prop({})
   approvedAmount?: number;
 
-  @Prop({ required: true, type: String, enum: ClaimStatus, default: ClaimStatus.UNDER_REVIEW })
-  status: ClaimStatus;// under review,pending_manager_approval, approved, rejected
+  @Prop({
+    required: true,
+    type: String,
+    enum: ClaimStatus,
+    default: ClaimStatus.UNDER_REVIEW,
+  })
+  status: ClaimStatus; // under review,pending_manager_approval, approved, rejected
 
   @Prop()
   rejectionReason?: string;
 
   @Prop()
   resolutionComment?: string;
-
 }
 
 export const claimsSchema = SchemaFactory.createForClass(claims);
