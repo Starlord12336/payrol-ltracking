@@ -1,4 +1,4 @@
-import { IsEmail, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class UpdateMyProfileDto {
   // Contact Info
@@ -35,4 +35,10 @@ export class UpdateMyProfileDto {
   @IsOptional()
   @IsString()
   profilePictureUrl?: string;
+
+  // Biography (US-E2-12)
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  biography?: string;
 }

@@ -56,8 +56,8 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
 
-    // Determine user type (default to employee)
-    const userType: UserType = registerDto.userType || 'employee';
+    // Determine user type (default to candidate for public registration)
+    const userType: UserType = registerDto.userType || 'candidate';
 
     // Get registry for this user type
     const registry = this.userRegistryService.getUserType(userType);
@@ -106,6 +106,19 @@ export class AuthService {
       baseUserData.applicationDate = registerDto.applicationDate
         ? new Date(registerDto.applicationDate)
         : new Date();
+      
+      // Validate candidate status - only allow APPLIED during registration
+      // REJECTED and WITHDRAWN should only be set by HR/admin, not during self-registration
+      if (
+        registerDto.candidateStatus &&
+        (registerDto.candidateStatus === CandidateStatus.REJECTED ||
+          registerDto.candidateStatus === CandidateStatus.WITHDRAWN)
+      ) {
+        throw new BadRequestException(
+          'Invalid candidate status. Cannot register with REJECTED or WITHDRAWN status.',
+        );
+      }
+      
       baseUserData.status =
         registerDto.candidateStatus || CandidateStatus.APPLIED;
     }

@@ -41,7 +41,7 @@ All entities extending `UserProfileBase` must have:
   firstName: string;         // Required
   lastName: string;          // Required
   nationalId: string;        // Required, unique
-  userType: 'employee';      // Optional, defaults to 'employee'
+  userType: 'employee';      // Optional, defaults to 'candidate' (use 'employee' explicitly for employee registration)
   dateOfHire?: string;       // Optional, defaults to now
   employeeNumber?: string;  // Optional, auto-generated if not provided
   status?: EmployeeStatus;   // Optional, defaults to ACTIVE
@@ -57,7 +57,7 @@ All entities extending `UserProfileBase` must have:
   firstName: string;         // Required
   lastName: string;          // Required
   nationalId: string;        // Required, unique
-  userType: 'candidate';     // Required for candidates
+  userType: 'candidate';     // Optional, defaults to 'candidate' for public registration
   applicationDate?: string;  // Optional, defaults to now
   candidateNumber?: string;  // Optional, auto-generated if not provided
   candidateStatus?: CandidateStatus; // Optional, defaults to APPLIED

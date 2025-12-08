@@ -39,8 +39,9 @@ export class EmployeeProfileController {
   @Get('me')
   @HttpCode(HttpStatus.OK)
   async getMyProfile(@CurrentUser() user: JwtPayload) {
-    const profile = await this.employeeProfileService.getOwnProfile(
-      user.employeeId?.toString() || user.userid.toString(),
+    const profile = await this.employeeProfileService.getMyProfile(
+      user.userid.toString(),
+      user.userType || 'employee', // Default to employee for backward compatibility
     );
 
     return {
@@ -61,8 +62,9 @@ export class EmployeeProfileController {
     @Body() body: UpdateMyProfileDto,
   ) {
     const updated = await this.employeeProfileService.updateMyProfile(
-      user.employeeId?.toString() || user.userid.toString(),
+      user.userid.toString(),
       body,
+      user.userType || 'employee', // Default to employee for backward compatibility
     );
 
     return {
@@ -83,19 +85,26 @@ export class EmployeeProfileController {
     @Body() body: UpdateContactInfoDto,
   ) {
     const updated = await this.employeeProfileService.updateOwnContactInfo(
-      user.employeeId?.toString() || user.userid.toString(),
+      user.userid.toString(),
       body,
+      user.userType || 'employee',
     );
+
+    const responseData: any = {
+      personalEmail: updated.personalEmail,
+      mobilePhone: updated.mobilePhone,
+      homePhone: updated.homePhone,
+    };
+
+    // workEmail only exists for employees, not candidates
+    if (user.userType !== 'candidate' && 'workEmail' in updated) {
+      responseData.workEmail = (updated as any).workEmail;
+    }
 
     return {
       success: true,
       message: 'Contact information updated successfully',
-      data: {
-        personalEmail: updated.personalEmail,
-        mobilePhone: updated.mobilePhone,
-        homePhone: updated.homePhone,
-        workEmail: updated.workEmail,
-      },
+      data: responseData,
     };
   }
 
@@ -106,8 +115,9 @@ export class EmployeeProfileController {
     @Body() body: UpdateAddressDto,
   ) {
     const updated = await this.employeeProfileService.updateOwnAddress(
-      user.employeeId?.toString() || user.userid.toString(),
+      user.userid.toString(),
       body,
+      user.userType || 'employee',
     );
 
     return {
@@ -126,8 +136,9 @@ export class EmployeeProfileController {
     @Body() body: UpdateProfilePictureDto,
   ) {
     const updated = await this.employeeProfileService.updateOwnProfilePicture(
-      user.employeeId?.toString() || user.userid.toString(),
+      user.userid.toString(),
       body,
+      user.userType || 'employee',
     );
 
     return {

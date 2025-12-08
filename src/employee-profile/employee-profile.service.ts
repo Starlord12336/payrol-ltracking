@@ -12,6 +12,7 @@ import {
   EmployeeProfile,
   EmployeeProfileDocument,
 } from './models/employee-profile.schema';
+import { Candidate, CandidateDocument } from './models/candidate.schema';
 import { EmployeeProfileChangeRequest } from './models/ep-change-request.schema';
 import {
   EmployeeSystemRole,
@@ -38,6 +39,9 @@ export class EmployeeProfileService {
   constructor(
     @InjectModel(EmployeeProfile.name)
     private readonly profileModel: Model<EmployeeProfileDocument>,
+
+    @InjectModel(Candidate.name)
+    private readonly candidateModel: Model<CandidateDocument>,
 
     @InjectModel(EmployeeProfileChangeRequest.name)
     private readonly changeRequestModel: Model<EmployeeProfileChangeRequest>,
@@ -66,6 +70,40 @@ export class EmployeeProfileService {
   // =====================================
   // PROFILE VIEWING
   // =====================================
+
+  /**
+   * Get own profile - supports both employees and candidates
+   */
+  async getMyProfile(userId: string, userType: string) {
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new NotFoundException('Invalid user ID');
+    }
+
+    if (userType === 'candidate') {
+      const profile = await this.candidateModel
+        .findById(userId)
+        .lean()
+        .exec();
+
+      if (!profile) {
+        throw new NotFoundException('Candidate profile not found');
+      }
+
+      return profile;
+    } else {
+      // Default to employee
+      const profile = await this.profileModel
+        .findById(userId)
+        .lean()
+        .exec();
+
+      if (!profile) {
+        throw new NotFoundException('Employee profile not found');
+      }
+
+      return profile;
+    }
+  }
 
   async getOwnProfile(employeeProfileId: string) {
     if (!Types.ObjectId.isValid(employeeProfileId)) {
@@ -178,11 +216,12 @@ export class EmployeeProfileService {
   // =====================================
 
   async updateOwnContactInfo(
-    employeeProfileId: string,
+    userId: string,
     dto: UpdateContactInfoDto,
+    userType: string = 'employee',
   ) {
-    if (!Types.ObjectId.isValid(employeeProfileId)) {
-      throw new NotFoundException('Invalid employee profile ID');
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new NotFoundException('Invalid user ID');
     }
 
     const update: Record<string, any> = {};
@@ -200,36 +239,58 @@ export class EmployeeProfileService {
       update.workEmail = dto.workEmail;
     }
 
-    if (Object.keys(update).length === 0) {
-      const existing = await this.profileModel
-        .findById(employeeProfileId)
+    if (userType === 'candidate') {
+      if (Object.keys(update).length === 0) {
+        const existing = await this.candidateModel.findById(userId).lean().exec();
+        if (!existing) {
+          throw new NotFoundException('Candidate profile not found');
+        }
+        return existing;
+      }
+
+      const updated = await this.candidateModel
+        .findByIdAndUpdate(userId, { $set: update }, { new: true })
         .lean()
         .exec();
-      if (!existing) {
+
+      if (!updated) {
+        throw new NotFoundException('Candidate profile not found');
+      }
+
+      return updated;
+    } else {
+      if (Object.keys(update).length === 0) {
+        const existing = await this.profileModel.findById(userId).lean().exec();
+        if (!existing) {
+          throw new NotFoundException('Employee profile not found');
+        }
+        return existing;
+      }
+
+      const updated = await this.profileModel
+        .findByIdAndUpdate(userId, { $set: update }, { new: true })
+        .lean()
+        .exec();
+
+      if (!updated) {
         throw new NotFoundException('Employee profile not found');
       }
-      return existing;
+
+      return updated;
     }
-
-    const updated = await this.profileModel
-      .findByIdAndUpdate(employeeProfileId, { $set: update }, { new: true })
-      .lean()
-      .exec();
-
-    if (!updated) {
-      throw new NotFoundException('Employee profile not found');
-    }
-
-    return updated;
   }
 
   // =====================================
   // SELF-SERVICE: ADDRESS
   // =====================================
 
-  async updateOwnAddress(employeeProfileId: string, dto: UpdateAddressDto) {
-    if (!Types.ObjectId.isValid(employeeProfileId)) {
-      throw new NotFoundException('Invalid employee profile ID');
+  async updateOwnAddress(
+    userId: string,
+    dto: UpdateAddressDto,
+    userType: string = 'employee',
+  ) {
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new NotFoundException('Invalid user ID');
     }
 
     const update: any = {};
@@ -244,27 +305,45 @@ export class EmployeeProfileService {
       update['address.country'] = dto.country;
     }
 
-    if (Object.keys(update).length === 0) {
-      const existing = await this.profileModel
-        .findById(employeeProfileId)
+    if (userType === 'candidate') {
+      if (Object.keys(update).length === 0) {
+        const existing = await this.candidateModel.findById(userId).lean().exec();
+        if (!existing) {
+          throw new NotFoundException('Candidate profile not found');
+        }
+        return existing;
+      }
+
+      const updated = await this.candidateModel
+        .findByIdAndUpdate(userId, { $set: update }, { new: true })
         .lean()
         .exec();
-      if (!existing) {
+
+      if (!updated) {
+        throw new NotFoundException('Candidate profile not found');
+      }
+
+      return updated;
+    } else {
+      if (Object.keys(update).length === 0) {
+        const existing = await this.profileModel.findById(userId).lean().exec();
+        if (!existing) {
+          throw new NotFoundException('Employee profile not found');
+        }
+        return existing;
+      }
+
+      const updated = await this.profileModel
+        .findByIdAndUpdate(userId, { $set: update }, { new: true })
+        .lean()
+        .exec();
+
+      if (!updated) {
         throw new NotFoundException('Employee profile not found');
       }
-      return existing;
+
+      return updated;
     }
-
-    const updated = await this.profileModel
-      .findByIdAndUpdate(employeeProfileId, { $set: update }, { new: true })
-      .lean()
-      .exec();
-
-    if (!updated) {
-      throw new NotFoundException('Employee profile not found');
-    }
-
-    return updated;
   }
 
   // =====================================
@@ -272,36 +351,58 @@ export class EmployeeProfileService {
   // =====================================
 
   async updateOwnProfilePicture(
-    employeeProfileId: string,
+    userId: string,
     dto: UpdateProfilePictureDto,
+    userType: string = 'employee',
   ) {
-    if (!Types.ObjectId.isValid(employeeProfileId)) {
-      throw new NotFoundException('Invalid employee profile ID');
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new NotFoundException('Invalid user ID');
     }
 
-    const updated = await this.profileModel
-      .findByIdAndUpdate(
-        employeeProfileId,
-        { $set: { profilePictureUrl: dto.profilePictureUrl } },
-        { new: true },
-      )
-      .lean()
-      .exec();
+    if (userType === 'candidate') {
+      const updated = await this.candidateModel
+        .findByIdAndUpdate(
+          userId,
+          { $set: { profilePictureUrl: dto.profilePictureUrl } },
+          { new: true },
+        )
+        .lean()
+        .exec();
 
-    if (!updated) {
-      throw new NotFoundException('Employee profile not found');
+      if (!updated) {
+        throw new NotFoundException('Candidate profile not found');
+      }
+
+      return updated;
+    } else {
+      const updated = await this.profileModel
+        .findByIdAndUpdate(
+          userId,
+          { $set: { profilePictureUrl: dto.profilePictureUrl } },
+          { new: true },
+        )
+        .lean()
+        .exec();
+
+      if (!updated) {
+        throw new NotFoundException('Employee profile not found');
+      }
+
+      return updated;
     }
-
-    return updated;
   }
 
   // =====================================
   // SELF-SERVICE: COMBINED PROFILE UPDATE
   // =====================================
 
-  async updateMyProfile(employeeProfileId: string, dto: UpdateMyProfileDto) {
-    if (!Types.ObjectId.isValid(employeeProfileId)) {
-      throw new NotFoundException('Invalid employee profile ID');
+  async updateMyProfile(
+    userId: string,
+    dto: UpdateMyProfileDto,
+    userType: string = 'employee',
+  ) {
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new NotFoundException('Invalid user ID');
     }
 
     const update: Record<string, any> = {};
@@ -336,27 +437,51 @@ export class EmployeeProfileService {
       update.profilePictureUrl = dto.profilePictureUrl;
     }
 
-    if (Object.keys(update).length === 0) {
-      const existing = await this.profileModel
-        .findById(employeeProfileId)
+    // Biography (US-E2-12)
+    if (dto.biography !== undefined) {
+      update.biography = dto.biography;
+    }
+
+    // Use appropriate model based on userType
+    if (userType === 'candidate') {
+      if (Object.keys(update).length === 0) {
+        const existing = await this.candidateModel.findById(userId).lean().exec();
+        if (!existing) {
+          throw new NotFoundException('Candidate profile not found');
+        }
+        return existing;
+      }
+
+      const updated = await this.candidateModel
+        .findByIdAndUpdate(userId, { $set: update }, { new: true })
         .lean()
         .exec();
-      if (!existing) {
+
+      if (!updated) {
+        throw new NotFoundException('Candidate profile not found');
+      }
+
+      return updated;
+    } else {
+      if (Object.keys(update).length === 0) {
+        const existing = await this.profileModel.findById(userId).lean().exec();
+        if (!existing) {
+          throw new NotFoundException('Employee profile not found');
+        }
+        return existing;
+      }
+
+      const updated = await this.profileModel
+        .findByIdAndUpdate(userId, { $set: update }, { new: true })
+        .lean()
+        .exec();
+
+      if (!updated) {
         throw new NotFoundException('Employee profile not found');
       }
-      return existing;
+
+      return updated;
     }
-
-    const updated = await this.profileModel
-      .findByIdAndUpdate(employeeProfileId, { $set: update }, { new: true })
-      .lean()
-      .exec();
-
-    if (!updated) {
-      throw new NotFoundException('Employee profile not found');
-    }
-
-    return updated;
   }
 
   // =====================================

@@ -14,11 +14,11 @@ import {
   Request,
   ForbiddenException,
   NotFoundException,
+  BadRequestException,
+  Res,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { diskStorage } from "multer";
-import * as path from "path";
-import * as fs from "fs";
+import { Response } from "express";
 import { ApiOperation, ApiResponse, ApiBody } from "@nestjs/swagger";
 import { RecruitmentService } from "./recruitment.service";
 import { CreateJobTemplateDto } from "./dto/create-job-template.dto";
@@ -429,37 +429,80 @@ export class RecruitmentController {
     );
   }
 
-  // Upload candidate CV (multipart/form-data 'file')
+  // Upload candidate CV (multipart/form-data 'file') - Using GridFS
   @Post("candidates/:id/upload-cv")
   @UseInterceptors(
     FileInterceptor("file", {
-      storage: diskStorage({
-        destination: (req: any, file: any, cb: any): void => {
-          const candidateId = req.params.id as string;
-          const uploadPath = path.join(
-            process.cwd(),
-            "uploads",
-            "candidates",
-            candidateId,
+      storage: undefined, // Use memory storage (no filesystem) - file will be in buffer
+      fileFilter: (req: any, file: any, cb: any): void => {
+        // Allowed MIME types for CV documents
+        const allowedMimeTypes = [
+          'application/pdf', // PDF
+          'application/msword', // .doc
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+          'text/plain', // .txt
+        ];
+
+        // Allowed file extensions (fallback check)
+        const allowedExtensions = ['.pdf', '.doc', '.docx', '.txt'];
+        const fileExtension = file.originalname
+          ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase()
+          : '';
+
+        // Check MIME type or file extension
+        if (
+          allowedMimeTypes.includes(file.mimetype) ||
+          allowedExtensions.includes(fileExtension)
+        ) {
+          cb(null, true);
+        } else {
+          cb(
+            new BadRequestException(
+              'Invalid file type. Only PDF, DOC, DOCX, or TXT files are allowed.',
+            ),
+            false,
           );
-          fs.mkdirSync(uploadPath, { recursive: true });
-          cb(null, uploadPath);
-        },
-        filename: (req: any, file: any, cb: any): void => {
-          const name = `${Date.now()}-${(file.originalname as string).replace(/\s+/g, "_")}`;
-          cb(null, name);
-        },
-      }) as any,
+        }
+      },
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB limit
+      },
     }),
   )
   async uploadCv(
     @Param("id") id: string,
     @UploadedFile() file: any,
   ): Promise<any> {
-    return this.recruitmentService.uploadCandidateCV(id, {
-      path: file.path as string,
-      originalname: file.originalname as string,
-    });
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    // Additional file size check
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      throw new BadRequestException('File size exceeds the maximum limit of 5MB');
+    }
+
+    // Pass file directly (with buffer) to service for GridFS upload
+    return this.recruitmentService.uploadCandidateCV(id, file);
+  }
+
+  // Download candidate CV from GridFS
+  @Get("candidates/:id/cv/:documentId")
+  async downloadCV(
+    @Param("id") candidateId: string,
+    @Param("documentId") documentId: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { stream, metadata } = await this.recruitmentService.getCVFile(documentId);
+
+    // Set response headers
+    res.setHeader('Content-Type', metadata.metadata?.mimeType || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${metadata.metadata?.originalName || metadata.filename}"`);
+    res.setHeader('Content-Length', metadata.length);
+
+    // Pipe the stream to response
+    stream.pipe(res);
   }
 
   // Apply to a requisition. Body: { candidateId: string, documentId?: string }

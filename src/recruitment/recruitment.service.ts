@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { InjectModel, InjectConnection } from '@nestjs/mongoose';
+import { Model, Types, Connection } from 'mongoose';
+import { GridFSBucket } from 'mongodb';
+import { Readable } from 'stream';
 import { JobTemplate, JobTemplateDocument } from './models/job-template.schema';
 import {
   Position,
@@ -94,6 +96,7 @@ import {
 @Injectable()
 export class RecruitmentService {
   private readonly logger = new Logger(RecruitmentService.name);
+  private cvBucket: GridFSBucket;
 
   constructor(
     @InjectModel(JobTemplate.name)
@@ -134,7 +137,14 @@ export class RecruitmentService {
     private terminationRequestModel: Model<TerminationRequestDocument>,
     @InjectModel(ClearanceChecklist.name)
     private clearanceChecklistModel: Model<ClearanceChecklistDocument>,
-  ) {}
+    @InjectConnection() private connection: Connection,
+  ) {
+    // Initialize GridFS bucket for CVs
+    // This creates collections: cvs.files and cvs.chunks
+    this.cvBucket = new GridFSBucket(this.connection.db, {
+      bucketName: 'cvs',
+    });
+  }
 
   private templatesDir = path.join(
     process.cwd(),
@@ -726,26 +736,120 @@ export class RecruitmentService {
     return requisition;
   }
 
-  // Store uploaded CV document for a candidate and return the Document record
+  // Store uploaded CV document for a candidate using GridFS (no schema changes)
+  // GridFS file ID is stored in the existing filePath field as a string
   async uploadCandidateCV(
     candidateId: string,
-    file: { path: string; originalname?: string },
+    file: any, // Express.Multer.File - file buffer from memory storage
   ) {
-    // validate candidate exists (no schema change)
+    // validate candidate exists
     const candidate = await this.candidateModel
       .findById(candidateId)
       .lean()
       .exec();
     if (!candidate) throw new NotFoundException('Candidate not found');
 
+    // Upload file to GridFS
+    const filename = `${candidateId}-${Date.now()}-${file.originalname.replace(/\s+/g, '_')}`;
+
+    // Create upload stream
+    const uploadStream = this.cvBucket.openUploadStream(filename, {
+      metadata: {
+        candidateId,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        uploadedAt: new Date(),
+      },
+    });
+
+    // Convert buffer to readable stream
+    const readableStream = new Readable();
+    readableStream.push(file.buffer);
+    readableStream.push(null); // End the stream
+
+    const { fileId } = await new Promise<{ fileId: string; filename: string }>(
+      (resolve, reject) => {
+        readableStream
+          .pipe(uploadStream)
+          .on('finish', () => {
+            resolve({
+              fileId: uploadStream.id.toString(),
+              filename,
+            });
+          })
+          .on('error', (error) => {
+            reject(error);
+          });
+      },
+    );
+
+    // Store GridFS file ID in filePath field (no schema change needed)
     const doc = await this.documentModel.create({
       ownerId: candidateId,
       type: DocumentType.CV,
-      filePath: file.path,
+      filePath: fileId, // Store GridFS file ID as string in existing filePath field
       uploadedAt: new Date(),
     });
 
-    return doc;
+    return {
+      ...doc.toObject(),
+      filename, // Include filename in response
+    };
+  }
+
+  /**
+   * Get CV file stream from GridFS
+   * @param documentId - The document ID
+   * @returns File stream and metadata
+   */
+  async getCVFile(documentId: string) {
+    const doc = await this.documentModel.findById(documentId).exec();
+    if (!doc) throw new NotFoundException('Document not found');
+    
+    // Check if filePath is a GridFS file ID (24 hex characters = ObjectId)
+    if (!this.isGridFSFile(doc.filePath)) {
+      throw new NotFoundException('CV file not found in GridFS');
+    }
+
+    const fileMetadata = await this.getGridFSFileMetadata(doc.filePath);
+    if (!fileMetadata) throw new NotFoundException('CV file not found');
+
+    const fileStream = this.downloadCVFromGridFS(doc.filePath);
+
+    return {
+      stream: fileStream,
+      metadata: fileMetadata,
+      document: doc,
+    };
+  }
+
+  /**
+   * Download a CV file from GridFS
+   * @param fileId - The GridFS file ID (as string from filePath)
+   * @returns Readable stream of the file
+   */
+  private downloadCVFromGridFS(fileId: string): Readable {
+    const objectId = new Types.ObjectId(fileId);
+    return this.cvBucket.openDownloadStream(objectId);
+  }
+
+  /**
+   * Get file metadata from GridFS
+   * @param fileId - The GridFS file ID (as string)
+   * @returns File metadata
+   */
+  private async getGridFSFileMetadata(fileId: string): Promise<any | null> {
+    const objectId = new Types.ObjectId(fileId);
+    const files = await this.cvBucket.find({ _id: objectId }).toArray();
+    return files.length > 0 ? files[0] : null;
+  }
+
+  /**
+   * Check if filePath is a GridFS ID (ObjectId format)
+   */
+  private isGridFSFile(filePath: string): boolean {
+    // GridFS file IDs are MongoDB ObjectIds (24 hex characters)
+    return /^[0-9a-fA-F]{24}$/.test(filePath);
   }
 
   // Candidate applies to a job requisition. Optionally include a documentId (CV) previously uploaded.
@@ -2192,7 +2296,7 @@ export class RecruitmentService {
       dateOfHire: contractDetails.startDate,
       contractStartDate: contractDetails.startDate,
       contractType: ContractType.FULL_TIME_CONTRACT,
-      status: EmployeeStatus.ACTIVE,
+      status: EmployeeStatus.PROBATION, // ONB-002: Employee status set to 'Probation' per requirements
       gender: contractDetails.candidateGender,
       dateOfBirth: contractDetails.candidateDateOfBirth,
       profilePictureUrl: null,
@@ -3625,6 +3729,7 @@ export class RecruitmentService {
 
   /**
    * OFF-007: Record access revocation for terminated employee
+   * Requirement: "System Admin/System revokes system/account access upon termination; Profile set to Inactive."
    */
   async revokeTerminatedEmployeeAccess(
     terminationId: Types.ObjectId,
@@ -3647,6 +3752,7 @@ export class RecruitmentService {
       );
     }
 
+    // Update termination request
     const updatedTermination = await this.terminationRequestModel
       .findByIdAndUpdate(
         terminationId,
@@ -3663,6 +3769,15 @@ export class RecruitmentService {
       )
       .exec();
 
+    // OFF-007: Set employee profile status to INACTIVE when access is revoked
+    await this.employeeModel.findByIdAndUpdate(
+      employeeId,
+      {
+        status: EmployeeStatus.INACTIVE,
+      },
+      { new: true },
+    );
+
     return {
       terminationId: terminationId.toString(),
       employeeId: employeeId.toString(),
@@ -3672,6 +3787,8 @@ export class RecruitmentService {
       revokedBy: revokedBy.toString(),
       revokedAt: new Date(),
       comments,
+      profileStatusUpdated: true,
+      newProfileStatus: EmployeeStatus.INACTIVE,
     };
   }
 
