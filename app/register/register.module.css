@@ -1,0 +1,139 @@
+.registerContainer {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: var(--bg-primary);
+}
+
+.registerCard {
+  width: 100%;
+  max-width: 700px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.header h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.header p {
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .formRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.errorMessage {
+  padding: 1rem;
+  background: rgba(230, 57, 70, 0.1);
+  border: 1px solid var(--error-main);
+  border-radius: var(--radius-lg);
+  color: var(--error-main);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.successMessage {
+  text-align: center;
+  padding: 2rem;
+}
+
+.successMessage h2 {
+  color: var(--success-main);
+  margin-bottom: 1rem;
+}
+
+.successMessage p {
+  color: var(--text-secondary);
+}
+
+.selectWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-main);
+  border-radius: var(--radius-lg);
+  transition: all 250ms ease-in-out;
+  outline: none;
+  cursor: pointer;
+}
+
+.select:hover:not(:disabled) {
+  border-color: var(--primary-light);
+}
+
+.select:focus {
+  border-color: var(--primary-main);
+  box-shadow: 0 0 0 3px rgba(231, 111, 81, 0.1);
+}
+
+.select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: var(--bg-secondary);
+}
+
+.footer {
+  margin-top: 2rem;
+  text-align: center;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.footer p {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.link {
+  color: var(--primary-main);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 250ms ease-in-out;
+}
+
+.link:hover {
+  color: var(--primary-dark);
+  text-decoration: underline;
+}
+

@@ -1,0 +1,72 @@
+.biographySection {
+  margin-bottom: 2.5rem;
+}
+
+.biographySection h2 {
+  margin: 0 0 0.5rem 0;
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.sectionDescription {
+  margin: 0 0 1rem 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.biographyTextarea {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-main);
+  border-radius: var(--radius-lg);
+  resize: vertical;
+  min-height: 120px;
+  transition: all 250ms ease-in-out;
+  outline: none;
+}
+
+.biographyTextarea:hover:not(:disabled) {
+  border-color: var(--primary-light);
+}
+
+.biographyTextarea:focus {
+  border-color: var(--primary-main);
+  box-shadow: 0 0 0 3px rgba(231, 111, 81, 0.1);
+}
+
+.biographyTextarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+.characterCount {
+  margin-top: 0.5rem;
+  text-align: right;
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+}
+
+.errorMessage {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(230, 57, 70, 0.1);
+  border: 1px solid var(--error-main);
+  border-radius: var(--radius-md);
+  color: var(--error-main);
+  font-size: 0.875rem;
+}
+
+.successMessage {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(46, 213, 115, 0.1);
+  border: 1px solid var(--success-main);
+  border-radius: var(--radius-md);
+  color: var(--success-main);
+  font-size: 0.875rem;
+}
+

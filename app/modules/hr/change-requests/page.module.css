@@ -1,0 +1,197 @@
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.header {
+  margin-bottom: 2rem;
+}
+
+.header h1 {
+  margin: 0 0 0.5rem 0;
+  color: var(--text-primary);
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.header p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 50vh;
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+}
+
+.errorMessage {
+  padding: 1rem;
+  background: rgba(230, 57, 70, 0.1);
+  border: 1px solid var(--error-main);
+  border-radius: var(--radius-lg);
+  color: var(--error-main);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+.errorMessage {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: rgba(230, 57, 70, 0.1);
+  border: 1px solid var(--error-main);
+  border-radius: var(--radius-lg);
+  color: var(--error-main);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 3rem;
+  color: var(--text-secondary);
+}
+
+.emptyState p {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.requestsList {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.requestCard {
+  border-left: 4px solid var(--primary-main);
+}
+
+.requestHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.requestHeader h3 {
+  margin: 0 0 0.25rem 0;
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.requestType {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.date {
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+}
+
+.requestDetails {
+  margin-bottom: 1.5rem;
+}
+
+.fieldChange {
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.valueComparison {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+}
+
+.valueBox {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.valueLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.oldValue {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.newValue {
+  color: var(--primary-main);
+  font-weight: 600;
+}
+
+.arrow {
+  font-size: 1.5rem;
+  color: var(--text-tertiary);
+}
+
+.reason {
+  padding: 0.75rem;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.requestActions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 1rem;
+  }
+
+  .requestHeader {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .valueComparison {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .arrow {
+    transform: rotate(90deg);
+    text-align: center;
+  }
+
+  .requestActions {
+    flex-direction: column;
+  }
+
+  .requestActions button {
+    width: 100%;
+  }
+}
+

@@ -1,0 +1,47 @@
+.container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: var(--bg-primary);
+}
+
+.card {
+  width: 100%;
+  max-width: 600px;
+}
+
+.loading {
+  text-align: center;
+  font-size: 1.25rem;
+  color: var(--text-secondary);
+}
+
+.userInfo {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+}
+
+.userInfo p {
+  margin: 0.75rem 0;
+  color: var(--text-primary);
+}
+
+.userInfo strong {
+  color: var(--text-primary);
+  margin-right: 0.5rem;
+}
+
+.actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.button {
+  margin-top: 1rem;
+}
+
