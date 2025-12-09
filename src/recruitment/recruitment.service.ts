@@ -13,6 +13,7 @@ import {
   DepartmentDocument,
 } from '../organization-structure/models/department.schema';
 import { CreateJobTemplateDto } from './dto/create-job-template.dto';
+import { CreateJobRequisitionDto } from './dto/create-job-requisition.dto';
 import { Application, ApplicationDocument } from './models/application.schema';
 import {
   ApplicationStatusHistory,
@@ -672,12 +673,79 @@ export class RecruitmentService {
     return this.jobTemplateModel.findById(id).exec();
   }
 
+  // Create a job requisition from a template (or without template)
+  async createJobRequisition(dto: CreateJobRequisitionDto, hiringManagerId: string) {
+    // Validate template exists if provided
+    if (dto.templateId) {
+      const template = await this.jobTemplateModel
+        .findById(dto.templateId)
+        .lean()
+        .exec();
+      if (!template) {
+        throw new NotFoundException('Job template not found');
+      }
+    }
+
+    // Generate requisition ID if not provided
+    let requisitionId = dto.requisitionId;
+    if (!requisitionId) {
+      const year = new Date().getFullYear();
+      const prefix = `REQ-${year}-`;
+      const latest = await this.jobRequisitionModel
+        .findOne({ requisitionId: new RegExp(`^${prefix}`) })
+        .sort({ requisitionId: -1 })
+        .exec();
+      
+      let sequence = 1;
+      if (latest && latest.requisitionId) {
+        const lastSequence = parseInt(
+          latest.requisitionId.split('-').pop() || '0',
+          10,
+        );
+        sequence = lastSequence + 1;
+      }
+      requisitionId = `${prefix}${sequence.toString().padStart(4, '0')}`;
+    }
+
+    // Check if requisition ID already exists
+    const existing = await this.jobRequisitionModel
+      .findOne({ requisitionId })
+      .exec();
+    if (existing) {
+      throw new ConflictException(
+        `Job requisition with ID '${requisitionId}' already exists`,
+      );
+    }
+
+    const requisition = await this.jobRequisitionModel.create({
+      requisitionId,
+      templateId: dto.templateId ? new Types.ObjectId(dto.templateId) : undefined,
+      openings: dto.openings,
+      location: dto.location,
+      hiringManagerId: new Types.ObjectId(hiringManagerId),
+      publishStatus: 'draft', // Always start as draft
+    });
+
+    return requisition;
+  }
+
   // Preview a job requisition assembled with employer-brand content
   async previewJobRequisition(requisitionId: string) {
-    const requisition = await this.jobRequisitionModel
-      .findById(requisitionId)
-      .lean()
-      .exec();
+    // Support both MongoDB _id and requisitionId string
+    let requisition;
+    if (Types.ObjectId.isValid(requisitionId) && requisitionId.length === 24) {
+      // Valid MongoDB ObjectId - use findById
+      requisition = await this.jobRequisitionModel
+        .findById(new Types.ObjectId(requisitionId))
+        .lean()
+        .exec();
+    } else {
+      // Not a valid ObjectId - search by requisitionId field
+      requisition = await this.jobRequisitionModel
+        .findOne({ requisitionId: requisitionId })
+        .lean()
+        .exec();
+    }
     if (!requisition) throw new NotFoundException('Job requisition not found');
 
     let template: any = null;
@@ -718,9 +786,19 @@ export class RecruitmentService {
     requisitionId: string,
     opts?: { expiryDays?: number },
   ) {
-    const requisition = await this.jobRequisitionModel
-      .findById(requisitionId)
-      .exec();
+    // Support both MongoDB _id and requisitionId string
+    let requisition;
+    if (Types.ObjectId.isValid(requisitionId) && requisitionId.length === 24) {
+      // Valid MongoDB ObjectId - use findById
+      requisition = await this.jobRequisitionModel
+        .findById(new Types.ObjectId(requisitionId))
+        .exec();
+    } else {
+      // Not a valid ObjectId - search by requisitionId field
+      requisition = await this.jobRequisitionModel
+        .findOne({ requisitionId: requisitionId })
+        .exec();
+    }
     if (!requisition) throw new NotFoundException('Job requisition not found');
 
     requisition.publishStatus = 'published';

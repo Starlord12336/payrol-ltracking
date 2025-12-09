@@ -22,6 +22,7 @@ import { Response } from "express";
 import { ApiOperation, ApiResponse, ApiBody } from "@nestjs/swagger";
 import { RecruitmentService } from "./recruitment.service";
 import { CreateJobTemplateDto } from "./dto/create-job-template.dto";
+import { CreateJobRequisitionDto } from "./dto/create-job-requisition.dto";
 import { CreateOfferDto } from "./dto/create-offer.dto";
 import { AddOfferApproverDto } from "./dto/add-offer-approver.dto";
 import { ScheduleInterviewDto } from "./dto/schedule-interview.dto";
@@ -29,6 +30,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { Public } from "../auth/decorators/public.decorator";
+import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { SystemRole } from "../employee-profile/enums/employee-profile.enums";
 import { CreateChecklistDto } from "./dto/create-checklist.dto";
 import { UploadOnboardingDocumentDto } from "./dto/upload-onboarding-document.dto";
@@ -89,6 +91,18 @@ export class RecruitmentController {
   @Roles(SystemRole.HR_MANAGER, SystemRole.HR_EMPLOYEE, SystemRole.RECRUITER)
   async getTemplate(@Param("id") id: string) {
     return this.recruitmentService.findJobTemplateById(id);
+  }
+
+  // REC-003: Create Job Requisition
+  @Post("requisitions")
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_EMPLOYEE)
+  async createRequisition(
+    @Body() dto: CreateJobRequisitionDto,
+    @CurrentUser() user: any,
+  ) {
+    // Get hiringManagerId from JWT token
+    const hiringManagerId = user.employeeId?.toString() || user.userid.toString();
+    return this.recruitmentService.createJobRequisition(dto, hiringManagerId);
   }
 
   // REC-008: Candidate Tracking
