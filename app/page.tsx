@@ -55,25 +55,50 @@ export default function Home() {
         <div className={styles.actions}>
           {(() => {
             const userRoles = user?.roles || [];
+            
+            // Debug: Log roles to console
+            console.log('User roles:', userRoles);
+            console.log('HR_ADMIN enum value:', SystemRole.HR_ADMIN);
+            console.log('Direct includes check:', userRoles.includes(SystemRole.HR_ADMIN));
+            console.log('String check:', userRoles.includes('HR Admin'));
+            
             const isHrUser = 
               userRoles.includes(SystemRole.HR_ADMIN) ||
               userRoles.includes(SystemRole.HR_MANAGER) ||
               userRoles.includes(SystemRole.HR_EMPLOYEE) ||
               userRoles.includes(SystemRole.SYSTEM_ADMIN);
+            
+            // Check for org structure access - use both enum and string comparison
+            const hasHrAdmin = userRoles.includes(SystemRole.HR_ADMIN) || userRoles.includes('HR Admin');
+            const hasHrManager = userRoles.includes(SystemRole.HR_MANAGER) || userRoles.includes('HR Manager');
+            const hasSystemAdmin = userRoles.includes(SystemRole.SYSTEM_ADMIN) || userRoles.includes('System Admin');
+            
+            const canAccessOrgStructure = hasHrAdmin || hasHrManager || hasSystemAdmin;
 
-            if (isHrUser) {
-              return (
-                <Button variant="primary" onClick={() => router.push('/modules/hr')}>
-                  HR Dashboard
-                </Button>
-              );
-            } else {
-              return (
-                <Button variant="primary" onClick={() => router.push('/modules/employee-profile')}>
-                  {user?.userType === 'candidate' ? 'Candidate Profile' : 'Employee Profile'}
-                </Button>
-              );
-            }
+            console.log('hasHrAdmin:', hasHrAdmin);
+            console.log('hasHrManager:', hasHrManager);
+            console.log('hasSystemAdmin:', hasSystemAdmin);
+            console.log('canAccessOrgStructure:', canAccessOrgStructure);
+
+            return (
+              <>
+                {isHrUser && (
+                  <Button variant="primary" onClick={() => router.push('/modules/hr')}>
+                    HR Dashboard
+                  </Button>
+                )}
+                {canAccessOrgStructure && (
+                  <Button variant="primary" onClick={() => router.push('/modules/organization-structure')}>
+                    Organization Structure
+                  </Button>
+                )}
+                {!isHrUser && (
+                  <Button variant="primary" onClick={() => router.push('/modules/employee-profile')}>
+                    {user?.userType === 'candidate' ? 'Candidate Profile' : 'Employee Profile'}
+                  </Button>
+                )}
+              </>
+            );
           })()}
           <Button variant="outline" onClick={logout}>
             Logout

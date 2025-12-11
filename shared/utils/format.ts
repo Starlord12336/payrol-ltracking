@@ -9,7 +9,7 @@ export const formatDate = (date: string | Date, format: 'short' | 'long' | 'time
     return 'Invalid Date';
   }
 
-  const options: Intl.DateTimeFormatOptions = {
+  const options: Record<'short' | 'long' | 'time', Intl.DateTimeFormatOptions> = {
     short: { year: 'numeric', month: 'short', day: 'numeric' },
     long: { year: 'numeric', month: 'long', day: 'numeric' },
     time: { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' },

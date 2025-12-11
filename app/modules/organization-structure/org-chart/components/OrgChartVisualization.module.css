@@ -1,0 +1,179 @@
+.orgChartContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 3rem;
+  padding: 2rem 0;
+}
+
+.departmentSection {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  border: 1px solid var(--border-color);
+}
+
+.departmentHeader {
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.departmentName {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
+}
+
+.departmentCode {
+  display: inline-block;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.departmentStats {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-top: 0.5rem;
+}
+
+.positionsTree {
+  display: flex;
+  flex-direction: column;
+  gap: 3rem;
+  padding: 1rem 0;
+  align-items: center;
+}
+
+.positionNode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  min-width: 200px;
+  margin-bottom: 2rem;
+}
+
+.positionBox {
+  background: var(--bg-primary);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.5rem;
+  min-width: 200px;
+  position: relative;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  z-index: 1;
+}
+
+.positionBox:hover {
+  border-color: var(--primary-color);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.positionBox.headPosition {
+  border-color: var(--primary-color);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-dark) 100%);
+  color: white;
+}
+
+.positionBox.headPosition .positionCode,
+.positionBox.headPosition .positionTitle {
+  color: white;
+}
+
+.positionCode {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.25rem;
+}
+
+.positionTitle {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.headBadge {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: var(--accent-color);
+  color: white;
+  font-size: 0.625rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.childrenContainer {
+  margin-top: 2rem;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding-top: 1rem;
+}
+
+.connectorLine {
+  position: absolute;
+  top: -2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 3px;
+  height: 2rem;
+  background: var(--primary-color);
+  z-index: 0;
+  border-radius: 2px;
+}
+
+.childrenWrapper {
+  display: flex;
+  flex-direction: row;
+  gap: 2rem;
+  flex-wrap: wrap;
+  position: relative;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.childrenWrapper::before {
+  content: '';
+  position: absolute;
+  top: -1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 200px);
+  height: 2px;
+  background: var(--primary-color);
+  opacity: 0.3;
+  z-index: 0;
+}
+
+.emptyState,
+.emptyPositions {
+  text-align: center;
+  padding: 3rem;
+  color: var(--text-secondary);
+}
+
+.emptyPositions {
+  padding: 2rem;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
