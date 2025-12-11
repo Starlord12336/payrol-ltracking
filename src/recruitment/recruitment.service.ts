@@ -20,6 +20,7 @@ import {
   ApplicationStatusHistoryDocument,
 } from './models/application-history.schema';
 import { ApplicationStatus } from './enums/application-status.enum';
+import { ApplicationStage } from './enums/application-stage.enum';
 import {
   JobRequisition,
   JobRequisitionDocument,
@@ -675,10 +676,17 @@ export class RecruitmentService {
 
   // Create a job requisition from a template (or without template)
   async createJobRequisition(dto: CreateJobRequisitionDto, hiringManagerId: string) {
-    // Validate template exists if provided
-    if (dto.templateId) {
+    // Validate template exists if provided and is a valid ObjectId
+    // Handle empty strings, null, or undefined as "no template"
+    const templateId = dto.templateId?.trim();
+    if (templateId && templateId !== '') {
+      // Check if templateId is a valid MongoDB ObjectId (24 hex characters)
+      if (!Types.ObjectId.isValid(templateId) || templateId.length !== 24) {
+        throw new BadRequestException('Invalid templateId format. Must be a valid MongoDB ObjectId (24 characters)');
+      }
+      
       const template = await this.jobTemplateModel
-        .findById(dto.templateId)
+        .findById(templateId)
         .lean()
         .exec();
       if (!template) {
@@ -719,33 +727,46 @@ export class RecruitmentService {
 
     const requisition = await this.jobRequisitionModel.create({
       requisitionId,
-      templateId: dto.templateId ? new Types.ObjectId(dto.templateId) : undefined,
+      templateId: templateId && templateId !== '' ? new Types.ObjectId(templateId) : undefined,
       openings: dto.openings,
       location: dto.location,
       hiringManagerId: new Types.ObjectId(hiringManagerId),
       publishStatus: 'draft', // Always start as draft
     });
 
-    return requisition;
+    // Convert to plain object and ensure requisitionId is explicitly included
+    const requisitionObj = requisition.toObject();
+    
+    // Ensure requisitionId is always present (it should be, but make it explicit)
+    return {
+      ...requisitionObj,
+      _id: requisitionObj._id?.toString() || String(requisitionObj._id),
+      requisitionId: requisition.requisitionId || requisitionObj.requisitionId || requisitionId,
+    };
   }
 
-  // Preview a job requisition assembled with employer-brand content
-  async previewJobRequisition(requisitionId: string) {
+  // Get raw requisition by ID (for status checks)
+  async getRawRequisitionById(requisitionId: string) {
     // Support both MongoDB _id and requisitionId string
-    let requisition;
     if (Types.ObjectId.isValid(requisitionId) && requisitionId.length === 24) {
       // Valid MongoDB ObjectId - use findById
-      requisition = await this.jobRequisitionModel
+      return await this.jobRequisitionModel
         .findById(new Types.ObjectId(requisitionId))
         .lean()
         .exec();
     } else {
       // Not a valid ObjectId - search by requisitionId field
-      requisition = await this.jobRequisitionModel
+      return await this.jobRequisitionModel
         .findOne({ requisitionId: requisitionId })
         .lean()
         .exec();
     }
+  }
+
+  // Preview a job requisition assembled with employer-brand content
+  async previewJobRequisition(requisitionId: string) {
+    // Support both MongoDB _id and requisitionId string
+    const requisition = await this.getRawRequisitionById(requisitionId);
     if (!requisition) throw new NotFoundException('Job requisition not found');
 
     let template: any = null;
@@ -814,6 +835,121 @@ export class RecruitmentService {
     return requisition;
   }
 
+  // List job requisitions with optional status filter
+  async listJobRequisitions(status?: string, department?: string) {
+    const query: any = {};
+    
+    // Map frontend status to backend publishStatus
+    if (status && status.trim() !== '') {
+      const statusMap: Record<string, string> = {
+        'OPEN': 'published',
+        'PUBLISHED': 'published',
+        'DRAFT': 'draft',
+        'CLOSED': 'closed',
+      };
+      const mappedStatus = statusMap[status.toUpperCase()] || status.toLowerCase();
+      query.publishStatus = mappedStatus;
+    }
+    // If no status filter, return all requisitions
+
+    const requisitions = await this.jobRequisitionModel
+      .find(query)
+      .populate('templateId', 'title department description qualifications skills')
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
+
+    // Manually populate hiringManagerId from EmployeeProfile if needed
+    // Since hiringManagerId references 'User' which doesn't exist, we'll fetch it separately
+    const enrichedRequisitions = await Promise.all(
+      requisitions.map(async (req: any) => {
+        if (!req) return null; // Skip null/undefined items
+        
+        let hiringManager = null;
+        if (req.hiringManagerId) {
+          try {
+            // Try to find in EmployeeProfile first
+            hiringManager = await this.employeeModel
+              .findById(req.hiringManagerId)
+              .select('firstName lastName email employeeNumber')
+              .lean()
+              .exec();
+            
+            // If not found, try Candidate
+            if (!hiringManager) {
+              hiringManager = await this.candidateModel
+                .findById(req.hiringManagerId)
+                .select('firstName lastName email candidateNumber')
+                .lean()
+                .exec();
+            }
+          } catch (error) {
+            // If populate fails, just leave it as null
+            console.warn(`Failed to populate hiringManager for requisition ${req._id}:`, error);
+          }
+        }
+        
+        // Extract department from populated template
+        let reqDepartment = null;
+        if (req.templateId && typeof req.templateId === 'object') {
+          reqDepartment = (req.templateId as any).department || null;
+        }
+        
+        // Filter by department if provided (case-insensitive)
+        if (department && department.trim() !== '') {
+          const deptFilter = department.trim().toLowerCase();
+          const reqDept = reqDepartment?.toLowerCase() || '';
+          if (reqDept !== deptFilter) {
+            return null; // Skip this requisition if department doesn't match
+          }
+        }
+        
+        // Ensure all required fields are present
+        const result: any = {
+          ...req,
+          _id: req._id?.toString() || String(req._id),
+          requisitionId: req.requisitionId || null,
+          openings: req.openings || 0,
+          publishStatus: req.publishStatus || 'draft',
+          hiringManager: hiringManager || null,
+          department: reqDepartment || null, // Include department in response
+        };
+        
+        // Include templateId if it exists
+        if (req.templateId) {
+          result.templateId = typeof req.templateId === 'object' 
+            ? req.templateId._id?.toString() || String(req.templateId._id || req.templateId)
+            : req.templateId.toString();
+        }
+        
+        // Include template details if populated
+        if (req.templateId && typeof req.templateId === 'object') {
+          result.template = {
+            title: (req.templateId as any).title || null,
+            department: (req.templateId as any).department || null,
+            description: (req.templateId as any).description || null,
+            qualifications: (req.templateId as any).qualifications || [],
+            skills: (req.templateId as any).skills || [],
+          };
+        }
+        
+        // Include optional fields
+        if (req.location) result.location = req.location;
+        if (req.postingDate) result.postingDate = req.postingDate;
+        if (req.expiryDate) result.expiryDate = req.expiryDate;
+        if (req.createdAt) result.createdAt = req.createdAt;
+        if (req.updatedAt) result.updatedAt = req.updatedAt;
+        
+        return result;
+      })
+    );
+
+    // Filter out any null/undefined items and return
+    const filtered = enrichedRequisitions.filter((req: any) => req !== null && req !== undefined);
+    
+    return filtered;
+  }
+
   // Store uploaded CV document for a candidate using GridFS (no schema changes)
   // GridFS file ID is stored in the existing filePath field as a string
   async uploadCandidateCV(
@@ -862,15 +998,32 @@ export class RecruitmentService {
     );
 
     // Store GridFS file ID in filePath field (no schema change needed)
-    const doc = await this.documentModel.create({
-      ownerId: candidateId,
+    // Use raw MongoDB driver to ensure we're using the same database as GridFS
+    const db = this.connection.db;
+    const documentsCollection = db.collection('documents');
+    
+    const documentData = {
+      ownerId: new Types.ObjectId(candidateId), // Explicitly convert to ObjectId
       type: DocumentType.CV,
       filePath: fileId, // Store GridFS file ID as string in existing filePath field
       uploadedAt: new Date(),
-    });
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const insertResult = await documentsCollection.insertOne(documentData);
+    
+    // Fetch the inserted document to return it
+    const doc = await documentsCollection.findOne({ _id: insertResult.insertedId });
 
     return {
-      ...doc.toObject(),
+      _id: doc._id,
+      ownerId: doc.ownerId,
+      type: doc.type,
+      filePath: doc.filePath,
+      uploadedAt: doc.uploadedAt,
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt,
       filename, // Include filename in response
     };
   }
@@ -898,6 +1051,165 @@ export class RecruitmentService {
       stream: fileStream,
       metadata: fileMetadata,
       document: doc,
+    };
+  }
+
+  /**
+   * Get candidate profile details
+   * @param candidateId - The candidate ID
+   * @returns Candidate profile with all details
+   */
+  async getCandidateProfile(candidateId: string) {
+    const candidate = await this.candidateModel
+      .findById(candidateId)
+      .lean()
+      .exec();
+    
+    if (!candidate) {
+      throw new NotFoundException('Candidate not found');
+    }
+    
+    return candidate;
+  }
+
+  /**
+   * Get all CV documents for a candidate
+   * @param candidateId - The candidate ID
+   * @returns Array of CV documents with metadata
+   */
+  async getCandidateCVs(candidateId: string) {
+    // Validate candidate exists
+    const candidate = await this.candidateModel
+      .findById(candidateId)
+      .lean()
+      .exec();
+    if (!candidate) throw new NotFoundException('Candidate not found');
+
+    // Convert candidateId to ObjectId for query
+    const candidateObjectId = new Types.ObjectId(candidateId);
+
+    // Get all CV documents for this candidate
+    // Try both ObjectId and string format to handle any inconsistencies
+    const documents = await this.documentModel
+      .find({
+        $or: [
+          { ownerId: candidateObjectId },
+          { ownerId: candidateId }, // Also try as string
+        ],
+        type: DocumentType.CV,
+      })
+      .sort({ uploadedAt: -1 }) // Most recent first
+      .lean()
+      .exec();
+
+    // Enrich with GridFS metadata if available
+    const enrichedDocuments = await Promise.all(
+      documents.map(async (doc: any) => {
+        try {
+          if (this.isGridFSFile(doc.filePath)) {
+            const fileMetadata = await this.getGridFSFileMetadata(doc.filePath);
+            return {
+              _id: doc._id,
+              documentId: doc._id.toString(),
+              uploadedAt: doc.uploadedAt,
+              filename: fileMetadata?.metadata?.originalName || fileMetadata?.filename || 'CV',
+              mimeType: fileMetadata?.metadata?.mimeType || 'application/pdf',
+              size: fileMetadata?.length || 0,
+              createdAt: doc.createdAt || doc.uploadedAt,
+              updatedAt: doc.updatedAt || doc.uploadedAt,
+            };
+          }
+          // Fallback if not GridFS file
+          return {
+            _id: doc._id,
+            documentId: doc._id.toString(),
+            uploadedAt: doc.uploadedAt,
+            filename: 'CV',
+            mimeType: 'application/pdf',
+            size: 0,
+            createdAt: doc.createdAt || doc.uploadedAt,
+            updatedAt: doc.updatedAt || doc.uploadedAt,
+          };
+        } catch (error) {
+          // If metadata fetch fails, return basic info
+          return {
+            _id: doc._id,
+            documentId: doc._id.toString(),
+            uploadedAt: doc.uploadedAt,
+            filename: 'CV',
+            mimeType: 'application/pdf',
+            size: 0,
+            createdAt: doc.createdAt || doc.uploadedAt,
+            updatedAt: doc.updatedAt || doc.uploadedAt,
+          };
+        }
+      }),
+    );
+
+    return enrichedDocuments;
+  }
+
+  /**
+   * Delete a CV document and its GridFS file
+   * @param candidateId - The candidate ID (for authorization)
+   * @param documentId - The document ID to delete
+   * @returns Success message
+   */
+  async deleteCandidateCV(candidateId: string, documentId: string) {
+    // Validate candidate exists
+    const candidate = await this.candidateModel
+      .findById(candidateId)
+      .lean()
+      .exec();
+    if (!candidate) throw new NotFoundException('Candidate not found');
+
+    // Get the document to verify ownership
+    // Handle both ObjectId and string formats for ownerId (backward compatibility)
+    const db = this.connection.db;
+    const documentsCollection = db.collection('documents');
+    const candidateObjectId = new Types.ObjectId(candidateId);
+    
+    const doc = await documentsCollection.findOne({
+      _id: new Types.ObjectId(documentId),
+      $or: [
+        { ownerId: candidateObjectId },
+        { ownerId: candidateId }, // Also try as string for old CVs
+      ],
+      type: DocumentType.CV,
+    });
+
+    if (!doc) {
+      throw new NotFoundException('CV document not found or you do not have permission to delete it');
+    }
+
+    // Delete GridFS file if it exists
+    if (doc.filePath && this.isGridFSFile(doc.filePath)) {
+      try {
+        const fileId = new Types.ObjectId(doc.filePath);
+        await this.cvBucket.delete(fileId);
+      } catch (error) {
+        // Log error but continue to delete document record
+        console.warn(`Failed to delete GridFS file ${doc.filePath}:`, error);
+      }
+    } else if (doc.filePath) {
+      // Old CVs might have file paths instead of GridFS IDs
+      // Try to delete from GridFS anyway if it looks like an ObjectId
+      try {
+        const fileId = new Types.ObjectId(doc.filePath);
+        await this.cvBucket.delete(fileId);
+      } catch (error) {
+        // If it's not a GridFS file, just log and continue
+        console.warn(`CV file path is not a GridFS ID, skipping GridFS deletion: ${doc.filePath}`);
+      }
+    }
+
+    // Delete the document record
+    await documentsCollection.deleteOne({ _id: new Types.ObjectId(documentId) });
+
+    return {
+      success: true,
+      message: 'CV deleted successfully',
+      documentId,
     };
   }
 
@@ -930,7 +1242,7 @@ export class RecruitmentService {
     return /^[0-9a-fA-F]{24}$/.test(filePath);
   }
 
-  // Candidate applies to a job requisition. Optionally include a documentId (CV) previously uploaded.
+  // Candidate applies to a job requisition. CV is required - candidate must have at least one uploaded CV.
   async applyToRequisition(
     candidateId: string,
     requisitionId: string,
@@ -943,14 +1255,53 @@ export class RecruitmentService {
       .exec();
     if (!candidate) throw new NotFoundException('Candidate not found');
 
-    const requisition = await this.jobRequisitionModel
-      .findById(requisitionId)
-      .exec();
+    // Check if candidate has at least one uploaded CV
+    const candidateCVs = await this.getCandidateCVs(candidateId);
+    if (!candidateCVs || candidateCVs.length === 0) {
+      throw new BadRequestException(
+        'You must upload at least one CV before applying to job positions. Please upload your CV first and try again.',
+      );
+    }
+
+    // Support both MongoDB _id and requisitionId string
+    let requisition;
+    if (Types.ObjectId.isValid(requisitionId) && requisitionId.length === 24) {
+      // Valid MongoDB ObjectId - use findById
+      requisition = await this.jobRequisitionModel
+        .findById(new Types.ObjectId(requisitionId))
+        .exec();
+    } else {
+      // Not a valid ObjectId - search by requisitionId field
+      requisition = await this.jobRequisitionModel
+        .findOne({ requisitionId: requisitionId })
+        .exec();
+    }
     if (!requisition) throw new NotFoundException('Job requisition not found');
+    
+    // Candidates can only apply to published requisitions
+    if (requisition.publishStatus !== 'published') {
+      throw new BadRequestException('This job requisition is not open for applications. It may be in draft or closed status.');
+    }
+
+    // Check if candidate has already applied to this requisition
+    const candidateObjectId = new Types.ObjectId(candidateId);
+    const existingApplication = await this.applicationModel
+      .findOne({
+        candidateId: candidateObjectId,
+        requisitionId: requisition._id,
+      })
+      .lean()
+      .exec();
+
+    if (existingApplication) {
+      throw new ConflictException(
+        'You have already applied to this job requisition. You cannot apply multiple times to the same position.',
+      );
+    }
 
     const application = await this.applicationModel.create({
-      candidateId,
-      requisitionId,
+      candidateId: candidateObjectId, // Ensure candidateId is ObjectId
+      requisitionId: requisition._id, // Use the MongoDB _id from the found requisition
     });
 
     // record initial history entry
@@ -963,7 +1314,25 @@ export class RecruitmentService {
       changedBy: candidateId,
     });
 
-    return { application, attachedDocumentId: opts?.documentId ?? null };
+    // Convert application to plain object to access timestamps
+    const applicationObj: any = application.toObject ? application.toObject() : application;
+    
+    // Return formatted response matching frontend expectations
+    return {
+      success: true,
+      message: 'Application submitted successfully',
+      data: {
+        _id: application._id.toString(),
+        id: application._id.toString(),
+        candidateId: application.candidateId.toString(),
+        requisitionId: application.requisitionId.toString(),
+        currentStage: application.currentStage,
+        status: application.status,
+        attachedDocumentId: opts?.documentId ?? null,
+        createdAt: applicationObj.createdAt || new Date(),
+        updatedAt: applicationObj.updatedAt || new Date(),
+      },
+    };
   }
 
   // Advance an application's stage using a default hiring process template
@@ -1025,34 +1394,83 @@ export class RecruitmentService {
     const changedBy =
       opts?.changedBy || (application as any).assignedHr || application._id;
 
+    // Save OLD status BEFORE updating (for history)
+    const oldStatus = application.status;
+
+    // Determine status based on stage
+    const isHired =
+      typeof nextStageName === 'string' &&
+      nextStageName.toLowerCase() === 'hired';
+    const isOffer =
+      typeof nextStageName === 'string' &&
+      nextStageName.toLowerCase() === 'offer';
+    
+    const newStatus = isHired 
+      ? ApplicationStatus.HIRED 
+      : isOffer 
+        ? ApplicationStatus.OFFER 
+        : ApplicationStatus.IN_PROCESS;
+
+    // Update application.currentStage - map stage names to enum values
+    // Note: ApplicationStage enum only has: SCREENING, DEPARTMENT_INTERVIEW, HR_INTERVIEW, OFFER
+    // For stages not in enum, we'll use the closest match or keep current stage
+    const stageEnumMap: Record<string, any> = {
+      'Screening': ApplicationStage.SCREENING,
+      'Shortlisting': ApplicationStage.SCREENING, // Map to SCREENING as closest
+      'Interview': ApplicationStage.HR_INTERVIEW, // Map to HR_INTERVIEW
+      'Department Interview': ApplicationStage.DEPARTMENT_INTERVIEW,
+      'HR Interview': ApplicationStage.HR_INTERVIEW,
+      'Offer': ApplicationStage.OFFER,
+      'Hired': ApplicationStage.OFFER, // Hired doesn't have enum, use OFFER as final stage
+    };
+    
+    if (stageEnumMap[nextStageName]) {
+      application.currentStage = stageEnumMap[nextStageName];
+    }
+
+    // Update application.status based on stage
+    application.status = newStatus;
+    
+    // Save the application first
+    await application.save();
+    
     // record history (history fields are free-form strings, schema unchanged)
     await this.applicationHistoryModel.create({
       applicationId: application._id,
       oldStage: lastHistory?.newStage ?? null,
       newStage: nextStageName,
-      oldStatus: application.status ?? null,
-      newStatus: application.status ?? null,
+      oldStatus: oldStatus ?? null,
+      newStatus: newStatus,
       changedBy,
     });
 
-    // If final stage 'Hired', update application.status to HIRED
-    const isHired =
-      typeof nextStageName === 'string' &&
-      nextStageName.toLowerCase() === 'hired';
-    if (isHired) {
-      application.status = ApplicationStatus.HIRED;
-      await application.save();
-    }
+    // Note: Employee profile is NOT created automatically when status becomes HIRED
+    // According to the flow: Application → Offer → Contract → Signed Contract → Employee Profile
+    // Employee profile should be created via: POST /recruitment/onboarding/contract/:contractId/create-profile
+    // after the contract is fully signed by both parties
 
     // compute progress
     const total = defaultStages.length;
     const pos = Math.max(0, defaultStages.indexOf(nextStageName));
     const progress = Math.round(((pos + 1) / total) * 100);
 
+    // Reload application to get updated status
+    const updatedApplication = await this.applicationModel
+      .findById(applicationId)
+      .lean()
+      .exec();
+
     return {
       applicationId: application._id,
       newStage: nextStageName,
+      newStatus: updatedApplication?.status || application.status,
       progress,
+      success: true,
+      message: isHired 
+        ? 'Application advanced to Hired. Employee profile created automatically.' 
+        : isOffer 
+          ? 'Application advanced to Offer stage.' 
+          : 'Application stage advanced successfully.',
     };
   }
 
@@ -1099,16 +1517,260 @@ export class RecruitmentService {
 
   // List applications for a candidate
   async listApplicationsForCandidate(candidateId: string) {
+    // Convert candidateId string to ObjectId for proper querying
+    const candidateObjectId = new Types.ObjectId(candidateId);
+    
     const apps = await this.applicationModel
-      .find({ candidateId })
+      .find({ candidateId: candidateObjectId })
+      .populate('requisitionId', 'requisitionId openings location publishStatus postingDate expiryDate')
+      .sort({ createdAt: -1 })
       .lean()
       .exec();
-    return apps.map((a) => ({
-      id: a._id,
-      requisitionId: a.requisitionId,
-      currentStage: a.currentStage,
-      status: a.status,
-    }));
+    
+    // Enrich with requisition details
+    const enrichedApps = await Promise.all(
+      apps.map(async (a: any) => {
+        let requisitionDetails = null;
+        if (a.requisitionId) {
+          // If populated, use it directly
+          if (typeof a.requisitionId === 'object' && a.requisitionId !== null) {
+            requisitionDetails = {
+              _id: a.requisitionId._id?.toString() || String(a.requisitionId._id),
+              requisitionId: a.requisitionId.requisitionId || null,
+              openings: a.requisitionId.openings || null,
+              location: a.requisitionId.location || null,
+              publishStatus: a.requisitionId.publishStatus || null,
+              postingDate: a.requisitionId.postingDate || null,
+              expiryDate: a.requisitionId.expiryDate || null,
+            };
+          } else {
+            // If not populated, fetch it
+            const req = await this.jobRequisitionModel
+              .findById(a.requisitionId)
+              .lean()
+              .exec();
+            if (req) {
+              requisitionDetails = {
+                _id: req._id?.toString() || String(req._id),
+                requisitionId: req.requisitionId || null,
+                openings: req.openings || null,
+                location: req.location || null,
+                publishStatus: req.publishStatus || null,
+                postingDate: req.postingDate || null,
+                expiryDate: req.expiryDate || null,
+              };
+            }
+          }
+        }
+        
+        const applicationId = a._id?.toString() || String(a._id);
+        return {
+          _id: applicationId, // Frontend expects _id for key prop
+          id: applicationId, // Also include id for consistency
+          requisitionId: a.requisitionId?._id?.toString() || (typeof a.requisitionId === 'object' ? String(a.requisitionId) : a.requisitionId?.toString() || String(a.requisitionId)),
+          currentStage: a.currentStage,
+          status: a.status,
+          requisition: requisitionDetails,
+          createdAt: a.createdAt || null,
+          updatedAt: a.updatedAt || null,
+        };
+      })
+    );
+    
+    return enrichedApps;
+  }
+
+  // List all applications with optional filters
+  async listApplications(filters?: { requisitionId?: string; status?: string; stage?: string }) {
+    const query: any = {};
+    
+    if (filters?.requisitionId) {
+      query.requisitionId = new Types.ObjectId(filters.requisitionId);
+    }
+    
+    if (filters?.status) {
+      query.status = filters.status;
+    }
+    
+    if (filters?.stage) {
+      query.currentStage = filters.stage;
+    }
+
+    const applications = await this.applicationModel
+      .find(query)
+      .populate('candidateId', 'firstName lastName email candidateNumber')
+      .populate('requisitionId', 'requisitionId openings location publishStatus')
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
+
+    // Manually populate assignedHr since it references 'User' which doesn't exist
+    const enrichedApplications = await Promise.all(
+      applications.map(async (app: any) => {
+        let assignedHr = null;
+        if (app.assignedHr) {
+          try {
+            // Try to find in EmployeeProfile first
+            assignedHr = await this.employeeModel
+              .findById(app.assignedHr)
+              .select('firstName lastName email employeeNumber')
+              .lean()
+              .exec();
+            
+            // If not found, try Candidate
+            if (!assignedHr) {
+              assignedHr = await this.candidateModel
+                .findById(app.assignedHr)
+                .select('firstName lastName email candidateNumber')
+                .lean()
+                .exec();
+            }
+          } catch (error) {
+            console.warn(`Failed to populate assignedHr for application ${app._id}:`, error);
+          }
+        }
+        
+        // Format application data properly
+        const formattedApp: any = {
+          _id: app._id?.toString() || String(app._id),
+          id: app._id?.toString() || String(app._id),
+          candidateId: app.candidateId?._id?.toString() || (typeof app.candidateId === 'object' ? String(app.candidateId._id || app.candidateId) : app.candidateId?.toString() || String(app.candidateId)),
+          requisitionId: app.requisitionId?._id?.toString() || (typeof app.requisitionId === 'object' ? String(app.requisitionId._id || app.requisitionId) : app.requisitionId?.toString() || String(app.requisitionId)),
+          currentStage: app.currentStage,
+          status: app.status,
+          assignedHr: assignedHr || null,
+          createdAt: app.createdAt || null,
+          updatedAt: app.updatedAt || null,
+        };
+        
+        // Include candidate details if populated
+        if (app.candidateId && typeof app.candidateId === 'object') {
+          formattedApp.candidate = {
+            _id: app.candidateId._id?.toString() || String(app.candidateId._id),
+            firstName: app.candidateId.firstName || null,
+            lastName: app.candidateId.lastName || null,
+            email: app.candidateId.email || null,
+            candidateNumber: app.candidateId.candidateNumber || null,
+          };
+        }
+        
+        // Include requisition details if populated
+        if (app.requisitionId && typeof app.requisitionId === 'object') {
+          formattedApp.requisition = {
+            _id: app.requisitionId._id?.toString() || String(app.requisitionId._id),
+            requisitionId: app.requisitionId.requisitionId || null,
+            openings: app.requisitionId.openings || null,
+            location: app.requisitionId.location || null,
+            publishStatus: app.requisitionId.publishStatus || null,
+          };
+        }
+        
+        return formattedApp;
+      })
+    );
+
+    return enrichedApplications;
+  }
+
+  // Get application details - returns basic info with candidateId
+  // Frontend should fetch candidate details and CVs separately using existing endpoints
+  async getApplicationDetails(applicationId: string) {
+    const application: any = await this.applicationModel
+      .findById(applicationId)
+      .populate('candidateId', 'firstName lastName email candidateNumber')
+      .populate('requisitionId', 'requisitionId title description openings location publishStatus postingDate expiryDate')
+      .lean()
+      .exec();
+
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+
+    // Get candidate ID - handle both populated and non-populated cases
+    let candidateId: string;
+    if (application.candidateId && typeof application.candidateId === 'object' && application.candidateId._id) {
+      candidateId = application.candidateId._id.toString();
+    } else if (application.candidateId && typeof application.candidateId === 'object') {
+      candidateId = String(application.candidateId);
+    } else {
+      candidateId = application.candidateId?.toString() || String(application.candidateId);
+    }
+
+    // Manually populate assignedHr
+    let assignedHr: any = null;
+    if (application.assignedHr) {
+      try {
+        assignedHr = await this.employeeModel
+          .findById(application.assignedHr)
+          .select('firstName lastName email employeeNumber')
+          .lean()
+          .exec();
+        
+        if (!assignedHr) {
+          assignedHr = await this.candidateModel
+            .findById(application.assignedHr)
+            .select('firstName lastName email candidateNumber')
+            .lean()
+            .exec();
+        }
+      } catch (error) {
+        console.warn(`Failed to populate assignedHr for application ${applicationId}:`, error);
+      }
+    }
+
+    // Get requisition ID
+    let requisitionId: string;
+    if (application.requisitionId && typeof application.requisitionId === 'object' && application.requisitionId._id) {
+      requisitionId = application.requisitionId._id.toString();
+    } else if (application.requisitionId && typeof application.requisitionId === 'object') {
+      requisitionId = String(application.requisitionId);
+    } else {
+      requisitionId = application.requisitionId?.toString() || String(application.requisitionId);
+    }
+
+    // Format response - basic info only
+    const formattedApp: any = {
+      _id: application._id?.toString() || String(application._id),
+      id: application._id?.toString() || String(application._id),
+      candidateId: candidateId, // Frontend can use this to fetch candidate details and CVs
+      requisitionId: requisitionId,
+      currentStage: application.currentStage,
+      status: application.status,
+      assignedHr: assignedHr || null,
+      createdAt: (application as any).createdAt || null,
+      updatedAt: (application as any).updatedAt || null,
+    };
+
+    // Include basic candidate info (name, email, candidateNumber) for display
+    const candidateData = application.candidateId;
+    if (candidateData && typeof candidateData === 'object' && !(candidateData instanceof Types.ObjectId)) {
+      formattedApp.candidate = {
+        _id: candidateData._id?.toString() || String(candidateData._id),
+        firstName: candidateData.firstName || null,
+        lastName: candidateData.lastName || null,
+        fullName: `${candidateData.firstName || ''} ${candidateData.lastName || ''}`.trim() || null,
+        email: candidateData.email || null,
+        candidateNumber: candidateData.candidateNumber || null,
+      };
+    }
+
+    // Include requisition details
+    const requisitionData = application.requisitionId;
+    if (requisitionData && typeof requisitionData === 'object' && !(requisitionData instanceof Types.ObjectId)) {
+      formattedApp.requisition = {
+        _id: requisitionData._id?.toString() || String(requisitionData._id),
+        requisitionId: requisitionData.requisitionId || null,
+        title: requisitionData.title || null,
+        description: requisitionData.description || null,
+        openings: requisitionData.openings || null,
+        location: requisitionData.location || null,
+        publishStatus: requisitionData.publishStatus || null,
+        postingDate: requisitionData.postingDate || null,
+        expiryDate: requisitionData.expiryDate || null,
+      };
+    }
+
+    return formattedApp;
   }
 
   // Get application status history
@@ -2344,6 +3006,87 @@ export class RecruitmentService {
       employeeSignedAt: contract.employeeSignedAt,
       employerSignedAt: contract.employerSignedAt,
       isValidForProfileCreation: fullySigned,
+    };
+  }
+
+  /**
+   * @deprecated This method should not be used. Employee profiles should be created from signed contracts only.
+   * Use createEmployeeProfileFromContract() instead.
+   * 
+   * The correct flow is: Application → Offer → Contract → Signed Contract → Employee Profile
+   * Employee profile creation endpoint: POST /recruitment/onboarding/contract/:contractId/create-profile
+   */
+  async createEmployeeProfileFromApplication(
+    applicationId: string,
+    createdBy: string,
+  ) {
+    const application: any = await this.applicationModel
+      .findById(applicationId)
+      .populate('candidateId')
+      .lean()
+      .exec();
+
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+
+    if (application.status !== ApplicationStatus.HIRED) {
+      throw new BadRequestException('Application status must be HIRED to create employee profile');
+    }
+
+    const candidate: any = application.candidateId;
+    if (!candidate) {
+      throw new NotFoundException('Candidate not found for this application');
+    }
+
+    // Check if employee profile already exists
+    const existingProfile = await this.employeeModel
+      .findOne({ nationalId: candidate.nationalId })
+      .lean()
+      .exec();
+    
+    if (existingProfile) {
+      this.logger.warn(
+        `Employee profile already exists for national ID: ${candidate.nationalId}. Profile ID: ${(existingProfile as any)._id}`,
+      );
+      return {
+        success: true,
+        profileId: (existingProfile as any)._id,
+        employeeNumber: (existingProfile as any).employeeNumber,
+        message: `Employee profile already exists. Employee #: ${(existingProfile as any).employeeNumber}`,
+      };
+    }
+
+    const employeeNumber = await this.generateEmployeeNumber();
+
+    const profile = await this.employeeModel.create({
+      employeeNumber,
+      firstName: candidate.firstName,
+      lastName: candidate.lastName,
+      fullName: candidate.fullName || `${candidate.firstName} ${candidate.lastName}`,
+      nationalId: candidate.nationalId,
+      workEmail: candidate.email || candidate.personalEmail,
+      dateOfHire: new Date(),
+      contractStartDate: new Date(),
+      contractType: ContractType.FULL_TIME_CONTRACT,
+      status: EmployeeStatus.PROBATION,
+      gender: candidate.gender,
+      dateOfBirth: candidate.dateOfBirth,
+      personalEmail: candidate.personalEmail,
+      mobilePhone: candidate.mobilePhone,
+      homePhone: candidate.homePhone,
+      profilePictureUrl: null,
+    });
+
+    this.logger.log(
+      `Employee profile created from application ${applicationId}: ${profile._id} (${employeeNumber})`,
+    );
+
+    return {
+      success: true,
+      profileId: profile._id,
+      employeeNumber,
+      message: `Employee profile created successfully. Employee #: ${employeeNumber}`,
     };
   }
 
