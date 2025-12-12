@@ -52,6 +52,11 @@ export enum CandidateStatus {
   WITHDRAWN = 'WITHDRAWN',
 }
 
+export enum ContractType {
+  FULL_TIME_CONTRACT = 'FULL_TIME_CONTRACT',
+  PART_TIME_CONTRACT = 'PART_TIME_CONTRACT',
+}
+
 // DTOs matching backend
 export interface LoginDto {
   email: string;

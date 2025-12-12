@@ -37,17 +37,20 @@ export interface EmployeeProfile {
 
 export interface ChangeRequest {
   _id: string;
+  requestId?: string; // Backend returns this
   employeeProfileId: string;
   employeeName?: string;
-  requestType: string;
-  fieldName: string;
-  oldValue: any;
-  newValue: any;
+  requestType?: string; // May not be in backend response
+  fieldName?: string; // Not stored separately, parsed from requestDescription
+  oldValue?: any; // Not stored separately, parsed from requestDescription
+  newValue?: any; // Not stored separately, parsed from requestDescription
   reason?: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  requestDescription?: string; // Contains: Field, Current Value, Corrected Value, Additional Details
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELED';
   submittedAt: string;
+  processedAt?: string; // Backend uses processedAt instead of reviewedAt
   reviewedBy?: string;
-  reviewedAt?: string;
+  reviewedAt?: string; // May not be in backend response
   comments?: string;
 }
 
@@ -109,7 +112,18 @@ export const updateEmployeeAsHr = async (id: string, data: Partial<EmployeeProfi
 };
 
 /**
+ * Get team profiles (Manager/HR)
+ */
+export const getTeamProfiles = async (): Promise<EmployeeProfile[]> => {
+  const response = await apiClient.get<{ success: boolean; message: string; data: EmployeeProfile[] }>(
+    '/employee-profile/team'
+  );
+  return response.data.data;
+};
+
+/**
  * Get pending change requests
+ * Backend returns requests with requestDescription that needs parsing
  */
 export const getPendingChangeRequests = async (): Promise<ChangeRequest[]> => {
   const response = await apiClient.get<{ success: boolean; message: string; data: ChangeRequest[] }>(
@@ -138,6 +152,7 @@ export const hrApi = {
   searchEmployees,
   getEmployeeById,
   updateEmployeeAsHr,
+  getTeamProfiles,
   getPendingChangeRequests,
   updateChangeRequestStatus,
 };

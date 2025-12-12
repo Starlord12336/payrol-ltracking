@@ -13,3 +13,5 @@ export type { ModalProps } from './Modal';
 
 export { ProtectedRoute } from './ProtectedRoute';
 
+export { Navbar } from './Navbar';
+

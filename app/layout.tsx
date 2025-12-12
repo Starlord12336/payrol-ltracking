@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import '../shared/styles/globals.css';
+import { Navbar } from '@/shared/components';
 
 export const metadata: Metadata = {
   title: 'HR Management System',
@@ -13,7 +14,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <Navbar />
+        {children}
+      </body>
     </html>
   );
 }

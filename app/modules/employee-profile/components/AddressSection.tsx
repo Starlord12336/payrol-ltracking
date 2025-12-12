@@ -27,11 +27,14 @@ export default function AddressSection({ profile, onUpdate }: AddressSectionProp
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    setFormData({
-      streetAddress: profile?.streetAddress || '',
-      city: profile?.city || '',
-      country: profile?.country || '',
-    });
+    // Update form data when profile changes (including after fetch/update)
+    if (profile) {
+      setFormData({
+        streetAddress: profile.streetAddress || '',
+        city: profile.city || '',
+        country: profile.country || '',
+      });
+    }
   }, [profile]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -50,8 +53,15 @@ export default function AddressSection({ profile, onUpdate }: AddressSectionProp
     setSuccess(false);
 
     try {
-      await profileApi.updateAddress(formData);
+      const updatedAddress = await profileApi.updateAddress(formData);
+      // Update local state immediately with the response
+      setFormData({
+        streetAddress: updatedAddress.streetAddress || '',
+        city: updatedAddress.city || '',
+        country: updatedAddress.country || '',
+      });
       setSuccess(true);
+      // Trigger parent to refetch to ensure everything is in sync
       onUpdate();
 
       // Clear success message after 3 seconds

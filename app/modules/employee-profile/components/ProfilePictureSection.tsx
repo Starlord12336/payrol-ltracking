@@ -18,12 +18,72 @@ interface ProfilePictureSectionProps {
 
 export default function ProfilePictureSection({ profile, onUpdate }: ProfilePictureSectionProps) {
   const [uploading, setUploading] = useState(false);
-  const [preview, setPreview] = useState<string | null>(profile?.profilePictureUrl || null);
+  const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
 
+  // Update preview when profile changes
   useEffect(() => {
-    setPreview(profile?.profilePictureUrl || null);
+    let currentBlobUrl: string | null = null;
+
+    const loadProfilePicture = async () => {
+      if (profile?.profilePictureUrl) {
+        const pictureUrl = profileApi.getProfilePictureUrl(profile.profilePictureUrl);
+        
+        // Check if it's a GridFS URL (needs authentication)
+        // GridFS URLs use the /employee-profile/me/profile-picture endpoint
+        if (pictureUrl && pictureUrl.includes('/employee-profile/me/profile-picture')) {
+          try {
+            // Fetch image with credentials
+            const response = await fetch(pictureUrl, {
+              credentials: 'include',
+            });
+            
+            if (response.ok) {
+              const blob = await response.blob();
+              const blobUrl = URL.createObjectURL(blob);
+              currentBlobUrl = blobUrl;
+              setPreview(blobUrl);
+              setImageError(false);
+            } else {
+              console.error('Failed to load profile picture:', {
+                status: response.status,
+                statusText: response.statusText,
+                url: pictureUrl
+              });
+              setImageError(true);
+              setPreview(null);
+            }
+          } catch (err) {
+            console.error('Error loading profile picture:', err);
+            setImageError(true);
+            setPreview(null);
+          }
+        } else if (pictureUrl) {
+          // External URL - use directly
+          setPreview(pictureUrl);
+          setImageError(false);
+        }
+      } else {
+        setPreview(null);
+        setImageError(false);
+      }
+    };
+
+    loadProfilePicture();
+
+    // Cleanup blob URL on unmount or when URL changes
+    return () => {
+      if (currentBlobUrl) {
+        URL.revokeObjectURL(currentBlobUrl);
+      }
+    };
   }, [profile?.profilePictureUrl]);
+
+  const handleImageError = () => {
+    console.error('Failed to load profile picture:', preview);
+    setImageError(true);
+  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -63,17 +123,40 @@ export default function ProfilePictureSection({ profile, onUpdate }: ProfilePict
     setError(null);
 
     try {
-      // Step 1: Upload image file
-      const { imageUrl } = await profileApi.uploadProfilePicture(file);
+      // Step 1: Upload image file to GridFS
+      const { _id: gridfsFileId } = await profileApi.uploadProfilePicture(file);
 
-      // Step 2: Update profile with URL
-      await profileApi.updateProfilePicture(imageUrl);
+      // Step 2: Update profile with GridFS file ID (24 hex characters)
+      await profileApi.updateProfilePicture(gridfsFileId);
+
+      // Step 3: Fetch the uploaded image and create blob URL for preview
+      const pictureUrl = profileApi.getProfilePictureUrl(gridfsFileId);
+      if (pictureUrl) {
+        try {
+          const response = await fetch(pictureUrl, {
+            credentials: 'include',
+          });
+          
+          if (response.ok) {
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            // Cleanup old blob URL if exists
+            if (preview && preview.startsWith('blob:')) {
+              URL.revokeObjectURL(preview);
+            }
+            setPreview(blobUrl);
+            setImageError(false);
+          }
+        } catch (fetchErr) {
+          console.error('Error fetching uploaded image:', fetchErr);
+          // Keep the FileReader preview if fetch fails
+        }
+      }
 
       onUpdate();
     } catch (err: any) {
       setError(err.message || 'Failed to upload profile picture');
-      // Reset preview on error
-      setPreview(profile?.profilePictureUrl || null);
+      // Reset preview on error - will be handled by useEffect
     } finally {
       setUploading(false);
     }
@@ -84,12 +167,18 @@ export default function ProfilePictureSection({ profile, onUpdate }: ProfilePict
       <h2>Profile Picture</h2>
 
       <div className={styles.pictureContainer}>
-        {preview ? (
+        {preview && !imageError ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={preview} alt="Profile" className={styles.profilePicture} />
+          <img 
+            src={preview} 
+            alt="Profile" 
+            className={styles.profilePicture}
+            onError={handleImageError}
+            crossOrigin="anonymous"
+          />
         ) : (
           <div className={styles.placeholderPicture}>
-            <span>No Picture</span>
+            <span>{imageError ? 'Failed to load' : 'No Picture'}</span>
           </div>
         )}
       </div>
@@ -103,11 +192,18 @@ export default function ProfilePictureSection({ profile, onUpdate }: ProfilePict
         className={styles.fileInput}
       />
 
-      <label htmlFor="profile-picture-input" className={styles.labelButton}>
-        <Button variant="primary" disabled={uploading}>
-          {uploading ? 'Uploading...' : preview ? 'Change Picture' : 'Upload Picture'}
-        </Button>
-      </label>
+      <Button
+        variant="primary"
+        disabled={uploading}
+        onClick={() => {
+          const input = document.getElementById('profile-picture-input') as HTMLInputElement;
+          if (input && !uploading) {
+            input.click();
+          }
+        }}
+      >
+        {uploading ? 'Uploading...' : preview ? 'Change Picture' : 'Upload Picture'}
+      </Button>
 
       {error && (
         <div className={styles.errorMessage} role="alert">

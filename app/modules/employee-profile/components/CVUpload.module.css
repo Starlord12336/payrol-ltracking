@@ -98,7 +98,111 @@
 
 .downloadSection {
   margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border-light);
+  padding: 1rem;
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.cvStatus {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.cvStatus strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.cvActions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* CV History Section */
+.cvHistorySection {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 2px solid var(--border-light);
+}
+
+.historyTitle {
+  margin: 0 0 1rem 0;
+  color: var(--text-primary);
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.loadingText,
+.noCvText {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin: 0;
+  padding: 1rem;
+  text-align: center;
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+}
+
+.cvList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.cvItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  transition: all 250ms ease-in-out;
+}
+
+.cvItem:hover {
+  border-color: var(--primary-light);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.cvItemInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.cvFileName {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.cvDate {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.cvItemActions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.deleteButton {
+  color: var(--error-main);
+  border-color: var(--error-main);
+}
+
+.deleteButton:hover {
+  background: rgba(230, 57, 70, 0.1);
+  border-color: var(--error-main);
 }
 

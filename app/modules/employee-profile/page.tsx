@@ -6,10 +6,10 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { Button, Card, ProtectedRoute } from '@/shared/components';
-import { profileApi, type ProfileData } from './api/profileApi';
+import { profileApi, type ProfileData, type ChangeRequest } from './api/profileApi';
 import ProfilePictureSection from './components/ProfilePictureSection';
 import PersonalInfoDisplay from './components/PersonalInfoDisplay';
 import BiographySection from './components/BiographySection';
@@ -17,11 +17,13 @@ import ContactInfoSection from './components/ContactInfoSection';
 import AddressSection from './components/AddressSection';
 import ResumeSection from './components/ResumeSection';
 import ChangePasswordModal from './components/ChangePasswordModal';
+import ChangeRequestsList from './components/ChangeRequestsList';
 import styles from './page.module.css';
 
 function EmployeeProfileContent() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
@@ -40,11 +42,34 @@ function EmployeeProfileContent() {
     }
   };
 
+  const fetchChangeRequests = useCallback(async () => {
+    // Only fetch change requests for employees
+    if (user?.userType !== 'employee') {
+      setChangeRequests([]);
+      return;
+    }
+    
+    try {
+      const requests = await profileApi.getMyChangeRequests();
+      setChangeRequests(requests);
+    } catch (err: any) {
+      console.error('Error fetching change requests:', err);
+      // Don't show error to user, just log it
+    }
+  }, [user?.userType]);
+
+  const handleChangeRequestSubmitted = () => {
+    // Refresh both profile and change requests
+    fetchProfile();
+    fetchChangeRequests();
+  };
+
   useEffect(() => {
     if (user) {
       fetchProfile();
+      fetchChangeRequests();
     }
-  }, [user]);
+  }, [user, fetchChangeRequests]);
 
   if (loading) {
     return (
@@ -85,7 +110,12 @@ function EmployeeProfileContent() {
         )}
 
         {/* Personal Information (US-E2-04 - View Only) */}
-        <PersonalInfoDisplay profile={profile} />
+        <PersonalInfoDisplay 
+          profile={profile} 
+          changeRequests={user?.userType === 'employee' ? changeRequests : []}
+          onRequestSubmitted={handleChangeRequestSubmitted}
+          isEmployee={user?.userType === 'employee'}
+        />
 
         {/* Biography Section (US-E2-12) - Only for employees */}
         {user?.userType === 'employee' && (
@@ -100,9 +130,14 @@ function EmployeeProfileContent() {
           <AddressSection profile={profile} onUpdate={fetchProfile} />
         )}
 
+        {/* Change Requests Section - Only for employees */}
+        {user?.userType === 'employee' && (
+          <ChangeRequestsList changeRequests={changeRequests} />
+        )}
+
         {/* Resume/CV Section (REC-007) - Only for candidates */}
         {user?.userType === 'candidate' && user?.userid && (
-          <ResumeSection candidateId={user.userid.toString()} onUpdate={fetchProfile} />
+          <ResumeSection candidateId={user.userid.toString()} profile={profile} onUpdate={fetchProfile} />
         )}
 
         {/* Security Settings */}

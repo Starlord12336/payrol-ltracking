@@ -73,6 +73,14 @@ export const useAuthNoCheck = () => {
       const data = await authApi.login(loginDto);
       // Backend sets httpOnly cookie, we just store user data from response
       setUser(data.user);
+      
+      // Dispatch custom event to notify other components (like Navbar) that auth state changed
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth-state-changed', { 
+          detail: { user: data.user, isAuthenticated: true } 
+        }));
+      }
+      
       // Redirect to home after successful login
       router.push('/');
       return data;
@@ -102,6 +110,14 @@ export const useAuthNoCheck = () => {
         });
         // Set user data from login response
         setUser(loginData.user);
+        
+        // Dispatch custom event to notify other components (like Navbar) that auth state changed
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth-state-changed', { 
+            detail: { user: loginData.user, isAuthenticated: true } 
+          }));
+        }
+        
         // Redirect to home after successful login
         router.push('/');
       } catch (loginErr: any) {
