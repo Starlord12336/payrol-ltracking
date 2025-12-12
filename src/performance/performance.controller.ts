@@ -28,9 +28,13 @@ import { CreatePerformanceGoalDto } from './dto/create-performance-goal.dto';
 import { UpdatePerformanceGoalDto } from './dto/update-performance-goal.dto';
 import { CreatePerformanceFeedbackDto } from './dto/create-performance-feedback.dto';
 import { UpdatePerformanceFeedbackDto } from './dto/update-performance-feedback.dto';
+import { CreateAppraisalAssignmentDto } from './dto/create-appraisal-assignment.dto';
+import { BulkAssignTemplateDto } from './dto/create-appraisal-assignment.dto';
+import { UpdateAppraisalAssignmentDto } from './dto/update-appraisal-assignment.dto';
 import { AppraisalCycleStatus } from './enums/performance.enums';
 import { AppraisalDisputeStatus } from './enums/performance.enums';
 import { JwtAuthGuard, RolesGuard, Roles } from '../auth';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { SystemRole } from '../employee-profile/enums/employee-profile.enums';
 
 @Controller('performance')
@@ -248,31 +252,115 @@ export class PerformanceController {
     );
   }
 
+  /**
+   * Get all assignments with optional filters
+   * GET /performance/assignments?cycleId=xxx&templateId=xxx&employeeProfileId=xxx&managerProfileId=xxx&departmentId=xxx&status=xxx
+   * Roles: HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   */
+  @Get('assignments')
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  async findAllAssignments(
+    @Query('cycleId') cycleId?: string,
+    @Query('templateId') templateId?: string,
+    @Query('employeeProfileId') employeeProfileId?: string,
+    @Query('managerProfileId') managerProfileId?: string,
+    @Query('departmentId') departmentId?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.performanceService.findAllAssignments({
+      cycleId,
+      templateId,
+      employeeProfileId,
+      managerProfileId,
+      departmentId,
+      status: status as any,
+    });
+  }
+
+  /**
+   * Get a single assignment by ID
+   * GET /performance/assignments/:id
+   */
+  @Get('assignments/:id')
+  async findAssignmentById(@Param('id') id: string) {
+    return this.performanceService.findAssignmentById(id);
+  }
+
+  /**
+   * Manually assign template to employee(s)
+   * POST /performance/assignments
+   * Roles: HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   */
+  @Post('assignments')
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  async assignTemplateToEmployees(@Body() createDto: CreateAppraisalAssignmentDto) {
+    return this.performanceService.assignTemplateToEmployees(createDto);
+  }
+
+  /**
+   * Bulk assign template to departments, positions, or employees
+   * POST /performance/assignments/bulk
+   * Roles: HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   */
+  @Post('assignments/bulk')
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  async bulkAssignTemplate(@Body() bulkDto: BulkAssignTemplateDto) {
+    return this.performanceService.bulkAssignTemplate(bulkDto);
+  }
+
+  /**
+   * Update an assignment
+   * PUT /performance/assignments/:id
+   * Roles: HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   */
+  @Put('assignments/:id')
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  async updateAssignment(
+    @Param('id') id: string,
+    @Body() updateDto: UpdateAppraisalAssignmentDto,
+  ) {
+    return this.performanceService.updateAssignment(id, updateDto);
+  }
+
+  /**
+   * Remove an assignment
+   * DELETE /performance/assignments/:id
+   * Roles: HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   */
+  @Delete('assignments/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  async removeAssignment(@Param('id') id: string) {
+    await this.performanceService.removeAssignment(id);
+  }
+
   // ==================== APPRAISAL EVALUATION ENDPOINTS ====================
 
   /**
    * Create or update an appraisal evaluation
    * POST /performance/cycles/:cycleId/employees/:employeeId/evaluation
-   * Roles: DEPARTMENT_MANAGER, HR_MANAGER, HR_ADMIN
+   * Any employee assigned as a manager can review their direct reports
    */
   @Post('cycles/:cycleId/employees/:employeeId/evaluation')
   @HttpCode(HttpStatus.CREATED)
-  @UseGuards(RolesGuard)
-  @Roles(
-    SystemRole.DEPARTMENT_HEAD,
-    SystemRole.HR_MANAGER,
-    SystemRole.HR_ADMIN,
-    SystemRole.SYSTEM_ADMIN,
-  )
   async createOrUpdateEvaluation(
     @Param('cycleId') cycleId: string,
     @Param('employeeId') employeeId: string,
     @Body() createDto: CreateAppraisalEvaluationDto,
+    @CurrentUser() user: any,
   ) {
     return this.performanceService.createOrUpdateEvaluation(
       cycleId,
       employeeId,
       createDto,
+      user?.userid || user?._id,
     );
   }
 

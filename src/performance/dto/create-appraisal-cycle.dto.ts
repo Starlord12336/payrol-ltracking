@@ -2,9 +2,6 @@ import { IsString, IsDateString, IsArray, IsOptional } from 'class-validator';
 
 export class CreateAppraisalCycleDto {
   @IsString()
-  cycleCode: string;
-
-  @IsString()
   cycleName: string;
 
   @IsString()

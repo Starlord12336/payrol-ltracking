@@ -62,6 +62,8 @@ import { CreatePerformanceGoalDto } from './dto/create-performance-goal.dto';
 import { UpdatePerformanceGoalDto } from './dto/update-performance-goal.dto';
 import { CreatePerformanceFeedbackDto } from './dto/create-performance-feedback.dto';
 import { UpdatePerformanceFeedbackDto } from './dto/update-performance-feedback.dto';
+import { CreateAppraisalAssignmentDto, BulkAssignTemplateDto } from './dto/create-appraisal-assignment.dto';
+import { UpdateAppraisalAssignmentDto } from './dto/update-appraisal-assignment.dto';
 
 @Injectable()
 export class PerformanceService {
@@ -88,59 +90,60 @@ export class PerformanceService {
   // ==================== APPRAISAL TEMPLATE METHODS ====================
 
   /**
-   * Create a new appraisal template with weight validation
+   * Create a new appraisal template
+   * Validates criteria weights if provided
    */
   async createTemplate(
     createDto: CreateAppraisalTemplateDto,
   ): Promise<AppraisalTemplate> {
-    // Validate that section weights sum to 100%
-    if (createDto.sections && createDto.sections.length > 0) {
-      const totalSectionWeight = createDto.sections.reduce(
-        (sum, section) => sum + (section.weight || 0),
-        0,
+    // Validate criteria weights if provided
+    if (createDto.criteria && createDto.criteria.length > 0) {
+      const criteriaWithWeights = createDto.criteria.filter(
+        (c) => c.weight !== undefined && c.weight > 0,
       );
-      if (totalSectionWeight > 0 && Math.abs(totalSectionWeight - 100) > 0.01) {
-        throw new BadRequestException(
-          `Section weights must sum to 100%. Current sum: ${totalSectionWeight}%`,
+      if (criteriaWithWeights.length > 0) {
+        const totalWeight = criteriaWithWeights.reduce(
+          (sum, criterion) => sum + (criterion.weight || 0),
+          0,
         );
-      }
-
-      // Validate that criteria weights within each section sum to 100%
-      for (const section of createDto.sections) {
-        if (section.criteria && section.criteria.length > 0) {
-          const totalCriteriaWeight = section.criteria.reduce(
-            (sum, criterion) => sum + (criterion.weight || 0),
-            0,
+        if (totalWeight > 0 && Math.abs(totalWeight - 100) > 0.01) {
+          throw new BadRequestException(
+            `Criteria weights must sum to 100%. Current sum: ${totalWeight}%`,
           );
-          if (
-            totalCriteriaWeight > 0 &&
-            Math.abs(totalCriteriaWeight - 100) > 0.01
-          ) {
-            throw new BadRequestException(
-              `Criteria weights in section "${section.sectionName}" must sum to 100%. Current sum: ${totalCriteriaWeight}%`,
-            );
-          }
         }
       }
     }
 
-    // Convert string IDs to ObjectIds
-    // Use a dummy user ID for createdBy/updatedBy (in real app, get from auth context)
-    const dummyUserId = new Types.ObjectId('507f1f77bcf86cd799439011');
+    // Check if template name already exists
+    const existingTemplate = await this.templateModel.findOne({
+      name: createDto.name,
+    });
+    if (existingTemplate) {
+      throw new ConflictException(
+        `Template with name "${createDto.name}" already exists`,
+      );
+    }
 
-    const template = new this.templateModel({
-      ...createDto,
-      applicableDepartments:
+    // Convert string IDs to ObjectIds for applicable departments and positions
+    const templateData: any = {
+      name: createDto.name,
+      description: createDto.description,
+      templateType: createDto.templateType,
+      ratingScale: createDto.ratingScale,
+      criteria: createDto.criteria || [],
+      instructions: createDto.instructions,
+      applicableDepartmentIds:
         createDto.applicableDepartmentIds?.map(
           (id) => new Types.ObjectId(id),
         ) || [],
-      applicablePositions:
-        createDto.applicablePositionIds?.map((id) => new Types.ObjectId(id)) ||
-        [],
-      createdBy: dummyUserId,
-      updatedBy: dummyUserId,
-    });
+      applicablePositionIds:
+        createDto.applicablePositionIds?.map(
+          (id) => new Types.ObjectId(id),
+        ) || [],
+      isActive: createDto.isActive !== undefined ? createDto.isActive : true,
+    };
 
+    const template = new this.templateModel(templateData);
     return template.save();
   }
 
@@ -161,8 +164,8 @@ export class PerformanceService {
   async findTemplateById(id: string): Promise<AppraisalTemplate> {
     const template = await this.templateModel
       .findById(id)
-      .populate('applicableDepartments')
-      .populate('applicablePositions')
+      .populate('applicableDepartmentIds')
+      .populate('applicablePositionIds')
       .exec();
     if (!template) {
       throw new NotFoundException(`Template with ID ${id} not found`);
@@ -177,39 +180,55 @@ export class PerformanceService {
     id: string,
     updateDto: UpdateAppraisalTemplateDto,
   ): Promise<AppraisalTemplate> {
-    // Validate weights if sections are being updated
-    if (updateDto.sections && updateDto.sections.length > 0) {
-      const totalSectionWeight = updateDto.sections.reduce(
-        (sum, section) => sum + (section.weight || 0),
-        0,
+    // Validate criteria weights if being updated
+    if (updateDto.criteria && updateDto.criteria.length > 0) {
+      const criteriaWithWeights = updateDto.criteria.filter(
+        (c) => c.weight !== undefined && c.weight > 0,
       );
-      if (totalSectionWeight > 0 && Math.abs(totalSectionWeight - 100) > 0.01) {
-        throw new BadRequestException(
-          `Section weights must sum to 100%. Current sum: ${totalSectionWeight}%`,
+      if (criteriaWithWeights.length > 0) {
+        const totalWeight = criteriaWithWeights.reduce(
+          (sum, criterion) => sum + (criterion.weight || 0),
+          0,
         );
-      }
-
-      // Validate that criteria weights within each section sum to 100%
-      for (const section of updateDto.sections) {
-        if (section.criteria && section.criteria.length > 0) {
-          const totalCriteriaWeight = section.criteria.reduce(
-            (sum, criterion) => sum + (criterion.weight || 0),
-            0,
+        if (totalWeight > 0 && Math.abs(totalWeight - 100) > 0.01) {
+          throw new BadRequestException(
+            `Criteria weights must sum to 100%. Current sum: ${totalWeight}%`,
           );
-          if (
-            totalCriteriaWeight > 0 &&
-            Math.abs(totalCriteriaWeight - 100) > 0.01
-          ) {
-            throw new BadRequestException(
-              `Criteria weights in section "${section.sectionName}" must sum to 100%. Current sum: ${totalCriteriaWeight}%`,
-            );
-          }
         }
       }
     }
 
+    // Check if name is being changed and if new name already exists
+    if (updateDto.name) {
+      const existingTemplate = await this.templateModel.findOne({
+        name: updateDto.name,
+        _id: { $ne: id },
+      });
+      if (existingTemplate) {
+        throw new ConflictException(
+          `Template with name "${updateDto.name}" already exists`,
+        );
+      }
+    }
+
+    // Prepare update data with ObjectId conversion
+    const updateData: any = { ...updateDto };
+    
+    // Convert string IDs to ObjectIds if provided
+    if (updateDto.applicableDepartmentIds) {
+      updateData.applicableDepartmentIds = updateDto.applicableDepartmentIds.map(
+        (id) => new Types.ObjectId(id),
+      );
+    }
+    
+    if (updateDto.applicablePositionIds) {
+      updateData.applicablePositionIds = updateDto.applicablePositionIds.map(
+        (id) => new Types.ObjectId(id),
+      );
+    }
+
     const updated = await this.templateModel
-      .findByIdAndUpdate(id, updateDto, { new: true })
+      .findByIdAndUpdate(id, updateData, { new: true })
       .exec();
     if (!updated) {
       throw new NotFoundException(`Template with ID ${id} not found`);
@@ -248,6 +267,12 @@ export class PerformanceService {
       templateId = new Types.ObjectId(createDto.templateId);
     }
 
+    // Auto-generate cycle code
+    const cycleCode = await this.generateCycleCode(
+      createDto.appraisalType || 'ANNUAL',
+      startDate,
+    );
+
     // Build templateAssignments array (required by schema)
     const templateAssignments: any[] = [];
     if (templateId) {
@@ -259,11 +284,12 @@ export class PerformanceService {
       });
     }
 
+    // Use cycle name if provided, otherwise use generated code
+    // If both provided, use name but code is still generated for reference
+    const cycleName = createDto.cycleName || cycleCode;
+
     const cycle = new this.cycleModel({
-      name:
-        createDto.cycleName ||
-        createDto.cycleCode ||
-        `Cycle ${new Date().toISOString()}`,
+      name: cycleName,
       description: createDto.description,
       cycleType: createDto.appraisalType || 'ANNUAL',
       startDate,
@@ -280,6 +306,52 @@ export class PerformanceService {
   }
 
   /**
+   * Generate a unique cycle code
+   * Format: {TYPE}-{YEAR}-{SEQUENCE}
+   * Example: ANNUAL-2024-001, SEMI_ANNUAL-2024-001
+   */
+  private async generateCycleCode(
+    cycleType: string,
+    startDate: Date,
+  ): Promise<string> {
+    const year = startDate.getFullYear();
+    const typePrefix = cycleType.replace('_', '-').toUpperCase();
+    const prefix = `${typePrefix}-${year}-`;
+
+    // Find all cycles with names starting with the prefix
+    const cyclesWithPrefix = await this.cycleModel
+      .find({ name: new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) })
+      .sort({ createdAt: -1 })
+      .exec();
+
+    let maxSequence = 0;
+    for (const cycle of cyclesWithPrefix) {
+      if (cycle.name) {
+        // Extract sequence number from cycle name (format: TYPE-YEAR-SEQ)
+        const match = cycle.name.match(new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\d+)(?:-|$)`));
+        if (match) {
+          const seq = parseInt(match[1], 10);
+          if (seq > maxSequence) {
+            maxSequence = seq;
+          }
+        }
+      }
+    }
+
+    const sequence = maxSequence + 1;
+    const cycleCode = `${prefix}${sequence.toString().padStart(3, '0')}`;
+
+    // Double-check for uniqueness (in case of race condition)
+    const exists = await this.cycleModel.findOne({ name: cycleCode }).exec();
+    if (exists) {
+      // If exists, increment and try again
+      return `${prefix}${(sequence + 1).toString().padStart(3, '0')}`;
+    }
+
+    return cycleCode;
+  }
+
+  /**
    * Get all cycles
    */
   async findAllCycles(
@@ -291,7 +363,8 @@ export class PerformanceService {
     }
     return this.cycleModel
       .find(filter)
-      .populate('templateId')
+      .populate('templateAssignments.templateId')
+      .populate('templateAssignments.departmentIds')
       .sort({ createdAt: -1 })
       .exec();
   }
@@ -419,42 +492,8 @@ export class PerformanceService {
         continue; // Skip if already assigned
       }
 
-      // Get manager from organization structure
-      let managerId: Types.ObjectId | undefined;
-
-      if (employee.supervisorPositionId) {
-        // Find employee assigned to the supervisor position
-        const manager = await this.employeeModel
-          .findOne({
-            primaryPositionId: employee.supervisorPositionId,
-            status: EmployeeStatus.ACTIVE,
-          })
-          .exec();
-
-        if (manager) {
-          managerId = manager._id;
-        }
-      }
-
-      // If no supervisor position, try department head
-      if (!managerId && employee.primaryDepartmentId) {
-        const department = await this.departmentModel
-          .findById(employee.primaryDepartmentId)
-          .exec();
-
-        if (department && department.headPositionId) {
-          const manager = await this.employeeModel
-            .findOne({
-              primaryPositionId: department.headPositionId,
-              status: EmployeeStatus.ACTIVE,
-            })
-            .exec();
-
-          if (manager) {
-            managerId = manager._id;
-          }
-        }
-      }
+      // Get manager from organization structure using the helper method
+      const managerId = await this.determineManagerForEmployee(employee);
 
       // Skip if no manager found (top-level employees)
       if (!managerId) {
@@ -608,6 +647,403 @@ export class PerformanceService {
     return assignment;
   }
 
+  /**
+   * Get a single assignment by ID
+   */
+  async findAssignmentById(id: string): Promise<AppraisalAssignmentDocument> {
+    const assignment = await this.assignmentModel
+      .findById(id)
+      .populate('employeeProfileId')
+      .populate('managerProfileId')
+      .populate('templateId')
+      .populate('cycleId')
+      .populate('departmentId')
+      .populate('positionId')
+      .exec();
+
+    if (!assignment) {
+      throw new NotFoundException(`Assignment with ID ${id} not found`);
+    }
+    return assignment;
+  }
+
+  /**
+   * Get all assignments with optional filters
+   */
+  async findAllAssignments(filters?: {
+    cycleId?: string;
+    templateId?: string;
+    employeeProfileId?: string;
+    managerProfileId?: string;
+    departmentId?: string;
+    status?: AppraisalAssignmentStatus;
+  }): Promise<AppraisalAssignmentDocument[]> {
+    const query: any = {};
+
+    if (filters?.cycleId) {
+      query.cycleId = new Types.ObjectId(filters.cycleId);
+    }
+    if (filters?.templateId) {
+      query.templateId = new Types.ObjectId(filters.templateId);
+    }
+    if (filters?.employeeProfileId) {
+      query.employeeProfileId = new Types.ObjectId(filters.employeeProfileId);
+    }
+    if (filters?.managerProfileId) {
+      query.managerProfileId = new Types.ObjectId(filters.managerProfileId);
+    }
+    if (filters?.departmentId) {
+      query.departmentId = new Types.ObjectId(filters.departmentId);
+    }
+    if (filters?.status) {
+      query.status = filters.status;
+    }
+
+    return this.assignmentModel
+      .find(query)
+      .populate('employeeProfileId')
+      .populate('managerProfileId')
+      .populate('templateId')
+      .populate('cycleId')
+      .populate('departmentId')
+      .populate('positionId')
+      .exec();
+  }
+
+  /**
+   * Helper method to determine manager for an employee
+   */
+  private async determineManagerForEmployee(
+    employee: EmployeeProfileDocument,
+  ): Promise<Types.ObjectId | null> {
+    // Try supervisor position first (explicit supervisor assignment)
+    if (employee.supervisorPositionId) {
+      const manager = await this.employeeModel
+        .findOne({
+          primaryPositionId: employee.supervisorPositionId,
+          status: EmployeeStatus.ACTIVE,
+        })
+        .exec();
+
+      if (manager) {
+        return manager._id;
+      }
+    }
+
+    // Try position hierarchy - if employee's position reports to another position
+    if (employee.primaryPositionId) {
+      const employeePosition = await this.positionModel
+        .findById(employee.primaryPositionId)
+        .exec();
+
+      if (employeePosition && employeePosition.reportsToPositionId) {
+        // Find the employee assigned to the position that this position reports to
+        const manager = await this.employeeModel
+          .findOne({
+            primaryPositionId: employeePosition.reportsToPositionId,
+            status: EmployeeStatus.ACTIVE,
+          })
+          .exec();
+
+        if (manager) {
+          return manager._id;
+        }
+      }
+    }
+
+    // Try department head
+    if (employee.primaryDepartmentId) {
+      const department = await this.departmentModel
+        .findById(employee.primaryDepartmentId)
+        .exec();
+
+      if (department && department.headPositionId) {
+        const manager = await this.employeeModel
+          .findOne({
+            primaryPositionId: department.headPositionId,
+            status: EmployeeStatus.ACTIVE,
+          })
+          .exec();
+
+        if (manager) {
+          return manager._id;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Manually assign template to specific employee(s)
+   */
+  async assignTemplateToEmployees(
+    createDto: CreateAppraisalAssignmentDto,
+  ): Promise<AppraisalAssignmentDocument[]> {
+    // Validate template exists and is active
+    const template = await this.templateModel
+      .findById(createDto.templateId)
+      .exec();
+    if (!template || !template.isActive) {
+      throw new BadRequestException('Template not found or inactive');
+    }
+
+    // Validate cycle if provided
+    let cycleId: Types.ObjectId | undefined;
+    if (createDto.cycleId) {
+      const cycle = await this.cycleModel.findById(createDto.cycleId).exec();
+      if (!cycle) {
+        throw new NotFoundException(`Cycle with ID ${createDto.cycleId} not found`);
+      }
+      cycleId = cycle._id;
+    }
+
+    // Validate employees exist and are active
+    const employees = await this.employeeModel
+      .find({
+        _id: { $in: createDto.employeeProfileIds.map((id) => new Types.ObjectId(id)) },
+        status: { $in: [EmployeeStatus.ACTIVE, EmployeeStatus.PROBATION] },
+      })
+      .exec();
+
+    if (employees.length !== createDto.employeeProfileIds.length) {
+      throw new BadRequestException('Some employees not found or not eligible for assignment');
+    }
+
+    const assignments: AppraisalAssignmentDocument[] = [];
+
+    for (const employee of employees) {
+      // Check for duplicate assignment
+      const duplicateQuery: any = {
+        templateId: new Types.ObjectId(createDto.templateId),
+        employeeProfileId: employee._id,
+      };
+      if (cycleId) {
+        duplicateQuery.cycleId = cycleId;
+      }
+
+      const existing = await this.assignmentModel.findOne(duplicateQuery).exec();
+      if (existing) {
+        continue; // Skip if already assigned
+      }
+
+      // Determine manager
+      let managerId: Types.ObjectId;
+      if (createDto.managerProfileId) {
+        const manager = await this.employeeModel
+          .findById(createDto.managerProfileId)
+          .exec();
+        if (!manager) {
+          throw new NotFoundException(`Manager with ID ${createDto.managerProfileId} not found`);
+        }
+        managerId = manager._id;
+      } else {
+        const determinedManager = await this.determineManagerForEmployee(employee);
+        if (!determinedManager) {
+          continue; // Skip if no manager found
+        }
+        managerId = determinedManager;
+      }
+
+      // Create assignment
+      const assignmentData: any = {
+        templateId: new Types.ObjectId(createDto.templateId),
+        employeeProfileId: employee._id,
+        managerProfileId: managerId,
+        departmentId: employee.primaryDepartmentId || new Types.ObjectId(),
+        positionId: employee.primaryPositionId,
+        status: AppraisalAssignmentStatus.NOT_STARTED,
+        assignedAt: new Date(),
+      };
+
+      if (cycleId) {
+        assignmentData.cycleId = cycleId;
+      }
+      if (createDto.dueDate) {
+        assignmentData.dueDate = new Date(createDto.dueDate);
+      }
+
+      const assignment = new this.assignmentModel(assignmentData);
+      await assignment.save();
+      assignments.push(assignment);
+    }
+
+    return assignments;
+  }
+
+  /**
+   * Bulk assign template to departments, positions, or employees
+   */
+  async bulkAssignTemplate(
+    bulkDto: BulkAssignTemplateDto,
+  ): Promise<AppraisalAssignmentDocument[]> {
+    // Validate template exists and is active
+    const template = await this.templateModel
+      .findById(bulkDto.templateId)
+      .exec();
+    if (!template || !template.isActive) {
+      throw new BadRequestException('Template not found or inactive');
+    }
+
+    // Validate cycle if provided
+    let cycleId: Types.ObjectId | undefined;
+    if (bulkDto.cycleId) {
+      const cycle = await this.cycleModel.findById(bulkDto.cycleId).exec();
+      if (!cycle) {
+        throw new NotFoundException(`Cycle with ID ${bulkDto.cycleId} not found`);
+      }
+      cycleId = cycle._id;
+    }
+
+    // Build employee query
+    const employeeQuery: any = {
+      status: { $in: [EmployeeStatus.ACTIVE, EmployeeStatus.PROBATION] },
+    };
+
+    if (bulkDto.departmentIds && bulkDto.departmentIds.length > 0) {
+      employeeQuery.primaryDepartmentId = {
+        $in: bulkDto.departmentIds.map((id) => new Types.ObjectId(id)),
+      };
+    }
+
+    if (bulkDto.positionIds && bulkDto.positionIds.length > 0) {
+      employeeQuery.primaryPositionId = {
+        $in: bulkDto.positionIds.map((id) => new Types.ObjectId(id)),
+      };
+    }
+
+    if (bulkDto.employeeProfileIds && bulkDto.employeeProfileIds.length > 0) {
+      employeeQuery._id = {
+        $in: bulkDto.employeeProfileIds.map((id) => new Types.ObjectId(id)),
+      };
+    }
+
+    const employees = await this.employeeModel.find(employeeQuery).exec();
+    if (employees.length === 0) {
+      throw new BadRequestException('No eligible employees found for assignment');
+    }
+
+    const assignments: AppraisalAssignmentDocument[] = [];
+
+    for (const employee of employees) {
+      // Check for duplicate assignment
+      const duplicateQuery: any = {
+        templateId: new Types.ObjectId(bulkDto.templateId),
+        employeeProfileId: employee._id,
+      };
+      if (cycleId) {
+        duplicateQuery.cycleId = cycleId;
+      }
+
+      const existing = await this.assignmentModel.findOne(duplicateQuery).exec();
+      if (existing) {
+        continue; // Skip if already assigned
+      }
+
+      // Determine manager
+      let managerId: Types.ObjectId;
+      if (bulkDto.managerProfileId) {
+        const manager = await this.employeeModel
+          .findById(bulkDto.managerProfileId)
+          .exec();
+        if (!manager) {
+          throw new NotFoundException(`Manager with ID ${bulkDto.managerProfileId} not found`);
+        }
+        managerId = manager._id;
+      } else {
+        const determinedManager = await this.determineManagerForEmployee(employee);
+        if (!determinedManager) {
+          continue; // Skip if no manager found
+        }
+        managerId = determinedManager;
+      }
+
+      // Create assignment
+      const assignmentData: any = {
+        templateId: new Types.ObjectId(bulkDto.templateId),
+        employeeProfileId: employee._id,
+        managerProfileId: managerId,
+        departmentId: employee.primaryDepartmentId || new Types.ObjectId(),
+        positionId: employee.primaryPositionId,
+        status: AppraisalAssignmentStatus.NOT_STARTED,
+        assignedAt: new Date(),
+      };
+
+      if (cycleId) {
+        assignmentData.cycleId = cycleId;
+      }
+      if (bulkDto.dueDate) {
+        assignmentData.dueDate = new Date(bulkDto.dueDate);
+      }
+
+      const assignment = new this.assignmentModel(assignmentData);
+      await assignment.save();
+      assignments.push(assignment);
+    }
+
+    return assignments;
+  }
+
+  /**
+   * Update an assignment
+   */
+  async updateAssignment(
+    id: string,
+    updateDto: UpdateAppraisalAssignmentDto,
+  ): Promise<AppraisalAssignmentDocument> {
+    const assignment = await this.findAssignmentById(id);
+
+    // Validate template if being updated
+    if (updateDto.templateId) {
+      const template = await this.templateModel.findById(updateDto.templateId).exec();
+      if (!template || !template.isActive) {
+        throw new BadRequestException('Template not found or inactive');
+      }
+      assignment.templateId = new Types.ObjectId(updateDto.templateId);
+    }
+
+    // Validate manager if being updated
+    if (updateDto.managerProfileId) {
+      const manager = await this.employeeModel
+        .findById(updateDto.managerProfileId)
+        .exec();
+      if (!manager) {
+        throw new NotFoundException(`Manager with ID ${updateDto.managerProfileId} not found`);
+      }
+      assignment.managerProfileId = new Types.ObjectId(updateDto.managerProfileId);
+    }
+
+    if (updateDto.dueDate) {
+      assignment.dueDate = new Date(updateDto.dueDate);
+    }
+
+    if (updateDto.status) {
+      assignment.status = updateDto.status;
+    }
+
+    return assignment.save();
+  }
+
+  /**
+   * Remove an assignment
+   */
+  async removeAssignment(id: string): Promise<void> {
+    const assignment = await this.findAssignmentById(id);
+
+    // Check if assignment can be removed (not submitted/published)
+    if (
+      assignment.status === AppraisalAssignmentStatus.SUBMITTED ||
+      assignment.status === AppraisalAssignmentStatus.PUBLISHED ||
+      assignment.status === AppraisalAssignmentStatus.ACKNOWLEDGED
+    ) {
+      throw new BadRequestException(
+        `Cannot remove assignment with status: ${assignment.status}`,
+      );
+    }
+
+    await this.assignmentModel.findByIdAndDelete(id).exec();
+  }
+
   // ==================== APPRAISAL EVALUATION METHODS ====================
 
   /**
@@ -617,6 +1053,7 @@ export class PerformanceService {
     cycleId: string,
     employeeId: string,
     createDto: CreateAppraisalEvaluationDto,
+    reviewerId?: string,
   ): Promise<AppraisalRecordDocument> {
     const cycle = await this.findCycleById(cycleId);
 
@@ -638,6 +1075,48 @@ export class PerformanceService {
       throw new NotFoundException(
         `No assignment found for employee ${employeeId} in cycle ${cycleId}`,
       );
+    }
+
+    // Verify that the reviewer is authorized (Line Manager/DEPARTMENT_HEAD, assigned manager, or HR)
+    if (reviewerId) {
+      const reviewerObjectId = new Types.ObjectId(reviewerId);
+      const isAssignedManager = assignment.managerProfileId.equals(reviewerObjectId);
+      
+      if (!isAssignedManager) {
+        // Check if reviewer has appropriate role (DEPARTMENT_HEAD, HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN)
+        const reviewer = await this.employeeModel
+          .findById(reviewerId)
+          .populate('accessProfileId')
+          .exec();
+        
+        if (!reviewer) {
+          throw new BadRequestException('Reviewer not found');
+        }
+
+        // Get reviewer's roles from EmployeeSystemRole
+        let hasAuthorizedRole = false;
+        if (reviewer.accessProfileId) {
+          const systemRole = await this.employeeModel.db
+            .collection('employee_system_roles')
+            .findOne({ _id: reviewer.accessProfileId });
+          
+          if (systemRole && systemRole.roles) {
+            const reviewerRoles = systemRole.roles as string[];
+            hasAuthorizedRole = [
+              'department head', // SystemRole.DEPARTMENT_HEAD
+              'HR Manager',      // SystemRole.HR_MANAGER
+              'HR Admin',        // SystemRole.HR_ADMIN
+              'System Admin',    // SystemRole.SYSTEM_ADMIN
+            ].some(role => reviewerRoles.includes(role));
+          }
+        }
+
+        if (!hasAuthorizedRole) {
+          throw new BadRequestException(
+            'You are not authorized to review this employee. Only Line Managers (Department Heads), assigned managers, or HR staff can review appraisals.',
+          );
+        }
+      }
     }
 
     if (assignment.status === AppraisalAssignmentStatus.ACKNOWLEDGED) {
@@ -789,16 +1268,30 @@ export class PerformanceService {
       managerEvaluation.sections.forEach((sectionRating: any) => {
         if (sectionRating.criteria) {
           sectionRating.criteria.forEach((criterionRating: any) => {
+            // Normalize rating to percentage based on rating scale
+            const { min, max } = template.ratingScale;
+            const scaleRange = max - min;
+            const ratingValue = criterionRating.rating || min;
+            const normalizedPercentage = scaleRange > 0
+              ? ((ratingValue - min) / scaleRange) * 100
+              : 0;
+            
+            // Get criterion weight from template
+            const criterion = template.criteria?.find(
+              (c) => c.key === (criterionRating.criteriaId || criterionRating.key),
+            );
+            const weight = criterion?.weight || 0;
+            
             ratings.push({
               key: criterionRating.criteriaId || criterionRating.key,
-              title: criterionRating.title || '',
-              ratingValue: criterionRating.rating || 0,
+              title: criterionRating.title || criterion?.title || '',
+              ratingValue: ratingValue,
               ratingLabel: this.getRatingLabel(
-                criterionRating.rating,
+                ratingValue,
                 template.ratingScale,
               ),
-              weightedScore: criterionRating.weight
-                ? (criterionRating.rating * criterionRating.weight) / 100
+              weightedScore: weight > 0
+                ? (normalizedPercentage * weight) / 100
                 : 0,
               comments: criterionRating.comments,
             });
@@ -827,7 +1320,9 @@ export class PerformanceService {
       return sum + (criterion.weight || 0);
     }, 0);
 
-    return totalWeight > 0 ? (totalWeightedScore / totalWeight) * 100 : 0;
+    // weightedScore is already a percentage (0-100), so we just return the sum
+    // If weights don't add up to 100%, normalize it
+    return totalWeight > 0 ? totalWeightedScore : 0;
   }
 
   /**
@@ -859,15 +1354,23 @@ export class PerformanceService {
       selfAssessmentDto.sections.forEach((section: any) => {
         if (section.criteria) {
           section.criteria.forEach((criterion: any) => {
+            // Find the criterion in the template by matching criteriaId with key
+            const templateCriterion = template.criteria?.find(
+              (c) => c.key === (criterion.criteriaId || criterion.key),
+            );
+
+            // Get title from template criterion, fallback to criteriaId if not found
+            const title = templateCriterion?.title || criterion.criteriaId || criterion.key || 'Unknown Criterion';
+
             ratings.push({
               key: criterion.criteriaId || criterion.key,
-              title: criterion.title || '',
+              title: title,
               ratingValue: criterion.rating || 0,
               ratingLabel: this.getRatingLabel(
                 criterion.rating || 0,
                 template.ratingScale,
               ),
-              comments: criterion.comments || selfAssessmentDto.overallComments,
+              comments: criterion.comments || undefined,
             });
           });
         }
@@ -1095,9 +1598,14 @@ export class PerformanceService {
   ): Promise<AppraisalRecordDocument> {
     const cycle = await this.findCycleById(cycleId);
 
-    if (cycle.status !== AppraisalCycleStatus.ACTIVE) {
+    // Allow submission for both PLANNED and ACTIVE cycles
+    // PLANNED allows employees to start early, ACTIVE is the official period
+    if (
+      cycle.status !== AppraisalCycleStatus.ACTIVE &&
+      cycle.status !== AppraisalCycleStatus.PLANNED
+    ) {
       throw new BadRequestException(
-        'Cannot submit self-assessment for inactive cycle',
+        `Cannot submit self-assessment. Cycle status must be PLANNED or ACTIVE, but is currently ${cycle.status}`,
       );
     }
 

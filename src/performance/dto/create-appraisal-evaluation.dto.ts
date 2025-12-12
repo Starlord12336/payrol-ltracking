@@ -89,16 +89,19 @@ export class ManagerEvaluationDto {
 
 export class CreateAppraisalEvaluationDto {
   @IsString()
-  cycleId: string;
+  @IsOptional()
+  cycleId?: string; // Optional - comes from URL param
 
   @IsString()
   templateId: string;
 
   @IsString()
-  employeeId: string;
+  @IsOptional()
+  employeeId?: string; // Optional - comes from URL param
 
   @IsString()
-  reviewerId: string;
+  @IsOptional()
+  reviewerId?: string; // Optional - comes from CurrentUser decorator
 
   @ValidateNested()
   @Type(() => SelfAssessmentDto)

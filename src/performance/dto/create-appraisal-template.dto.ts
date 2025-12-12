@@ -16,133 +16,89 @@ import {
   AppraisalRatingScaleType,
 } from '../enums/performance.enums';
 
-export class RatingLabelDto {
-  @IsNumber()
-  value: number;
-
-  @IsString()
-  label: string;
-
-  @IsString()
-  @IsOptional()
-  description?: string;
-}
-
-export class RatingScaleDto {
+/**
+ * RatingScaleDefinition DTO - matches schema exactly
+ */
+export class RatingScaleDefinitionDto {
   @IsEnum(AppraisalRatingScaleType)
-  scaleType: AppraisalRatingScaleType;
+  type: AppraisalRatingScaleType;
 
   @IsNumber()
   @Min(0)
-  minValue: number;
+  min: number;
 
   @IsNumber()
   @Min(0)
-  maxValue: number;
+  max: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  step?: number;
 
   @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => RatingLabelDto)
+  @IsString({ each: true })
   @IsOptional()
-  labels?: RatingLabelDto[];
+  labels?: string[];
 }
 
-export class CriterionDto {
+/**
+ * EvaluationCriterion DTO - matches schema exactly
+ */
+export class EvaluationCriterionDto {
   @IsString()
-  criteriaId: string;
+  key: string;
 
   @IsString()
-  criteriaName: string;
+  title: string;
 
   @IsString()
   @IsOptional()
-  description?: string;
+  details?: string;
 
   @IsNumber()
   @Min(0)
   @Max(100)
-  weight: number;
-
-  @IsBoolean()
-  isRequired: boolean;
-
-  @IsBoolean()
-  allowComments: boolean;
-}
-
-export class TemplateSectionDto {
-  @IsString()
-  sectionId: string;
-
-  @IsString()
-  sectionName: string;
-
-  @IsString()
   @IsOptional()
-  description?: string;
+  weight?: number;
 
   @IsNumber()
   @Min(0)
-  @Max(100)
-  weight: number;
+  @IsOptional()
+  maxScore?: number;
 
-  @IsNumber()
-  @Min(0)
-  order: number;
-
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CriterionDto)
-  @ArrayMinSize(1)
-  criteria: CriterionDto[];
+  @IsBoolean()
+  @IsOptional()
+  required?: boolean;
 }
 
+/**
+ * CreateAppraisalTemplateDto - matches AppraisalTemplate schema exactly
+ */
 export class CreateAppraisalTemplateDto {
   @IsString()
-  templateCode: string;
-
-  @IsString()
-  templateName: string;
+  name: string;
 
   @IsString()
   @IsOptional()
   description?: string;
 
   @IsEnum(AppraisalTemplateType)
-  appraisalType: AppraisalTemplateType;
+  templateType: AppraisalTemplateType;
 
   @ValidateNested()
-  @Type(() => RatingScaleDto)
-  ratingScale: RatingScaleDto;
+  @Type(() => RatingScaleDefinitionDto)
+  ratingScale: RatingScaleDefinitionDto;
 
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => TemplateSectionDto)
-  @ArrayMinSize(1)
-  sections: TemplateSectionDto[];
+  @Type(() => EvaluationCriterionDto)
+  @IsOptional()
+  criteria?: EvaluationCriterionDto[];
 
   @IsString()
   @IsOptional()
-  calculationMethod?: string; // CalculationMethod enum doesn't exist in schema
-
-  @IsNumber()
-  @IsOptional()
-  passingScore?: number;
-
-  @IsBoolean()
-  requiresSelfAssessment: boolean;
-
-  @IsBoolean()
-  @IsOptional()
-  requiresPeerReview?: boolean;
-
-  @IsBoolean()
-  @IsOptional()
-  allowEmployeeFeedback?: boolean;
-
-  @IsNumber()
-  @IsOptional()
-  disputePeriodDays?: number;
+  instructions?: string;
 
   @IsArray()
   @IsString({ each: true })
@@ -154,8 +110,7 @@ export class CreateAppraisalTemplateDto {
   @IsOptional()
   applicablePositionIds?: string[];
 
-  @IsArray()
-  @IsString({ each: true })
+  @IsBoolean()
   @IsOptional()
-  applicableLevels?: string[];
+  isActive?: boolean;
 }
