@@ -76,7 +76,7 @@ import {
  */
 @ApiTags('Payroll Configuration - Core Config Module')
 @ApiBearerAuth()
-@Controller('payroll-config')
+@Controller('payroll-configuration')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class PayrollConfigurationController {
   constructor(
@@ -159,11 +159,11 @@ export class PayrollConfigurationController {
   }
 
   @Put('pay-grades/:id')
-  @Roles(SystemRole.PAYROLL_SPECIALIST)
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER)
   @ApiOperation({
     summary: 'Update a pay grade',
     description:
-      'Updates a pay grade. Only items in DRAFT status can be edited (BR-AW-002)',
+      'Updates a pay grade. Only items in DRAFT status can be edited. Requires Payroll Specialist or Payroll Manager role (BR-AW-002, REQ-PY-18)',
   })
   @ApiParam({ name: 'id', description: 'Pay grade ID' })
   @ApiBody({ type: UpdatePayGradeDto })
@@ -181,12 +181,12 @@ export class PayrollConfigurationController {
   }
 
   @Delete('pay-grades/:id')
-  @Roles(SystemRole.PAYROLL_SPECIALIST)
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Delete a pay grade',
     description:
-      'Deletes a pay grade. Only items in DRAFT status can be deleted (BR-AW-002)',
+      'Deletes a pay grade. Only items in DRAFT status can be deleted. Requires Payroll Specialist or Payroll Manager role (BR-AW-002, REQ-PY-18)',
   })
   @ApiParam({ name: 'id', description: 'Pay grade ID' })
   @ApiResponse({ status: 200, description: 'Pay grade deleted successfully' })
@@ -321,11 +321,11 @@ export class PayrollConfigurationController {
   }
 
   @Put('allowances/:id')
-  @Roles(SystemRole.PAYROLL_SPECIALIST)
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER)
   @ApiOperation({
     summary: 'Update an allowance',
     description:
-      'Updates an allowance. Only items in DRAFT status can be edited',
+      'Updates an allowance. Only items in DRAFT status can be edited. Requires Payroll Specialist or Payroll Manager role (REQ-PY-18)',
   })
   @ApiParam({ name: 'id', description: 'Allowance ID' })
   @ApiBody({ type: UpdateAllowanceDto })
@@ -342,12 +342,12 @@ export class PayrollConfigurationController {
   }
 
   @Delete('allowances/:id')
-  @Roles(SystemRole.PAYROLL_SPECIALIST)
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Delete an allowance',
     description:
-      'Deletes an allowance. Only items in DRAFT status can be deleted',
+      'Deletes an allowance. Only items in DRAFT status can be deleted. Requires Payroll Specialist or Payroll Manager role (REQ-PY-18)',
   })
   @ApiParam({ name: 'id', description: 'Allowance ID' })
   @ApiResponse({ status: 200, description: 'Allowance deleted successfully' })
@@ -471,10 +471,10 @@ export class PayrollConfigurationController {
   }
 
   @Put('tax-rules/:id')
-  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.LEGAL_POLICY_ADMIN)
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.LEGAL_POLICY_ADMIN, SystemRole.PAYROLL_MANAGER)
   @ApiOperation({
     summary: 'Update a tax rule',
-    description: 'Updates a tax rule. Only items in DRAFT status can be edited',
+    description: 'Updates a tax rule. Only items in DRAFT status can be edited. Requires Payroll Specialist, Legal Policy Admin, or Payroll Manager role (REQ-PY-12, REQ-PY-18)',
   })
   @ApiParam({ name: 'id', description: 'Tax rule ID' })
   @ApiBody({ type: UpdateTaxRuleDto })
@@ -488,12 +488,12 @@ export class PayrollConfigurationController {
   }
 
   @Delete('tax-rules/:id')
-  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.LEGAL_POLICY_ADMIN)
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.LEGAL_POLICY_ADMIN, SystemRole.PAYROLL_MANAGER)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Delete a tax rule',
     description:
-      'Deletes a tax rule. Only items in DRAFT status can be deleted',
+      'Deletes a tax rule. Only items in DRAFT status can be deleted. Requires Payroll Specialist, Legal Policy Admin, or Payroll Manager role (REQ-PY-18)',
   })
   @ApiParam({ name: 'id', description: 'Tax rule ID' })
   @ApiResponse({ status: 200, description: 'Tax rule deleted successfully' })
@@ -660,11 +660,11 @@ export class PayrollConfigurationController {
   }
 
   @Put('insurance-brackets/:id')
-  @Roles(SystemRole.PAYROLL_SPECIALIST)
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.HR_MANAGER)
   @ApiOperation({
     summary: 'Update an insurance bracket',
     description:
-      'Updates an insurance bracket. Only items in DRAFT status can be edited (BR-AW-002)',
+      'Updates an insurance bracket. Only items in DRAFT status can be edited. Requires Payroll Specialist or HR Manager role (BR-AW-002, REQ-PY-22)',
   })
   @ApiParam({ name: 'id', description: 'Insurance bracket ID' })
   @ApiBody({ type: UpdateInsuranceBracketDto })
@@ -904,11 +904,11 @@ export class PayrollConfigurationController {
   }
 
   @Put('payroll-policies/:id')
-  @Roles(SystemRole.PAYROLL_SPECIALIST)
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER)
   @ApiOperation({
     summary: 'Update a payroll policy',
     description:
-      'Updates a payroll policy. Only items in DRAFT status can be edited. Validates effective date (BR-PP-006)',
+      'Updates a payroll policy. Only items in DRAFT status can be edited. Validates effective date. Requires Payroll Specialist or Payroll Manager role (BR-PP-006, REQ-PY-18)',
   })
   @ApiParam({ name: 'id', description: 'Payroll policy ID' })
   @ApiBody({ type: UpdatePayrollPolicyDto })
@@ -933,12 +933,12 @@ export class PayrollConfigurationController {
   }
 
   @Delete('payroll-policies/:id')
-  @Roles(SystemRole.PAYROLL_SPECIALIST)
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Delete a payroll policy',
     description:
-      'Deletes a payroll policy. Only items in DRAFT status can be deleted',
+      'Deletes a payroll policy. Only items in DRAFT status can be deleted. Requires Payroll Specialist or Payroll Manager role (REQ-PY-18)',
   })
   @ApiParam({ name: 'id', description: 'Payroll policy ID' })
   @ApiResponse({
@@ -1121,11 +1121,11 @@ export class PayrollConfigurationController {
   }
 
   @Put('signing-bonuses/:id')
-  @Roles(SystemRole.PAYROLL_SPECIALIST)
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER)
   @ApiOperation({
     summary: 'Update a signing bonus',
     description:
-      'Updates a signing bonus. Only items in DRAFT status can be edited',
+      'Updates a signing bonus. Only items in DRAFT status can be edited. Requires Payroll Specialist or Payroll Manager role (REQ-PY-18)',
   })
   @ApiParam({ name: 'id', description: 'Signing bonus ID' })
   @ApiBody({ type: UpdateSigningBonusDto })
@@ -1149,12 +1149,12 @@ export class PayrollConfigurationController {
   }
 
   @Delete('signing-bonuses/:id')
-  @Roles(SystemRole.PAYROLL_SPECIALIST)
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Delete a signing bonus',
     description:
-      'Deletes a signing bonus. Only items in DRAFT status can be deleted',
+      'Deletes a signing bonus. Only items in DRAFT status can be deleted. Requires Payroll Specialist or Payroll Manager role (REQ-PY-18)',
   })
   @ApiParam({ name: 'id', description: 'Signing bonus ID' })
   @ApiResponse({
@@ -1304,10 +1304,10 @@ export class PayrollConfigurationController {
   }
 
   @Put('pay-types/:id')
-  @Roles(SystemRole.PAYROLL_SPECIALIST)
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER)
   @ApiOperation({
     summary: 'Update a pay type',
-    description: 'Updates a pay type. Only items in DRAFT status can be edited',
+    description: 'Updates a pay type. Only items in DRAFT status can be edited. Requires Payroll Specialist or Payroll Manager role (REQ-PY-18)',
   })
   @ApiParam({ name: 'id', description: 'Pay type ID' })
   @ApiBody({ type: UpdatePayTypeDto })
@@ -1462,11 +1462,11 @@ export class PayrollConfigurationController {
   }
 
   @Put('termination-benefits/:id')
-  @Roles(SystemRole.PAYROLL_SPECIALIST)
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER)
   @ApiOperation({
     summary: 'Update a termination/resignation benefit',
     description:
-      'Updates a termination/resignation benefit. Only items in DRAFT status can be edited',
+      'Updates a termination/resignation benefit. Only items in DRAFT status can be edited. Requires Payroll Specialist or Payroll Manager role (REQ-PY-18)',
   })
   @ApiParam({ name: 'id', description: 'Termination benefit ID' })
   @ApiBody({ type: UpdateTerminationBenefitDto })
@@ -1553,11 +1553,11 @@ export class PayrollConfigurationController {
   // ==========================================
 
   @Post('company-settings')
-  @Roles(SystemRole.PAYROLL_SPECIALIST)
+  @Roles(SystemRole.SYSTEM_ADMIN)
   @ApiOperation({
     summary: 'Create company-wide settings',
     description:
-      'Creates new company-wide settings in DRAFT status. Business Rules: REQ-PY-15',
+      'Creates new company-wide settings in DRAFT status. Requires System Admin role. Business Rules: REQ-PY-15',
   })
   @ApiBody({ type: CreateCompanySettingsDto })
   @ApiResponse({
@@ -1632,11 +1632,11 @@ export class PayrollConfigurationController {
   }
 
   @Put('company-settings/:id')
-  @Roles(SystemRole.PAYROLL_SPECIALIST)
+  @Roles(SystemRole.SYSTEM_ADMIN)
   @ApiOperation({
     summary: 'Update company-wide settings',
     description:
-      'Updates company-wide settings. Only items in DRAFT status can be edited',
+      'Updates company-wide settings. Only items in DRAFT status can be edited. Requires System Admin role',
   })
   @ApiParam({ name: 'id', description: 'Company settings ID' })
   @ApiBody({ type: UpdateCompanySettingsDto })
@@ -1659,12 +1659,12 @@ export class PayrollConfigurationController {
   }
 
   @Delete('company-settings/:id')
-  @Roles(SystemRole.PAYROLL_SPECIALIST)
+  @Roles(SystemRole.SYSTEM_ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Delete company-wide settings',
     description:
-      'Deletes company-wide settings. Only items in DRAFT status can be deleted',
+      'Deletes company-wide settings. Only items in DRAFT status can be deleted. Requires System Admin role',
   })
   @ApiParam({ name: 'id', description: 'Company settings ID' })
   @ApiResponse({
