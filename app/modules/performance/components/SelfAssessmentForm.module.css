@@ -1,0 +1,203 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-secondary);
+}
+
+.errorMessage {
+  padding: 0.75rem;
+  background-color: var(--error-bg);
+  border: 1px solid var(--error);
+  border-radius: 0.375rem;
+  color: var(--error);
+  font-size: 0.875rem;
+}
+
+.description,
+.instructions,
+.ratingScaleInfo {
+  padding: 1rem;
+  background-color: var(--bg-secondary);
+  border-radius: 0.375rem;
+  border-left: 3px solid var(--primary);
+}
+
+.description p,
+.instructions p,
+.ratingScaleInfo p {
+  margin: 0.5rem 0 0 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.instructions h4,
+.ratingScaleInfo h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.criteriaList {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.criteriaList h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  color: var(--text-primary);
+}
+
+.criterionCard {
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 1.25rem;
+  background-color: var(--bg-primary);
+}
+
+.criterionHeader {
+  margin-bottom: 1rem;
+}
+
+.criterionHeader h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.criterionDetails {
+  margin: 0.5rem 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.criterionMeta {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.criterionMeta span {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.weight {
+  font-weight: 500;
+}
+
+.maxScore {
+  font-weight: 500;
+}
+
+.required {
+  background-color: var(--error-bg) !important;
+  color: var(--error) !important;
+  font-weight: 500;
+}
+
+.criterionInputs {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ratingInput,
+.commentsInput {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ratingInput label,
+.commentsInput label {
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.select {
+  padding: 0.625rem;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  max-width: 300px;
+}
+
+.select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.textarea {
+  padding: 0.625rem;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  resize: vertical;
+  min-height: 80px;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.overallComments {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  background-color: var(--bg-secondary);
+  border-radius: 0.375rem;
+}
+
+.overallComments label {
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.noCriteria {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-secondary);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 768px) {
+  .criterionInputs {
+    gap: 0.75rem;
+  }
+
+  .select {
+    max-width: 100%;
+  }
+}
+

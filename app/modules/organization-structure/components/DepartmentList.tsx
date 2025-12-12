@@ -253,7 +253,16 @@ export function DepartmentList({ departments, onRefresh }: DepartmentListProps) 
       onRefresh();
     } catch (err: any) {
       console.error('Error deleting position:', err);
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to delete position';
+      console.error('Error response:', err.response?.data);
+      
+      // Extract error message - NestJS returns message in response.data.message
+      let errorMessage = 'Failed to delete position';
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
       alert(errorMessage);
       setPositionToDelete(null); // Close modal even on error
     } finally {

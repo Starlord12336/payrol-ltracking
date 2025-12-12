@@ -35,7 +35,7 @@ function OrganizationStructureContent() {
       const fetchDepartments = async () => {
         try {
           setIsLoadingDepartments(true);
-          const response = await getDepartments({ limit: 1000, isActive: true });
+          const response = await getDepartments({ limit: 100, isActive: true });
           setDepartments(response.data);
         } catch (err) {
           console.error('Error fetching departments:', err);

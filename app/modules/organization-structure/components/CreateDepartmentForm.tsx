@@ -32,7 +32,7 @@ export function CreateDepartmentForm({ onSuccess, onCancel }: CreateDepartmentFo
     const fetchDepartments = async () => {
       try {
         // Fetch only active departments for display (inactive codes can be reused)
-        const response = await getDepartments({ limit: 1000, isActive: true });
+        const response = await getDepartments({ limit: 100, isActive: true });
         setExistingDepartments(response.data);
         setExistingCodes(response.data.map(dept => dept.code.toUpperCase()));
         const costCenters = response.data

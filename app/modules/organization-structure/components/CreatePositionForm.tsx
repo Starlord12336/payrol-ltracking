@@ -46,7 +46,7 @@ export function CreatePositionForm({
   useEffect(() => {
     const fetchPositions = async () => {
       try {
-        const response = await getPositions({ limit: 1000, isActive: true });
+        const response = await getPositions({ limit: 100, isActive: true });
         setExistingPositions(response.data);
         setExistingCodes(response.data.map(pos => pos.code.toUpperCase()));
         

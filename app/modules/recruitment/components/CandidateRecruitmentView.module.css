@@ -1,0 +1,45 @@
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.header {
+  margin-bottom: 2rem;
+}
+
+.header h1 {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+}
+
+.header p {
+  margin: 0;
+  color: #666;
+}
+
+.searchSection {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  align-items: flex-end;
+}
+
+.searchSection > :first-child {
+  flex: 1;
+}
+
+.content {
+  min-height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.placeholder {
+  color: #999;
+  font-style: italic;
+  text-align: center;
+}
+

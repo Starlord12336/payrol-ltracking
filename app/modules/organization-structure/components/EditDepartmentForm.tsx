@@ -41,7 +41,7 @@ export function EditDepartmentForm({ department, onSuccess, onCancel }: EditDepa
     const fetchData = async () => {
       try {
         const [departmentsResponse, positionsResponse] = await Promise.all([
-          getDepartments({ limit: 1000, isActive: true }),
+          getDepartments({ limit: 100, isActive: true }),
           getPositionsByDepartment(department._id)
         ]);
         

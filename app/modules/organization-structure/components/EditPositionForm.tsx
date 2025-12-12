@@ -37,7 +37,7 @@ export function EditPositionForm({
   useEffect(() => {
     const fetchPositions = async () => {
       try {
-        const response = await getPositions({ limit: 1000, isActive: true });
+        const response = await getPositions({ limit: 100, isActive: true });
         setExistingPositions(response.data);
         // Exclude current position from duplicate check
         setExistingCodes(

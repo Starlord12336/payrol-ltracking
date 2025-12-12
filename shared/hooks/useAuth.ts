@@ -51,6 +51,31 @@ export const useAuth = () => {
     fetchCurrentUser();
   }, [fetchCurrentUser]);
 
+  // Listen for auth state changes from login/register pages
+  useEffect(() => {
+    const handleAuthStateChanged = (event: CustomEvent) => {
+      // Update user state when auth state changes (e.g., after login)
+      if (event.detail?.user) {
+        setUser(event.detail.user);
+        setError(null);
+        setIsLoading(false);
+      } else if (event.detail?.isAuthenticated === false) {
+        setUser(null);
+        setError(null);
+        setIsLoading(false);
+      }
+    };
+
+    // Listen for custom auth state change events
+    if (typeof window !== 'undefined') {
+      window.addEventListener('auth-state-changed', handleAuthStateChanged as EventListener);
+      
+      return () => {
+        window.removeEventListener('auth-state-changed', handleAuthStateChanged as EventListener);
+      };
+    }
+  }, []);
+
   const login = async (loginDto: LoginDto): Promise<LoginResponse> => {
     setError(null);
     setIsLoading(true);

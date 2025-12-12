@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { Card, Button, ProtectedRoute } from '@/shared/components';
-import { SystemRole } from '@/shared/types/auth';
+import { SystemRole, Gender, MaritalStatus, EmployeeStatus, ContractType } from '@/shared/types/auth';
 import { hrApi, type ChangeRequest, type EmployeeProfile } from '../api/hrApi';
 import styles from './page.module.css';
 
@@ -149,6 +149,56 @@ function ChangeRequestsContent() {
     return fieldMap[fieldName] || null;
   };
 
+  // Convert formatted enum value back to raw enum value
+  const convertToRawEnumValue = (formattedValue: string, fieldName: string): string | null => {
+    // Map of field names to their enum objects
+    const enumMap: Record<string, Record<string, string>> = {
+      gender: Gender,
+      maritalStatus: MaritalStatus,
+      status: EmployeeStatus,
+      contractType: ContractType,
+    };
+
+    const enumObj = enumMap[fieldName];
+    if (!enumObj) {
+      return null; // Not an enum field
+    }
+
+    // Try to find the enum value that matches when formatted
+    const enumValues = Object.values(enumObj) as string[];
+    for (const enumValue of enumValues) {
+      // Format the enum value and compare
+      const formatted = enumValue.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase());
+      if (formatted.toLowerCase() === formattedValue.toLowerCase()) {
+        return enumValue;
+      }
+    }
+
+    // If exact match not found, check if the value is already a raw enum value
+    if (enumValues.includes(formattedValue)) {
+      return formattedValue;
+    }
+
+    return null;
+  };
+
+  // Convert formatted date back to ISO string
+  const convertToIsoDate = (dateValue: string): string | null => {
+    try {
+      // Try parsing as a formatted date (e.g., "December 11, 2025")
+      const date = new Date(dateValue);
+      if (!isNaN(date.getTime())) {
+        return date.toISOString().split('T')[0]; // Return YYYY-MM-DD format
+      }
+    } catch {
+      // If parsing fails, try if it's already in ISO format
+      if (/^\d{4}-\d{2}-\d{2}/.test(dateValue)) {
+        return dateValue;
+      }
+    }
+    return null;
+  };
+
   // Prepare update data based on field name and new value
   const prepareUpdateData = (fieldName: string, newValue: any): Partial<EmployeeProfile> => {
     const apiField = mapFieldToApiField(fieldName);
@@ -171,6 +221,21 @@ function ChangeRequestsContent() {
       } else if (nameParts.length === 1) {
         updateData.firstName = nameParts[0];
         updateData.lastName = '';
+      }
+    } else if (apiField === 'dateOfBirth' || apiField === 'dateOfHire') {
+      // Handle date fields - convert to ISO string
+      const isoDate = convertToIsoDate(String(newValue));
+      if (isoDate) {
+        (updateData as any)[apiField] = isoDate;
+      }
+    } else if (apiField === 'gender' || apiField === 'maritalStatus' || apiField === 'status' || apiField === 'contractType') {
+      // Handle enum fields - convert formatted value back to raw enum value
+      const rawEnumValue = convertToRawEnumValue(String(newValue), apiField);
+      if (rawEnumValue) {
+        (updateData as any)[apiField] = rawEnumValue;
+      } else {
+        // If conversion fails, try using the value as-is (might already be raw)
+        (updateData as any)[apiField] = newValue;
       }
     } else {
       // For other fields, directly assign the value

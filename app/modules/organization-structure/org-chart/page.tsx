@@ -43,7 +43,7 @@ function OrgChartContent() {
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
-        const response = await getDepartments({ limit: 1000, isActive: true });
+        const response = await getDepartments({ limit: 100, isActive: true });
         setDepartments(response.data);
         if (response.data.length > 0 && !selectedDepartmentId) {
           setSelectedDepartmentId(response.data[0]._id);
@@ -59,7 +59,7 @@ function OrgChartContent() {
   useEffect(() => {
     const fetchAllPositions = async () => {
       try {
-        const response = await getPositions({ limit: 10000, isActive: true });
+        const response = await getPositions({ limit: 100, isActive: true });
         console.log('Fetched all positions:', response.data?.length || 0);
         setAllPositions(response.data || []);
       } catch (err) {
