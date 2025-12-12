@@ -16,6 +16,8 @@ import {
   NotFoundException,
   BadRequestException,
   Res,
+  HttpCode,
+  HttpStatus,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { Response } from "express";
@@ -31,6 +33,7 @@ import { RolesGuard } from "../auth/guards/roles.guard";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { Public } from "../auth/decorators/public.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
+import { JwtPayload } from "../auth/interfaces/jwt-payload.interface";
 import { SystemRole } from "../employee-profile/enums/employee-profile.enums";
 import { CreateChecklistDto } from "./dto/create-checklist.dto";
 import { UploadOnboardingDocumentDto } from "./dto/upload-onboarding-document.dto";
@@ -102,7 +105,42 @@ export class RecruitmentController {
   ) {
     // Get hiringManagerId from JWT token
     const hiringManagerId = user.employeeId?.toString() || user.userid.toString();
-    return this.recruitmentService.createJobRequisition(dto, hiringManagerId);
+    const result = await this.recruitmentService.createJobRequisition(dto, hiringManagerId);
+    
+    // Ensure requisitionId is always present in the response
+    if (!result || !result.requisitionId) {
+      throw new Error('Failed to create requisition: requisitionId is missing');
+    }
+    
+    return result;
+  }
+
+  // List job requisitions with optional status filter
+  @Get("requisitions")
+  @Roles(SystemRole.JOB_CANDIDATE, SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.RECRUITER)
+  async listRequisitions(
+    @Query("status") status?: string,
+    @Query("department") department?: string,
+    @CurrentUser() user?: JwtPayload,
+  ) {
+    // Candidates can only see published requisitions (not drafts)
+    let effectiveStatus = status;
+    if (user?.roles?.includes(SystemRole.JOB_CANDIDATE) && user?.userType === 'candidate') {
+      // Force candidates to only see published requisitions
+      if (!status || status.toUpperCase() !== 'OPEN' && status.toUpperCase() !== 'PUBLISHED') {
+        effectiveStatus = 'OPEN'; // Default to OPEN for candidates
+      }
+    }
+    
+    const result = await this.recruitmentService.listJobRequisitions(effectiveStatus, department);
+    // Ensure we always return an array, even if empty
+    const requisitions = Array.isArray(result) ? result : [];
+    
+    // Return in the format expected by frontend: { success: boolean, data: JobRequisition[] }
+    return {
+      success: true,
+      data: requisitions,
+    };
   }
 
   // REC-008: Candidate Tracking
@@ -118,10 +156,30 @@ export class RecruitmentController {
     });
   }
 
-  // REC-023: Career Page Publishing
+  // REC-023: Career Page Publishing (HR only - for preview before publishing)
   @Get("requisitions/:id/preview")
   @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER)
   async previewRequisition(@Param("id") id: string) {
+    return this.recruitmentService.previewJobRequisition(id);
+  }
+
+  // View published requisition details (accessible to candidates and HR)
+  @Get("requisitions/:id")
+  @Roles(SystemRole.JOB_CANDIDATE, SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.RECRUITER)
+  async getRequisitionDetails(
+    @Param("id") id: string,
+    @CurrentUser() user?: JwtPayload,
+  ) {
+    // For candidates, check if requisition is published before returning
+    if (user?.roles?.includes(SystemRole.JOB_CANDIDATE) && user?.userType === 'candidate') {
+      // Get raw requisition to check publishStatus
+      const rawRequisition = await this.recruitmentService.getRawRequisitionById(id);
+      if (!rawRequisition || rawRequisition.publishStatus !== 'published') {
+        throw new ForbiddenException('This job requisition is not available for viewing');
+      }
+    }
+    
+    // Return the formatted preview
     return this.recruitmentService.previewJobRequisition(id);
   }
 
@@ -138,6 +196,48 @@ export class RecruitmentController {
 
   // REC-017: Candidate status tracking endpoints
 
+  // Get candidate's own applications (using JWT - easier for frontend)
+  // MUST come before applications/:id routes to avoid route conflicts
+  @Get("applications/me")
+  @Roles(SystemRole.JOB_CANDIDATE)
+  async getMyApplications(@CurrentUser() user: JwtPayload) {
+    const candidateId = user.userid.toString();
+    if (user.userType !== 'candidate') {
+      throw new ForbiddenException('Only candidates can access this endpoint');
+    }
+    const applications = await this.recruitmentService.listApplicationsForCandidate(candidateId);
+    
+    // Return in consistent format with requisitions endpoint
+    return {
+      success: true,
+      data: applications,
+    };
+  }
+
+  // Get full application details including candidate info and CVs
+  // MUST come before applications/:id/status to avoid route conflicts
+  @Get("applications/:id")
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.RECRUITER, SystemRole.JOB_CANDIDATE)
+  async getApplicationDetails(
+    @Param("id") id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const application = await this.recruitmentService.getApplicationDetails(id);
+    
+    // Candidates can only view their own applications
+    if (user?.roles?.includes(SystemRole.JOB_CANDIDATE) && user?.userType === 'candidate') {
+      const candidateId = user.userid.toString();
+      if (application.candidateId !== candidateId) {
+        throw new ForbiddenException('You can only view your own applications');
+      }
+    }
+    
+    return {
+      success: true,
+      data: application,
+    };
+  }
+
   @Get("applications/:id/status")
   async getApplicationStatus(@Param("id") id: string) {
     return this.recruitmentService.getApplicationStatus(id);
@@ -149,8 +249,40 @@ export class RecruitmentController {
   }
 
   @Get("candidates/:id/applications")
-  async listCandidateApplications(@Param("id") id: string) {
+  @Roles(SystemRole.JOB_CANDIDATE, SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.RECRUITER)
+  async listCandidateApplications(
+    @Param("id") id: string,
+    @CurrentUser() user?: JwtPayload,
+  ) {
+    // Candidates can only view their own applications
+    if (user?.roles?.includes(SystemRole.JOB_CANDIDATE) && user?.userType === 'candidate') {
+      if (user.userid.toString() !== id) {
+        throw new ForbiddenException('You can only view your own applications');
+      }
+    }
+    
     return this.recruitmentService.listApplicationsForCandidate(id);
+  }
+
+  // List all applications with optional filters
+  @Get("applications")
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.RECRUITER)
+  async listApplications(
+    @Query("requisitionId") requisitionId?: string,
+    @Query("status") status?: string,
+    @Query("stage") stage?: string,
+  ) {
+    const applications = await this.recruitmentService.listApplications({
+      requisitionId,
+      status,
+      stage,
+    });
+    
+    // Return in consistent format with requisitions endpoint
+    return {
+      success: true,
+      data: Array.isArray(applications) ? applications : [],
+    };
   }
 
   @Post("applications/:id/notify")
@@ -161,6 +293,7 @@ export class RecruitmentController {
   // REC-022: Rejection templates and automated notifications
 
   @Get("applications/:id/rejection-preview")
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.RECRUITER)
   async rejectionPreview(
     @Param("id") id: string,
     @Body() body: { templateKey?: string; reason?: string },
@@ -172,6 +305,7 @@ export class RecruitmentController {
   }
 
   @Post("applications/:id/reject")
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.RECRUITER)
   async rejectApplication(
     @Param("id") id: string,
     @Body() body: { templateKey?: string; reason?: string; changedBy?: string },
@@ -501,6 +635,79 @@ export class RecruitmentController {
     return this.recruitmentService.uploadCandidateCV(id, file);
   }
 
+  // List all CVs for a candidate
+  // Get candidate profile details
+  @Get("candidates/:id")
+  @Roles(SystemRole.JOB_CANDIDATE, SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.RECRUITER)
+  async getCandidateProfile(
+    @Param("id") candidateId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    // Candidates can only view their own profile
+    if (user?.roles?.includes(SystemRole.JOB_CANDIDATE) && user?.userType === 'candidate') {
+      if (user.userid.toString() !== candidateId) {
+        throw new ForbiddenException('You can only view your own profile');
+      }
+    }
+    
+    const profile = await this.recruitmentService.getCandidateProfile(candidateId);
+    
+    return {
+      success: true,
+      data: profile,
+    };
+  }
+
+  @Get("candidates/:id/cvs")
+  @Roles(SystemRole.JOB_CANDIDATE, SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.RECRUITER)
+  async listCandidateCVs(
+    @Param("id") candidateId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    // For candidates, ensure they can only access their own CVs
+    if (user.userType === 'candidate') {
+      const candidateIdFromToken = user.userid?.toString();
+      if (candidateId !== candidateIdFromToken) {
+        throw new ForbiddenException('You can only access your own CVs');
+      }
+    }
+
+    const cvs = await this.recruitmentService.getCandidateCVs(candidateId);
+
+    return {
+      success: true,
+      message: 'Candidate CVs retrieved successfully',
+      data: cvs,
+      meta: { count: cvs.length },
+    };
+  }
+
+  // Delete candidate CV (MUST be before GET with :documentId to avoid route conflicts)
+  @Delete("candidates/:id/cvs/:documentId")
+  @HttpCode(HttpStatus.OK)
+  @Roles(SystemRole.JOB_CANDIDATE, SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.RECRUITER)
+  async deleteCV(
+    @Param("id") candidateId: string,
+    @Param("documentId") documentId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    // For candidates, ensure they can only delete their own CVs
+    if (user.userType === 'candidate') {
+      const candidateIdFromToken = user.userid?.toString();
+      if (candidateId !== candidateIdFromToken) {
+        throw new ForbiddenException('You can only delete your own CVs');
+      }
+    }
+
+    const result = await this.recruitmentService.deleteCandidateCV(candidateId, documentId);
+
+    return {
+      success: true,
+      message: 'CV deleted successfully',
+      data: result,
+    };
+  }
+
   // Download candidate CV from GridFS
   @Get("candidates/:id/cv/:documentId")
   async downloadCV(
@@ -519,14 +726,23 @@ export class RecruitmentController {
     stream.pipe(res);
   }
 
-  // Apply to a requisition. Body: { candidateId: string, documentId?: string }
+  // Apply to a requisition. candidateId extracted from JWT token
   @Post("requisitions/:id/apply")
   async applyToRequisition(
     @Param("id") id: string,
-    @Body() body: { candidateId: string; documentId?: string },
+    @Body() body: { documentId?: string },
+    @CurrentUser() user: any,
   ) {
-    return this.recruitmentService.applyToRequisition(body.candidateId, id, {
-      documentId: body.documentId,
+    // Get candidateId from JWT token
+    const candidateId = user.userid.toString();
+    
+    // Validate user is a candidate
+    if (user.userType !== 'candidate') {
+      throw new ForbiddenException('Only candidates can apply to job requisitions');
+    }
+    
+    return this.recruitmentService.applyToRequisition(candidateId, id, {
+      documentId: body?.documentId,
     });
   }
 
@@ -615,6 +831,7 @@ export class RecruitmentController {
   }
 
   @Post("applications/:id/prioritize")
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.RECRUITER)
   async prioritizeApplication(
     @Param("id") id: string,
     @Body()

@@ -12,6 +12,8 @@ import {
   EmployeeStatus,
   ContractType,
   WorkType,
+  MaritalStatus,
+  Gender,
 } from '../enums/employee-profile.enums';
 import { AppraisalRatingScaleType } from '../../performance/enums/performance.enums';
 
@@ -40,6 +42,14 @@ export class UpdateEmployeeProfileAsHrDto {
   @IsOptional()
   @IsDateString()
   dateOfBirth?: string; // ISO string
+
+  @IsOptional()
+  @IsEnum(Gender)
+  gender?: Gender;
+
+  @IsOptional()
+  @IsEnum(MaritalStatus)
+  maritalStatus?: MaritalStatus;
 
   // --- Contact info ---
   @IsOptional()

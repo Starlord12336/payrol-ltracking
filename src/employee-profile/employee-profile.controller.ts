@@ -10,7 +10,13 @@ import {
   Query,
   Param,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  Res,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
 import { EmployeeProfileService } from './employee-profile.service';
 import { JwtAuthGuard, RolesGuard, Roles, CurrentUser } from '../auth';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
@@ -150,6 +156,102 @@ export class EmployeeProfileController {
     };
   }
 
+  // Upload profile picture to GridFS
+  @Post('me/profile-picture/upload')
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: undefined, // Use memory storage (no filesystem) - file will be in buffer
+      fileFilter: (req: any, file: any, cb: any): void => {
+        // Allowed MIME types for profile pictures
+        const allowedMimeTypes = [
+          'image/jpeg',
+          'image/jpg',
+          'image/png',
+          'image/gif',
+          'image/webp',
+        ];
+
+        // Allowed file extensions (fallback check)
+        const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+        const fileExtension = file.originalname
+          ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase()
+          : '';
+
+        // Check MIME type or file extension
+        if (
+          allowedMimeTypes.includes(file.mimetype) ||
+          allowedExtensions.includes(fileExtension)
+        ) {
+          cb(null, true);
+        } else {
+          cb(
+            new BadRequestException(
+              'Invalid file type. Only JPEG, PNG, GIF, or WEBP images are allowed.',
+            ),
+            false,
+          );
+        }
+      },
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB limit
+      },
+    }),
+  )
+  async uploadProfilePicture(
+    @CurrentUser() user: JwtPayload,
+    @UploadedFile() file: any,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    // Additional file size check
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      throw new BadRequestException('File size exceeds the maximum limit of 5MB');
+    }
+
+    const result = await this.employeeProfileService.uploadProfilePicture(
+      user.userid.toString(),
+      file,
+      user.userType || 'employee',
+    );
+
+    return {
+      success: true,
+      message: result.message,
+      data: {
+        fileId: result.fileId,
+        filename: result.filename,
+        profilePictureUrl: result.fileId, // GridFS file ID stored in profilePictureUrl
+      },
+    };
+  }
+
+  // Download profile picture from GridFS
+  @Get('me/profile-picture')
+  async getProfilePicture(
+    @CurrentUser() user: JwtPayload,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { stream, metadata } = await this.employeeProfileService.getProfilePictureFile(
+      user.userid.toString(),
+      user.userType || 'employee',
+    );
+
+    // Set response headers
+    res.setHeader('Content-Type', metadata.metadata?.mimeType || 'image/jpeg');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${metadata.metadata?.originalName || metadata.filename}"`,
+    );
+    res.setHeader('Content-Length', metadata.length);
+
+    // Pipe the stream to response
+    stream.pipe(res);
+  }
+
   // =====================================
   // SELF — CHANGE REQUESTS
   // =====================================
@@ -269,6 +371,52 @@ export class EmployeeProfileController {
   // =====================================
   // HR — VIEW A PROFILE BY ID
   // =====================================
+
+  // Download profile picture by user ID (for HR/Manager views) - MUST BE BEFORE :id
+  @Get(':id/profile-picture')
+  @UseGuards(RolesGuard)
+  @Roles(
+    SystemRole.DEPARTMENT_HEAD,
+    SystemRole.HR_MANAGER,
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+  )
+  async getProfilePictureById(
+    @Param('id') id: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    // Try employee first, then candidate
+    try {
+      const { stream, metadata } = await this.employeeProfileService.getProfilePictureFile(
+        id,
+        'employee',
+      );
+
+      res.setHeader('Content-Type', metadata.metadata?.mimeType || 'image/jpeg');
+      res.setHeader(
+        'Content-Disposition',
+        `inline; filename="${metadata.metadata?.originalName || metadata.filename}"`,
+      );
+      res.setHeader('Content-Length', metadata.length);
+
+      stream.pipe(res);
+    } catch (error) {
+      // If not found as employee, try as candidate
+      const { stream, metadata } = await this.employeeProfileService.getProfilePictureFile(
+        id,
+        'candidate',
+      );
+
+      res.setHeader('Content-Type', metadata.metadata?.mimeType || 'image/jpeg');
+      res.setHeader(
+        'Content-Disposition',
+        `inline; filename="${metadata.metadata?.originalName || metadata.filename}"`,
+      );
+      res.setHeader('Content-Length', metadata.length);
+
+      stream.pipe(res);
+    }
+  }
 
   @Get(':id')
   @HttpCode(HttpStatus.OK)

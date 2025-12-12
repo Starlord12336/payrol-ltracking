@@ -5,8 +5,10 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { InjectModel, InjectConnection } from '@nestjs/mongoose';
+import { Model, Types, Connection } from 'mongoose';
+import { GridFSBucket } from 'mongodb';
+import { Readable } from 'stream';
 
 import {
   EmployeeProfile,
@@ -36,6 +38,8 @@ import { UpdateEmployeeProfileAsHrDto } from './dto/update-employee-profile-as-h
 
 @Injectable()
 export class EmployeeProfileService {
+  private profilePictureBucket: GridFSBucket;
+
   constructor(
     @InjectModel(EmployeeProfile.name)
     private readonly profileModel: Model<EmployeeProfileDocument>,
@@ -48,7 +52,15 @@ export class EmployeeProfileService {
 
     @InjectModel(EmployeeSystemRole.name)
     private readonly roleModel: Model<EmployeeSystemRoleDocument>,
-  ) {}
+
+    @InjectConnection() private connection: Connection,
+  ) {
+    // Initialize GridFS bucket for profile pictures
+    // This creates collections: profile_pictures.files and profile_pictures.chunks
+    this.profilePictureBucket = new GridFSBucket(this.connection.db, {
+      bucketName: 'profile_pictures',
+    });
+  }
 
   // =====================================
   // ROLE / PERMISSION HELPERS
@@ -393,6 +405,162 @@ export class EmployeeProfileService {
   }
 
   // =====================================
+  // PROFILE PICTURE GRIDFS UPLOAD/DOWNLOAD
+  // =====================================
+
+  /**
+   * Upload profile picture to GridFS
+   * Stores GridFS file ID in profilePictureUrl field (as string)
+   */
+  async uploadProfilePicture(
+    userId: string,
+    file: any, // Express.Multer.File - file buffer from memory storage
+    userType: string = 'employee',
+  ) {
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new NotFoundException('Invalid user ID');
+    }
+
+    // Validate user exists
+    let user;
+    if (userType === 'candidate') {
+      user = await this.candidateModel.findById(userId).lean().exec();
+      if (!user) throw new NotFoundException('Candidate not found');
+    } else {
+      user = await this.profileModel.findById(userId).lean().exec();
+      if (!user) throw new NotFoundException('Employee profile not found');
+    }
+
+    // Upload file to GridFS
+    const filename = `${userId}-${Date.now()}-${file.originalname.replace(/\s+/g, '_')}`;
+
+    // Create upload stream
+    const uploadStream = this.profilePictureBucket.openUploadStream(filename, {
+      metadata: {
+        userId,
+        userType,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        uploadedAt: new Date(),
+      },
+    });
+
+    // Convert buffer to readable stream
+    const readableStream = new Readable();
+    readableStream.push(file.buffer);
+    readableStream.push(null); // End the stream
+
+    const { fileId } = await new Promise<{ fileId: string; filename: string }>(
+      (resolve, reject) => {
+        readableStream
+          .pipe(uploadStream)
+          .on('finish', () => {
+            resolve({
+              fileId: uploadStream.id.toString(),
+              filename,
+            });
+          })
+          .on('error', (error) => {
+            reject(error);
+          });
+      },
+    );
+
+    // Store GridFS file ID in profilePictureUrl field (no schema change needed)
+    if (userType === 'candidate') {
+      await this.candidateModel.findByIdAndUpdate(
+        userId,
+        { $set: { profilePictureUrl: fileId } },
+        { new: true },
+      );
+    } else {
+      await this.profileModel.findByIdAndUpdate(
+        userId,
+        { $set: { profilePictureUrl: fileId } },
+        { new: true },
+      );
+    }
+
+    return {
+      fileId,
+      filename,
+      message: 'Profile picture uploaded successfully',
+    };
+  }
+
+  /**
+   * Get profile picture file stream from GridFS
+   * @param userId - The user ID (employee or candidate)
+   * @param userType - 'employee' or 'candidate'
+   * @returns File stream and metadata
+   */
+  async getProfilePictureFile(userId: string, userType: string = 'employee') {
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new NotFoundException('Invalid user ID');
+    }
+
+    // Get user profile to find profilePictureUrl
+    let user;
+    if (userType === 'candidate') {
+      user = await this.candidateModel.findById(userId).lean().exec();
+      if (!user) throw new NotFoundException('Candidate not found');
+    } else {
+      user = await this.profileModel.findById(userId).lean().exec();
+      if (!user) throw new NotFoundException('Employee profile not found');
+    }
+
+    const profilePictureUrl = (user as any).profilePictureUrl;
+    if (!profilePictureUrl) {
+      throw new NotFoundException('Profile picture not found');
+    }
+
+    // Check if profilePictureUrl is a GridFS file ID (24 hex characters = ObjectId)
+    if (!this.isGridFSFile(profilePictureUrl)) {
+      // If it's not a GridFS ID, it might be a URL - return null to indicate external URL
+      throw new NotFoundException('Profile picture is stored externally (URL), not in GridFS');
+    }
+
+    const fileMetadata = await this.getGridFSFileMetadata(profilePictureUrl);
+    if (!fileMetadata) throw new NotFoundException('Profile picture file not found in GridFS');
+
+    const fileStream = this.downloadProfilePictureFromGridFS(profilePictureUrl);
+
+    return {
+      stream: fileStream,
+      metadata: fileMetadata,
+    };
+  }
+
+  /**
+   * Download a profile picture file from GridFS
+   * @param fileId - The GridFS file ID (as string from profilePictureUrl)
+   * @returns Readable stream of the file
+   */
+  private downloadProfilePictureFromGridFS(fileId: string): Readable {
+    const objectId = new Types.ObjectId(fileId);
+    return this.profilePictureBucket.openDownloadStream(objectId);
+  }
+
+  /**
+   * Get file metadata from GridFS
+   * @param fileId - The GridFS file ID (as string)
+   * @returns File metadata
+   */
+  private async getGridFSFileMetadata(fileId: string): Promise<any | null> {
+    const objectId = new Types.ObjectId(fileId);
+    const files = await this.profilePictureBucket.find({ _id: objectId }).toArray();
+    return files.length > 0 ? files[0] : null;
+  }
+
+  /**
+   * Check if profilePictureUrl is a GridFS ID (ObjectId format)
+   */
+  private isGridFSFile(profilePictureUrl: string): boolean {
+    // GridFS file IDs are MongoDB ObjectIds (24 hex characters)
+    return /^[0-9a-fA-F]{24}$/.test(profilePictureUrl);
+  }
+
+  // =====================================
   // SELF-SERVICE: COMBINED PROFILE UPDATE
   // =====================================
 
@@ -627,9 +795,64 @@ export class EmployeeProfileService {
       'lastAppraisalTemplateId',
     ];
 
+    // Handle name synchronization
+    // Priority: If individual name components are provided, use them to compute fullName
+    // If only fullName is provided, parse it into components
+    const hasIndividualNames =
+      dto.firstName !== undefined ||
+      dto.middleName !== undefined ||
+      dto.lastName !== undefined;
+    const hasFullName = dto.fullName !== undefined;
+
+    if (hasIndividualNames) {
+      // Get current profile to use existing values for components not being updated
+      const currentProfile = await this.profileModel.findById(profileId).lean().exec();
+      if (!currentProfile) {
+        throw new NotFoundException('Employee profile not found');
+      }
+
+      // Use provided values or existing values
+      const firstName = dto.firstName ?? (currentProfile as any).firstName ?? '';
+      const middleName = dto.middleName ?? (currentProfile as any).middleName;
+      const lastName = dto.lastName ?? (currentProfile as any).lastName ?? '';
+
+      // Compute fullName from components
+      const computedFullName = middleName
+        ? `${firstName} ${middleName} ${lastName}`.trim()
+        : `${firstName} ${lastName}`.trim();
+
+      // Update individual components if provided
+      if (dto.firstName !== undefined) update.firstName = firstName;
+      if (dto.middleName !== undefined) update.middleName = middleName;
+      if (dto.lastName !== undefined) update.lastName = lastName;
+      
+      // Always update fullName when individual components are updated
+      update.fullName = computedFullName;
+    } else if (hasFullName && !hasIndividualNames) {
+      // Parse fullName into components (simple parsing: split by spaces)
+      const nameParts = dto.fullName.trim().split(/\s+/);
+      if (nameParts.length >= 2) {
+        update.firstName = nameParts[0];
+        update.lastName = nameParts[nameParts.length - 1];
+        update.middleName =
+          nameParts.length > 2 ? nameParts.slice(1, -1).join(' ') : undefined;
+        update.fullName = dto.fullName.trim();
+      } else {
+        // If only one word, treat as firstName
+        update.firstName = dto.fullName.trim();
+        update.lastName = '';
+        update.fullName = dto.fullName.trim();
+      }
+    }
+
     for (const key of Object.keys(dto)) {
       const value = (dto as any)[key];
       if (value === undefined || value === null) continue;
+
+      // Skip name fields as they're handled above
+      if (['firstName', 'middleName', 'lastName', 'fullName'].includes(key)) {
+        continue;
+      }
 
       if (dateFields.includes(key)) {
         update[key] = new Date(value as string);

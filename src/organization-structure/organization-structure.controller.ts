@@ -12,6 +12,7 @@ import {
   HttpStatus,
   UseGuards,
   Res,
+  BadRequestException,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { OrganizationStructureService } from './organization-structure.service';
@@ -582,9 +583,15 @@ export class OrganizationStructureController {
     @Body() createDto: CreateOrgChangeRequestDto,
     @CurrentUser() user: JwtPayload,
   ) {
+    const userId = user.employeeId?.toString() || user.userid?.toString();
+    
+    if (!userId) {
+      throw new BadRequestException('User ID is required. Please ensure you are properly authenticated.');
+    }
+
     const changeRequest = await this.orgStructureService.createChangeRequest(
       createDto,
-      user.employeeId?.toString() || user.userid.toString(),
+      userId,
     );
 
     return {
@@ -606,14 +613,63 @@ export class OrganizationStructureController {
     };
   }
 
-  @Get('change-requests/:id')
-  async findChangeRequestById(@Param('id') id: string) {
+  @Post('change-requests/:id/submit')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles(
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+    SystemRole.DEPARTMENT_HEAD,
+  )
+  async submitChangeRequestForReview(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const userId = user.employeeId?.toString() || user.userid?.toString();
+    
+    if (!userId) {
+      throw new BadRequestException('User ID is required. Please ensure you are properly authenticated.');
+    }
+
     const changeRequest =
-      await this.orgStructureService.findChangeRequestById(id);
+      await this.orgStructureService.submitChangeRequestForReview(
+        id,
+        userId,
+      );
 
     return {
       success: true,
-      message: 'Change request retrieved successfully',
+      message: 'Change request submitted for review successfully',
+      data: changeRequest,
+    };
+  }
+
+  @Delete('change-requests/:id')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles(
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+    SystemRole.DEPARTMENT_HEAD,
+  )
+  async cancelChangeRequest(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const userId = user.employeeId?.toString() || user.userid?.toString();
+    
+    if (!userId) {
+      throw new BadRequestException('User ID is required. Please ensure you are properly authenticated.');
+    }
+
+    const changeRequest = await this.orgStructureService.cancelChangeRequest(
+      id,
+      userId,
+    );
+
+    return {
+      success: true,
+      message: 'Change request cancelled successfully',
       data: changeRequest,
     };
   }
@@ -624,6 +680,18 @@ export class OrganizationStructureController {
   ) {
     const changeRequest =
       await this.orgStructureService.findChangeRequestByNumber(requestNumber);
+
+    return {
+      success: true,
+      message: 'Change request retrieved successfully',
+      data: changeRequest,
+    };
+  }
+
+  @Get('change-requests/:id')
+  async findChangeRequestById(@Param('id') id: string) {
+    const changeRequest =
+      await this.orgStructureService.findChangeRequestById(id);
 
     return {
       success: true,
@@ -645,39 +713,14 @@ export class OrganizationStructureController {
     @CurrentUser() user: JwtPayload,
   ) {
     const changeRequest = await this.orgStructureService.updateChangeRequest(
-      id,
-      updateDto,
-      user.employeeId?.toString() || user.userid.toString(),
-    );
-
-    return {
-      success: true,
-      message: 'Change request updated successfully',
-      data: changeRequest,
-    };
-  }
-
-  @Post('change-requests/:id/submit')
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(RolesGuard)
-  @Roles(
-    SystemRole.HR_ADMIN,
-    SystemRole.SYSTEM_ADMIN,
-    SystemRole.DEPARTMENT_HEAD,
-  )
-  async submitChangeRequestForReview(
-    @Param('id') id: string,
-    @CurrentUser() user: JwtPayload,
-  ) {
-    const changeRequest =
-      await this.orgStructureService.submitChangeRequestForReview(
         id,
+      updateDto,
         user.employeeId?.toString() || user.userid.toString(),
       );
 
     return {
       success: true,
-      message: 'Change request submitted for review successfully',
+      message: 'Change request updated successfully',
       data: changeRequest,
     };
   }
@@ -691,10 +734,16 @@ export class OrganizationStructureController {
     @Body() reviewDto: ReviewOrgChangeRequestDto,
     @CurrentUser() user: JwtPayload,
   ) {
+    const userId = user.employeeId?.toString() || user.userid?.toString();
+    
+    if (!userId) {
+      throw new BadRequestException('User ID is required. Please ensure you are properly authenticated.');
+    }
+
     const changeRequest = await this.orgStructureService.reviewChangeRequest(
       id,
       reviewDto,
-      user.employeeId?.toString() || user.userid.toString(),
+      userId,
     );
 
     return {
@@ -713,10 +762,16 @@ export class OrganizationStructureController {
     @Body() approveDto: ApproveOrgChangeRequestDto,
     @CurrentUser() user: JwtPayload,
   ) {
+    const userId = user.employeeId?.toString() || user.userid?.toString();
+    
+    if (!userId) {
+      throw new BadRequestException('User ID is required. Please ensure you are properly authenticated.');
+    }
+
     const changeRequest = await this.orgStructureService.approveChangeRequest(
       id,
       approveDto,
-      user.employeeId?.toString() || user.userid.toString(),
+      userId,
     );
 
     return {
@@ -735,39 +790,21 @@ export class OrganizationStructureController {
     @Body('reason') reason: string,
     @CurrentUser() user: JwtPayload,
   ) {
+    const userId = user.employeeId?.toString() || user.userid?.toString();
+    
+    if (!userId) {
+      throw new BadRequestException('User ID is required. Please ensure you are properly authenticated.');
+    }
+
     const changeRequest = await this.orgStructureService.rejectChangeRequest(
       id,
       reason,
-      user.employeeId?.toString() || user.userid.toString(),
+      userId,
     );
 
     return {
       success: true,
       message: 'Change request rejected successfully',
-      data: changeRequest,
-    };
-  }
-
-  @Delete('change-requests/:id')
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(RolesGuard)
-  @Roles(
-    SystemRole.HR_ADMIN,
-    SystemRole.SYSTEM_ADMIN,
-    SystemRole.DEPARTMENT_HEAD,
-  )
-  async cancelChangeRequest(
-    @Param('id') id: string,
-    @CurrentUser() user: JwtPayload,
-  ) {
-    const changeRequest = await this.orgStructureService.cancelChangeRequest(
-      id,
-      user.employeeId?.toString() || user.userid.toString(),
-    );
-
-    return {
-      success: true,
-      message: 'Change request cancelled successfully',
       data: changeRequest,
     };
   }
