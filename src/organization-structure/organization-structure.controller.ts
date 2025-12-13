@@ -35,6 +35,9 @@ import {
 import { JwtAuthGuard, RolesGuard, Roles, CurrentUser } from '../auth';
 import { SystemRole } from '../employee-profile/enums/employee-profile.enums';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { Req } from '@nestjs/common';
+import { Request } from 'express';
+import { Types } from 'mongoose';
 
 @Controller('organization-structure')
 @UseGuards(JwtAuthGuard)
@@ -576,6 +579,7 @@ export class OrganizationStructureController {
   @UseGuards(RolesGuard)
   @Roles(
     SystemRole.HR_ADMIN,
+    SystemRole.HR_MANAGER,
     SystemRole.SYSTEM_ADMIN,
     SystemRole.DEPARTMENT_HEAD,
   )
@@ -618,6 +622,7 @@ export class OrganizationStructureController {
   @UseGuards(RolesGuard)
   @Roles(
     SystemRole.HR_ADMIN,
+    SystemRole.HR_MANAGER,
     SystemRole.SYSTEM_ADMIN,
     SystemRole.DEPARTMENT_HEAD,
   )
@@ -649,6 +654,7 @@ export class OrganizationStructureController {
   @UseGuards(RolesGuard)
   @Roles(
     SystemRole.HR_ADMIN,
+    SystemRole.HR_MANAGER,
     SystemRole.SYSTEM_ADMIN,
     SystemRole.DEPARTMENT_HEAD,
   )
@@ -704,6 +710,7 @@ export class OrganizationStructureController {
   @UseGuards(RolesGuard)
   @Roles(
     SystemRole.HR_ADMIN,
+    SystemRole.HR_MANAGER,
     SystemRole.SYSTEM_ADMIN,
     SystemRole.DEPARTMENT_HEAD,
   )
@@ -728,7 +735,7 @@ export class OrganizationStructureController {
   @Post('change-requests/:id/review')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_ADMIN, SystemRole.HR_MANAGER, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.SYSTEM_ADMIN)
   async reviewChangeRequest(
     @Param('id') id: string,
     @Body() reviewDto: ReviewOrgChangeRequestDto,
@@ -784,7 +791,7 @@ export class OrganizationStructureController {
   @Post('change-requests/:id/reject')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_ADMIN, SystemRole.HR_MANAGER, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.SYSTEM_ADMIN)
   async rejectChangeRequest(
     @Param('id') id: string,
     @Body('reason') reason: string,
@@ -900,5 +907,157 @@ export class OrganizationStructureController {
       `attachment; filename="org-chart-${Date.now()}.csv"`,
     );
     res.send(csv);
+  }
+
+  // =====================================
+  // NOTIFICATION ENDPOINTS
+  // =====================================
+
+  @Get('notifications')
+  @UseGuards(JwtAuthGuard)
+  async getNotifications(@Req() req: Request & { user: JwtPayload }): Promise<any[]> {
+    // Extract employee ID from JWT payload
+    const user = req.user;
+    let employeeId: string | undefined;
+    
+    // Try userid first (primary field)
+    if (user.userid) {
+      if (user.userid instanceof Types.ObjectId) {
+        employeeId = user.userid.toString();
+      } else if (typeof user.userid === 'string') {
+        employeeId = user.userid;
+      } else if (user.userid && typeof user.userid === 'object') {
+        // Handle object with _id or toString
+        employeeId = (user.userid as any)._id?.toString() || (user.userid as any).toString();
+      }
+    }
+    
+    // Fallback to other fields
+    if (!employeeId) {
+      employeeId = (user as any).id?.toString() || 
+                   (user as any).employeeId?.toString() ||
+                   (user as any).sub?.toString();
+    }
+    
+    // Validate
+    if (!employeeId || !Types.ObjectId.isValid(employeeId)) {
+      return [];
+    }
+    
+    return await this.orgStructureService.getNotificationsForEmployee(employeeId);
+  }
+
+  @Get('notifications/debug')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(SystemRole.SYSTEM_ADMIN)
+  async debugNotifications(): Promise<any> {
+    // Debug endpoint to check all notifications and SYSTEM_ADMIN users
+    return await this.orgStructureService.debugNotifications();
+  }
+
+  @Get('notifications/test')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(SystemRole.SYSTEM_ADMIN)
+  async testNotification(@CurrentUser() user: JwtPayload): Promise<any> {
+    // Test endpoint to create a notification for current user
+    const employeeId = user.userid?.toString() || (user as any).id?.toString() || (user as any).employeeId?.toString();
+    
+    console.log('[Test Notification] Creating test notification for:', {
+      employeeId,
+      userid: user.userid,
+      id: (user as any).id,
+      employeeIdField: (user as any).employeeId,
+    });
+    
+    if (!employeeId) {
+      throw new BadRequestException('No employee ID found in JWT token');
+    }
+
+    const testNotification = await this.orgStructureService.createTestNotification(employeeId);
+    
+    // Also fetch notifications to verify it was created
+    const notifications = await this.orgStructureService.getNotificationsForEmployee(employeeId);
+    
+    return {
+      success: true,
+      message: 'Test notification created',
+      notification: testNotification,
+      employeeId,
+      totalNotifications: notifications.length,
+      allNotifications: notifications,
+    };
+  }
+
+  // =====================================
+  // AUDIT LOG ENDPOINTS
+  // =====================================
+
+  @Get('audit-logs')
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.HR_ADMIN, SystemRole.HR_MANAGER, SystemRole.SYSTEM_ADMIN)
+  async getAuditLogs(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('action') action?: string,
+    @Query('entityType') entityType?: 'Department' | 'Position',
+    @Query('entityId') entityId?: string,
+    @Query('performedBy') performedBy?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const query: any = {};
+
+    if (page) query.page = parseInt(page, 10);
+    if (limit) query.limit = parseInt(limit, 10);
+    if (action) query.action = action;
+    if (entityType) query.entityType = entityType;
+    if (entityId) query.entityId = entityId;
+    if (performedBy) query.performedBy = performedBy;
+    if (startDate) query.startDate = new Date(startDate);
+    if (endDate) query.endDate = new Date(endDate);
+
+    const result = await this.orgStructureService.getChangeLogs(query);
+
+    return {
+      success: true,
+      message: 'Audit logs retrieved successfully',
+      ...result,
+    };
+  }
+
+  @Get('audit-logs/test')
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.SYSTEM_ADMIN)
+  async testAuditLogs() {
+    // Test endpoint to check if logs exist - access service's model directly
+    try {
+      const changeLogModel = (this.orgStructureService as any).changeLogModel;
+      if (!changeLogModel) {
+        return { success: false, error: 'changeLogModel not found in service' };
+      }
+      
+      const totalCount = await changeLogModel.countDocuments({}).exec();
+      const sampleLogs = await changeLogModel.find({}).limit(5).sort({ createdAt: -1 }).exec();
+      
+      return {
+        success: true,
+        totalCount,
+        sampleLogs: sampleLogs.map((log: any) => ({
+          _id: log._id?.toString(),
+          action: log.action,
+          entityType: log.entityType,
+          entityId: log.entityId?.toString(),
+          summary: log.summary,
+          createdAt: log.createdAt,
+          performedByEmployeeId: log.performedByEmployeeId?.toString(),
+        })),
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error?.message || String(error),
+        stack: error?.stack,
+      };
+    }
   }
 }
