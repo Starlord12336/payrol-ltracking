@@ -22,6 +22,10 @@ import {
   PositionAssignmentSchema,
 } from './models/position-assignment.schema';
 
+// Notification and Employee Models (for notifications)
+import { NotificationLog, NotificationLogSchema } from '../time-management/models/notification-log.schema';
+import { EmployeeSystemRole, EmployeeSystemRoleSchema } from '../employee-profile/models/employee-system-role.schema';
+
 // Controllers
 import { OrganizationStructureController } from './organization-structure.controller';
 
@@ -42,6 +46,9 @@ import { OrganizationStructureService } from './organization-structure.service';
       { name: StructureApproval.name, schema: StructureApprovalSchema },
       { name: StructureChangeLog.name, schema: StructureChangeLogSchema },
       { name: PositionAssignment.name, schema: PositionAssignmentSchema },
+      // Notification and Employee schemas (for notifications)
+      { name: NotificationLog.name, schema: NotificationLogSchema },
+      { name: EmployeeSystemRole.name, schema: EmployeeSystemRoleSchema },
     ]),
   ],
   controllers: [OrganizationStructureController],
