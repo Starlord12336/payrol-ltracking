@@ -32,7 +32,6 @@ import {
 
 // Notification and Employee Models (for notifications)
 import { NotificationLog, NotificationLogSchema } from '../time-management/models/notification-log.schema';
-import { EmployeeSystemRole, EmployeeSystemRoleSchema } from '../employee-profile/models/employee-system-role.schema';
 
 // Controllers
 import { OrganizationStructureController } from './organization-structure.controller';

@@ -58,8 +58,6 @@
     ChangeLogAction,
   } from './enums/organization-structure.enums';
   import { NotificationLog } from '../time-management/models/notification-log.schema';
-  import { EmployeeSystemRole } from '../employee-profile/models/employee-system-role.schema';
-  import { SystemRole } from '../employee-profile/enums/employee-profile.enums';
 
   @Injectable()
   export class OrganizationStructureService {
@@ -139,7 +137,6 @@
             name: savedDepartment.name,
             code: savedDepartment.code,
             description: savedDepartment.description,
-            costCenter: savedDepartment.costCenter,
             headPositionId: savedDepartment.headPositionId?.toString(),
             isActive: savedDepartment.isActive,
           },
@@ -184,7 +181,6 @@
             name: savedDepartment.name,
             code: savedDepartment.code,
             description: savedDepartment.description,
-            costCenter: savedDepartment.costCenter,
             headPositionId: savedDepartment.headPositionId?.toString(),
           },
           `Created Department "${savedDepartment.code}" - ${savedDepartment.name}`,
@@ -335,7 +331,6 @@
         name: department.name,
         code: department.code,
         description: department.description,
-        costCenter: department.costCenter,
         headPositionId: department.headPositionId?.toString(),
       };
 
@@ -352,7 +347,6 @@
         name: updatedDepartment.name,
         code: updatedDepartment.code,
         description: updatedDepartment.description,
-        costCenter: updatedDepartment.costCenter,
         headPositionId: updatedDepartment.headPositionId?.toString(),
       };
 
@@ -400,7 +394,6 @@
         name: department.name,
         code: department.code,
         description: department.description,
-        costCenter: department.costCenter,
         headPositionId: department.headPositionId?.toString(),
         isActive: department.isActive,
       };
@@ -1696,7 +1689,6 @@
                 code: deptData.code,
                 name: deptData.name,
                 description: deptData.description,
-                costCenter: deptData.costCenter,
               },
               userId,
             );
@@ -2483,18 +2475,19 @@
       afterSnapshot?: Record<string, unknown>,
       summary?: string,
     ): Promise<void> {
+      const entityName = entityType === 'Department' ? 'Department' : 'Position';
+      const defaultSummary = summary || `${action} ${entityName} ${entityId}`;
+      
+      const logData: any = {
+        action,
+        entityType,
+        entityId,
+        beforeSnapshot,
+        afterSnapshot,
+        summary: defaultSummary,
+      };
+
       try {
-        const entityName = entityType === 'Department' ? 'Department' : 'Position';
-        const defaultSummary = summary || `${action} ${entityName} ${entityId}`;
-        
-        const logData: any = {
-          action,
-          entityType,
-          entityId,
-          beforeSnapshot,
-          afterSnapshot,
-          summary: defaultSummary,
-        };
 
         // Only add performedByEmployeeId if userId is valid
         if (userId && Types.ObjectId.isValid(userId)) {
@@ -2554,7 +2547,7 @@
           entityId: entityId?.toString(),
           userId,
           summary: defaultSummary,
-          createdAt: verifyLog.createdAt,
+          createdAt: (verifyLog as any).createdAt || new Date(),
         });
       } catch (error: any) {
         console.error('[ChangeLog] ❌ CRITICAL ERROR recording change:', error);
@@ -2717,7 +2710,7 @@
           action: data[0].action,
           entityType: data[0].entityType,
           entityId: data[0].entityId?.toString(),
-          createdAt: data[0].createdAt,
+          createdAt: (data[0] as any).createdAt || new Date(),
         } : null,
       });
 
@@ -2898,4 +2891,3 @@
       };
     }
   }
-}
