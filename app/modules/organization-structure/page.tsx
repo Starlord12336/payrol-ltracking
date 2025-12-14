@@ -66,6 +66,13 @@ function OrganizationStructureContent() {
   
   // Employees and Managers have read-only access
   const isReadOnly = !isSystemAdmin && !userRoles.includes(SystemRole.HR_ADMIN) && !userRoles.includes(SystemRole.HR_MANAGER);
+  
+  // Users who can access change requests (HR roles, System Admin, and Department Heads)
+  const canAccessChangeRequests = 
+    userRoles.includes(SystemRole.HR_ADMIN) ||
+    userRoles.includes(SystemRole.HR_MANAGER) ||
+    userRoles.includes(SystemRole.SYSTEM_ADMIN) ||
+    userRoles.includes(SystemRole.DEPARTMENT_HEAD);
 
   const handleDepartmentCreated = () => {
     setShowAddDepartmentModal(false);
@@ -118,21 +125,21 @@ function OrganizationStructureContent() {
             >
               Departments
             </button>
+            {canAccessChangeRequests && (
+              <button
+                className={`${styles.tab} ${activeTab === 'change-requests' ? styles.tabActive : ''}`}
+                onClick={() => setActiveTab('change-requests')}
+              >
+                Change Requests
+              </button>
+            )}
             {!isReadOnly && (
-              <>
-                <button
-                  className={`${styles.tab} ${activeTab === 'change-requests' ? styles.tabActive : ''}`}
-                  onClick={() => setActiveTab('change-requests')}
-                >
-                  Change Requests
-                </button>
-                <button
-                  className={`${styles.tab} ${activeTab === 'audit-log' ? styles.tabActive : ''}`}
-                  onClick={() => setActiveTab('audit-log')}
-                >
-                  📋 Audit Log
-                </button>
-              </>
+              <button
+                className={`${styles.tab} ${activeTab === 'audit-log' ? styles.tabActive : ''}`}
+                onClick={() => setActiveTab('audit-log')}
+              >
+                📋 Audit Log
+              </button>
             )}
           </div>
 
@@ -185,17 +192,17 @@ function OrganizationStructureContent() {
             </>
           )}
 
-          {activeTab === 'change-requests' && !isReadOnly && (
+          {activeTab === 'change-requests' && canAccessChangeRequests && (
             <ChangeRequestList
               onRefresh={() => setRefreshTrigger(prev => prev + 1)}
             />
           )}
 
-          {activeTab === 'change-requests' && isReadOnly && (
+          {activeTab === 'change-requests' && !canAccessChangeRequests && (
             <Card padding="lg">
               <div className={styles.emptyStateContent}>
                 <h2>Access Restricted</h2>
-                <p>Change requests are only available to HR and System Admin roles.</p>
+                <p>Change requests are only available to HR, System Admin, and Department Head roles.</p>
               </div>
             </Card>
           )}
