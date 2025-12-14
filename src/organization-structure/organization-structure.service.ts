@@ -57,6 +57,9 @@
     ApprovalDecision,
     ChangeLogAction,
   } from './enums/organization-structure.enums';
+  import { NotificationLog } from '../time-management/models/notification-log.schema';
+  import { EmployeeSystemRole } from '../employee-profile/models/employee-system-role.schema';
+  import { SystemRole } from '../employee-profile/enums/employee-profile.enums';
 
   @Injectable()
   export class OrganizationStructureService {
@@ -75,6 +78,8 @@
       private positionAssignmentModel: Model<PositionAssignmentDocument>,
       @InjectModel(EmployeeProfile.name)
       private employeeModel: Model<EmployeeProfileDocument>,
+      @InjectModel(NotificationLog.name)
+      private notificationLogModel: Model<any>,
       @InjectModel(EmployeeSystemRole.name)
       private employeeSystemRoleModel: Model<EmployeeSystemRoleDocument>,
     ) {}
@@ -121,7 +126,39 @@
           await this.validatePositionExists(createDepartmentDto.headPositionId);
         }
 
-        return existingInactiveDepartment.save();
+        const savedDepartment = await existingInactiveDepartment.save();
+
+        // Log the change (reactivation)
+        await this.logChange(
+          ChangeLogAction.CREATED,
+          'Department',
+          savedDepartment._id,
+          userId,
+          undefined,
+          {
+            name: savedDepartment.name,
+            code: savedDepartment.code,
+            description: savedDepartment.description,
+            costCenter: savedDepartment.costCenter,
+            headPositionId: savedDepartment.headPositionId?.toString(),
+            isActive: savedDepartment.isActive,
+          },
+          `Created Department "${savedDepartment.code}" - ${savedDepartment.name}`,
+        );
+
+        // Notify HR_MANAGER and HR_ADMIN
+        try {
+          await this.notifyHRTeamAboutStructuralChange(
+            'created',
+            'Department',
+            savedDepartment.name,
+            savedDepartment.code,
+          );
+        } catch (error) {
+          console.error('[Department] Error sending creation notification:', error);
+        }
+
+        return savedDepartment;
       }
 
       if (createDepartmentDto.headPositionId) {
@@ -133,7 +170,44 @@
         isActive: true,
       });
 
-      return department.save();
+      const savedDepartment = await department.save();
+
+      // Log the change - make sure it happens
+      try {
+        await this.logChange(
+          ChangeLogAction.CREATED,
+          'Department',
+          savedDepartment._id,
+          userId,
+          undefined,
+          {
+            name: savedDepartment.name,
+            code: savedDepartment.code,
+            description: savedDepartment.description,
+            costCenter: savedDepartment.costCenter,
+            headPositionId: savedDepartment.headPositionId?.toString(),
+          },
+          `Created Department "${savedDepartment.code}" - ${savedDepartment.name}`,
+        );
+        console.log('[Department] Logging completed for department:', savedDepartment._id.toString());
+      } catch (logError) {
+        console.error('[Department] Failed to log department creation:', logError);
+        // Continue even if logging fails
+      }
+
+      // Notify HR_MANAGER and HR_ADMIN
+      try {
+        await this.notifyHRTeamAboutStructuralChange(
+          'created',
+          'Department',
+          savedDepartment.name,
+          savedDepartment.code,
+        );
+      } catch (error) {
+        console.error('[Department] Error sending creation notification:', error);
+      }
+
+      return savedDepartment;
     }
 
     async findAllDepartments(queryDto: QueryDepartmentDto): Promise<{
@@ -256,6 +330,15 @@
         await this.validatePositionExists(updateDepartmentDto.headPositionId);
       }
 
+      // Capture before snapshot
+      const beforeSnapshot = {
+        name: department.name,
+        code: department.code,
+        description: department.description,
+        costCenter: department.costCenter,
+        headPositionId: department.headPositionId?.toString(),
+      };
+
       const updatedDepartment = await this.departmentModel
         .findByIdAndUpdate(id, updateDepartmentDto, {
           new: true,
@@ -263,6 +346,38 @@
         })
         .populate('headPositionId', 'code title')
         .exec();
+
+      // Capture after snapshot
+      const afterSnapshot = {
+        name: updatedDepartment.name,
+        code: updatedDepartment.code,
+        description: updatedDepartment.description,
+        costCenter: updatedDepartment.costCenter,
+        headPositionId: updatedDepartment.headPositionId?.toString(),
+      };
+
+      // Log the change
+      await this.logChange(
+        ChangeLogAction.UPDATED,
+        'Department',
+        updatedDepartment._id,
+        userId,
+        beforeSnapshot,
+        afterSnapshot,
+        `Updated Department "${updatedDepartment.code}" - ${updatedDepartment.name}`,
+      );
+
+      // Notify HR_MANAGER and HR_ADMIN
+      try {
+        await this.notifyHRTeamAboutStructuralChange(
+          'updated',
+          'Department',
+          updatedDepartment.name,
+          updatedDepartment.code,
+        );
+      } catch (error) {
+        console.error('[Department] Error sending update notification:', error);
+      }
 
       return updatedDepartment;
     }
@@ -280,7 +395,44 @@
       const departmentDoc = department as DepartmentDocument;
       departmentDoc.isActive = false;
 
-      return departmentDoc.save();
+      // Capture before snapshot
+      const beforeSnapshot = {
+        name: department.name,
+        code: department.code,
+        description: department.description,
+        costCenter: department.costCenter,
+        headPositionId: department.headPositionId?.toString(),
+        isActive: department.isActive,
+      };
+
+      const savedDepartment = await departmentDoc.save();
+
+      // Log the change
+      await this.logChange(
+        ChangeLogAction.DEACTIVATED,
+        'Department',
+        savedDepartment._id,
+        userId,
+        beforeSnapshot,
+        {
+          isActive: false,
+        },
+        `Deactivated Department "${savedDepartment.code}" - ${savedDepartment.name}`,
+      );
+
+      // Notify HR_MANAGER and HR_ADMIN
+      try {
+        await this.notifyHRTeamAboutStructuralChange(
+          'deleted',
+          'Department',
+          savedDepartment.name,
+          savedDepartment.code,
+        );
+      } catch (error) {
+        console.error('[Department] Error sending deletion notification:', error);
+      }
+
+      return savedDepartment;
     }
 
     async getDepartmentHierarchy(departmentId?: string): Promise<any> {
@@ -448,7 +600,38 @@
           : undefined;
         existingInactivePosition.isActive = true;
 
-        return existingInactivePosition.save();
+        const savedPosition = await existingInactivePosition.save();
+
+        // Log the change
+        await this.logChange(
+          ChangeLogAction.CREATED,
+          'Position',
+          savedPosition._id,
+          userId,
+          undefined,
+          {
+            code: savedPosition.code,
+            title: savedPosition.title,
+            description: savedPosition.description,
+            departmentId: savedPosition.departmentId?.toString(),
+            reportsToPositionId: savedPosition.reportsToPositionId?.toString(),
+          },
+          `Created Position "${savedPosition.code}" - ${savedPosition.title}`,
+        );
+
+        // Notify HR_MANAGER and HR_ADMIN
+        try {
+          await this.notifyHRTeamAboutStructuralChange(
+            'created',
+            'Position',
+            savedPosition.title,
+            savedPosition.code,
+          );
+        } catch (error) {
+          console.error('[Position] Error sending creation notification:', error);
+        }
+
+        return savedPosition;
       }
 
       const department = await this.validateDepartmentExists(createPositionDto.departmentId);
@@ -514,6 +697,35 @@
           throw new Error('Failed to retrieve created position');
         }
         
+        // Log the change
+        await this.logChange(
+          ChangeLogAction.CREATED,
+          'Position',
+          createdPosition._id,
+          userId,
+          undefined,
+          {
+            code: createdPosition.code,
+            title: createdPosition.title,
+            description: createdPosition.description,
+            departmentId: createdPosition.departmentId?.toString(),
+            reportsToPositionId: createdPosition.reportsToPositionId?.toString(),
+          },
+          `Created Position "${createdPosition.code}" - ${createdPosition.title}`,
+        );
+        
+        // Notify HR_MANAGER and HR_ADMIN
+        try {
+          await this.notifyHRTeamAboutStructuralChange(
+            'created',
+            'Position',
+            createdPosition.title,
+            createdPosition.code,
+          );
+        } catch (error) {
+          console.error('[Position] Error sending creation notification:', error);
+        }
+        
         return createdPosition;
       } catch (insertErr) {
         // If insertOne fails, try to register the model and use create
@@ -527,7 +739,38 @@
           }
           
           // Now try create - the hook might work if model is registered
-          return this.positionModel.create(positionData);
+          const savedPosition = await this.positionModel.create(positionData);
+          
+          // Log the change
+          await this.logChange(
+            ChangeLogAction.CREATED,
+            'Position',
+            savedPosition._id,
+            userId,
+            undefined,
+            {
+              code: savedPosition.code,
+              title: savedPosition.title,
+              description: savedPosition.description,
+              departmentId: savedPosition.departmentId?.toString(),
+              reportsToPositionId: savedPosition.reportsToPositionId?.toString(),
+            },
+            `Created Position "${savedPosition.code}" - ${savedPosition.title}`,
+          );
+          
+          // Notify HR_MANAGER and HR_ADMIN
+          try {
+            await this.notifyHRTeamAboutStructuralChange(
+              'created',
+              'Position',
+              savedPosition.title,
+              savedPosition.code,
+            );
+          } catch (error) {
+            console.error('[Position] Error sending creation notification:', error);
+          }
+          
+          return savedPosition;
         } catch (createErr) {
           // If create also fails, throw the original insertOne error
           throw insertErr;
@@ -688,6 +931,15 @@
         console.warn('Could not ensure Department model is accessible for update:', err);
       }
 
+      // Capture before snapshot
+      const beforeSnapshot = {
+        code: position.code,
+        title: position.title,
+        description: position.description,
+        departmentId: position.departmentId?.toString(),
+        reportsToPositionId: position.reportsToPositionId?.toString(),
+      };
+
       const updatedPosition = await this.positionModel
         .findByIdAndUpdate(id, updateData, {
           new: true,
@@ -696,6 +948,46 @@
         .populate('departmentId', 'code name')
         .populate('reportsToPositionId', 'code title')
         .exec();
+
+      // Capture after snapshot
+      const afterSnapshot = {
+        code: updatedPosition.code,
+        title: updatedPosition.title,
+        description: updatedPosition.description,
+        departmentId: updatedPosition.departmentId?.toString(),
+        reportsToPositionId: updatedPosition.reportsToPositionId?.toString(),
+      };
+
+      // Determine action type
+      const logAction = updatePositionDto.reportsToPositionId !== undefined 
+        ? ChangeLogAction.REASSIGNED 
+        : ChangeLogAction.UPDATED;
+
+      // Log the change
+      await this.logChange(
+        logAction,
+        'Position',
+        updatedPosition._id,
+        userId,
+        beforeSnapshot,
+        afterSnapshot,
+        logAction === ChangeLogAction.REASSIGNED
+          ? `Reassigned Position "${updatedPosition.code}" - ${updatedPosition.title}`
+          : `Updated Position "${updatedPosition.code}" - ${updatedPosition.title}`,
+      );
+
+      // Notify HR_MANAGER and HR_ADMIN
+      try {
+        const action = updatePositionDto.reportsToPositionId !== undefined ? 'updated (reporting line changed)' : 'updated';
+        await this.notifyHRTeamAboutStructuralChange(
+          action,
+          'Position',
+          updatedPosition.title,
+          updatedPosition.code,
+        );
+      } catch (error) {
+        console.error('[Position] Error sending update notification:', error);
+      }
 
       return updatedPosition;
     }
@@ -714,10 +1006,47 @@
         );
       }
 
+      // Capture before snapshot
+      const beforeSnapshot = {
+        code: position.code,
+        title: position.title,
+        description: position.description,
+        departmentId: position.departmentId?.toString(),
+        reportsToPositionId: position.reportsToPositionId?.toString(),
+        isActive: position.isActive,
+      };
+
       const positionDoc = position as PositionDocument;
       positionDoc.isActive = false;
 
-      return positionDoc.save();
+      const savedPosition = await positionDoc.save();
+
+      // Log the change
+      await this.logChange(
+        ChangeLogAction.DEACTIVATED,
+        'Position',
+        savedPosition._id,
+        userId,
+        beforeSnapshot,
+        {
+          isActive: false,
+        },
+        `Deactivated Position "${savedPosition.code}" - ${savedPosition.title}`,
+      );
+
+      // Notify HR_MANAGER and HR_ADMIN
+      try {
+        await this.notifyHRTeamAboutStructuralChange(
+          'deleted',
+          'Position',
+          savedPosition.title,
+          savedPosition.code,
+        );
+      } catch (error) {
+        console.error('[Position] Error sending deletion notification:', error);
+      }
+
+      return savedPosition;
     }
 
     async assignReportingPosition(
@@ -750,11 +1079,44 @@
         { $set: updateData }
       );
 
+      // Capture before snapshot
+      const beforeSnapshot = {
+        reportsToPositionId: position.reportsToPositionId?.toString(),
+      };
+
       // Fetch the updated position
       const updatedPosition = await this.positionModel.findById(positionId).exec();
 
       if (!updatedPosition) {
         throw new NotFoundException('Position not found');
+      }
+
+      // Capture after snapshot
+      const afterSnapshot = {
+        reportsToPositionId: updatedPosition.reportsToPositionId?.toString(),
+      };
+
+      // Log the change
+      await this.logChange(
+        ChangeLogAction.REASSIGNED,
+        'Position',
+        updatedPosition._id,
+        userId,
+        beforeSnapshot,
+        afterSnapshot,
+        `Reassigned Position "${updatedPosition.code}" - ${updatedPosition.title}`,
+      );
+
+      // Notify HR_MANAGER and HR_ADMIN about reporting line change
+      try {
+        await this.notifyHRTeamAboutStructuralChange(
+          'updated (reporting line changed)',
+          'Position',
+          updatedPosition.title,
+          updatedPosition.code,
+        );
+      } catch (error) {
+        console.error('[Position] Error sending reporting line change notification:', error);
       }
 
       return updatedPosition;
@@ -1109,7 +1471,29 @@
       changeRequestDoc.submittedByEmployeeId = new Types.ObjectId(userId) as any;
       changeRequestDoc.submittedAt = new Date();
 
-      return changeRequestDoc.save();
+      const savedRequest = await changeRequestDoc.save();
+
+      console.log('[ChangeRequest] Request submitted successfully:', {
+        requestNumber: savedRequest.requestNumber,
+        requestType: savedRequest.requestType,
+        status: savedRequest.status,
+        requestedBy: savedRequest.requestedByEmployeeId,
+      });
+
+      // Send notification to SYSTEM_ADMIN when request is submitted
+      try {
+        await this.notifyChangeRequestCreated(
+          savedRequest.requestNumber,
+          savedRequest.requestType,
+          savedRequest.requestedByEmployeeId as Types.ObjectId,
+        );
+        console.log('[ChangeRequest] Notification sent successfully');
+      } catch (notifError) {
+        console.error('[ChangeRequest] Failed to send notification:', notifError);
+        // Don't fail the request if notification fails
+      }
+
+      return savedRequest;
     }
 
     async reviewChangeRequest(
@@ -1170,6 +1554,45 @@
       const changeRequestDoc = changeRequest as StructureChangeRequestDocument;
       changeRequestDoc.status = finalStatus;
       
+      // Send notifications based on decision
+      try {
+        // Ensure requestedByEmployeeId is properly formatted
+        let requesterId: Types.ObjectId;
+        const requestedBy = changeRequest.requestedByEmployeeId;
+        
+        if (requestedBy instanceof Types.ObjectId) {
+          requesterId = requestedBy;
+        } else if (requestedBy && typeof requestedBy === 'object' && (requestedBy as any)._id) {
+          requesterId = (requestedBy as any)._id instanceof Types.ObjectId 
+            ? (requestedBy as any)._id 
+            : new Types.ObjectId((requestedBy as any)._id);
+        } else if (typeof requestedBy === 'string' && Types.ObjectId.isValid(requestedBy)) {
+          requesterId = new Types.ObjectId(requestedBy);
+        } else {
+          console.error('[ChangeRequest] Invalid requestedByEmployeeId format:', requestedBy);
+          requesterId = requestedBy as any;
+        }
+        
+        if (reviewDto.approved) {
+          await this.notifyChangeRequestApproved(
+            changeRequest.requestNumber,
+            changeRequest.requestType,
+            requesterId,
+            reviewDto.comments,
+          );
+        } else {
+          await this.notifyChangeRequestRejected(
+            changeRequest.requestNumber,
+            changeRequest.requestType,
+            requesterId,
+            reviewDto.comments || 'No reason provided',
+          );
+        }
+      } catch (error) {
+        console.error('[ChangeRequest] Error sending notification:', error);
+        // Don't fail the review if notification fails
+      }
+      
       return changeRequestDoc;
     }
 
@@ -1221,6 +1644,36 @@
       // Return the document we already have, but update its status
       const changeRequestDoc = changeRequest as StructureChangeRequestDocument;
       changeRequestDoc.status = StructureRequestStatus.IMPLEMENTED;
+      
+      // Send notification to requester (HR_MANAGER or HR_ADMIN who created it)
+      try {
+        // Ensure requestedByEmployeeId is properly formatted
+        let requesterId: Types.ObjectId;
+        const requestedBy = changeRequest.requestedByEmployeeId;
+        
+        if (requestedBy instanceof Types.ObjectId) {
+          requesterId = requestedBy;
+        } else if (requestedBy && typeof requestedBy === 'object' && (requestedBy as any)._id) {
+          requesterId = (requestedBy as any)._id instanceof Types.ObjectId 
+            ? (requestedBy as any)._id 
+            : new Types.ObjectId((requestedBy as any)._id);
+        } else if (typeof requestedBy === 'string' && Types.ObjectId.isValid(requestedBy)) {
+          requesterId = new Types.ObjectId(requestedBy);
+        } else {
+          console.error('[ChangeRequest] Invalid requestedByEmployeeId format:', requestedBy);
+          requesterId = requestedBy as any;
+        }
+        
+        await this.notifyChangeRequestApproved(
+          changeRequest.requestNumber,
+          changeRequest.requestType,
+          requesterId,
+          approveDto.comments,
+        );
+      } catch (error) {
+        console.error('[ChangeRequest] Error sending approval notification:', error);
+        // Don't fail the approval if notification fails
+      }
       
       return changeRequestDoc;
     }
@@ -1358,6 +1811,36 @@
       // Return the document we already have, but update its status
       const changeRequestDoc = changeRequest as StructureChangeRequestDocument;
       changeRequestDoc.status = StructureRequestStatus.REJECTED;
+
+      // Send notification to requester (HR_MANAGER or HR_ADMIN who created it)
+      try {
+        // Ensure requestedByEmployeeId is properly formatted
+        let requesterId: Types.ObjectId;
+        const requestedBy = changeRequest.requestedByEmployeeId;
+        
+        if (requestedBy instanceof Types.ObjectId) {
+          requesterId = requestedBy;
+        } else if (requestedBy && typeof requestedBy === 'object' && (requestedBy as any)._id) {
+          requesterId = (requestedBy as any)._id instanceof Types.ObjectId 
+            ? (requestedBy as any)._id 
+            : new Types.ObjectId((requestedBy as any)._id);
+        } else if (typeof requestedBy === 'string' && Types.ObjectId.isValid(requestedBy)) {
+          requesterId = new Types.ObjectId(requestedBy);
+        } else {
+          console.error('[ChangeRequest] Invalid requestedByEmployeeId format:', requestedBy);
+          requesterId = requestedBy as any;
+        }
+        
+        await this.notifyChangeRequestRejected(
+          changeRequest.requestNumber,
+          changeRequest.requestType,
+          requesterId,
+          reason,
+        );
+      } catch (error) {
+        console.error('[ChangeRequest] Error sending rejection notification:', error);
+        // Don't fail the rejection if notification fails
+      }
 
       return changeRequestDoc;
     }
@@ -1772,6 +2255,647 @@
       }
     } catch (error) {
       console.error('Error syncing roles for position:', error);
+    }
+  }
+
+  // =====================================
+  // NOTIFICATION HELPER METHODS
+  // =====================================
+
+    /**
+     * Get employee IDs by their system roles
+     */
+    private async getEmployeeIdsByRoles(roles: SystemRole[]): Promise<Types.ObjectId[]> {
+      try {
+        // Query for employees with any of the specified roles
+        const roleRecords = await this.employeeSystemRoleModel
+          .find({ 
+            roles: { $in: roles }, 
+            isActive: true 
+          })
+          .select('employeeProfileId')
+          .lean()
+          .exec();
+
+        const employeeIds: Types.ObjectId[] = [];
+        
+        for (const record of roleRecords) {
+          const empId = record.employeeProfileId;
+          if (!empId) continue;
+          
+          let objectId: Types.ObjectId;
+          if (empId instanceof Types.ObjectId) {
+            objectId = empId;
+          } else if (typeof empId === 'string' && Types.ObjectId.isValid(empId)) {
+            objectId = new Types.ObjectId(empId);
+          } else if (empId && typeof empId === 'object' && (empId as any)._id) {
+            // Handle populated references
+            const idValue = (empId as any)._id;
+            objectId = idValue instanceof Types.ObjectId ? idValue : new Types.ObjectId(idValue);
+          } else {
+            continue; // Skip invalid IDs
+          }
+          
+          employeeIds.push(objectId);
+        }
+        
+        return employeeIds;
+      } catch (error) {
+        console.error('[Notification] Error fetching employees by roles:', error);
+        return [];
+      }
+    }
+
+    /**
+     * Send notification to specific employee
+     */
+    private async sendNotificationToEmployee(
+      employeeId: Types.ObjectId | string,
+      type: string,
+      message: string,
+    ): Promise<void> {
+      try {
+        // Convert to ObjectId - must be valid ObjectId
+        let employeeObjectId: Types.ObjectId;
+        
+        if (employeeId instanceof Types.ObjectId) {
+          employeeObjectId = employeeId;
+        } else if (typeof employeeId === 'string' && Types.ObjectId.isValid(employeeId)) {
+          employeeObjectId = new Types.ObjectId(employeeId);
+        } else {
+          console.error(`[Notification] Invalid employee ID format: ${employeeId}`);
+          return;
+        }
+        
+        // Create notification
+        const notification = await this.notificationLogModel.create({
+          to: employeeObjectId,
+          type,
+          message,
+        });
+        
+        // Verify it was saved
+        const saved = await this.notificationLogModel.findById(notification._id).lean().exec();
+        if (!saved) {
+          console.error(`[Notification] Failed to save notification for employee ${employeeObjectId.toString()}`);
+        }
+      } catch (error) {
+        console.error(`[Notification] Error creating notification:`, error);
+        // Don't throw - notifications are non-critical
+      }
+    }
+
+    /**
+     * Send notification to multiple employees by roles
+     */
+    private async sendNotificationToRoles(
+      roles: SystemRole[],
+      type: string,
+      message: string,
+      excludeEmployeeIds?: (Types.ObjectId | string)[],
+    ): Promise<void> {
+      try {
+        const employeeIds = await this.getEmployeeIdsByRoles(roles);
+        
+        if (employeeIds.length === 0) {
+          return;
+        }
+        
+        // Convert excludeEmployeeIds to strings for comparison
+        const excludeIds: string[] = [];
+        if (excludeEmployeeIds && excludeEmployeeIds.length > 0) {
+          for (const excludeId of excludeEmployeeIds) {
+            if (excludeId instanceof Types.ObjectId) {
+              excludeIds.push(excludeId.toString());
+            } else if (typeof excludeId === 'string' && Types.ObjectId.isValid(excludeId)) {
+              excludeIds.push(excludeId);
+            }
+          }
+        }
+        
+        // Filter out excluded employees only if there are exclusions
+        let filteredEmployeeIds = employeeIds;
+        if (excludeIds.length > 0) {
+          filteredEmployeeIds = employeeIds.filter(empId => {
+            const empIdStr = empId.toString();
+            return !excludeIds.includes(empIdStr);
+          });
+        }
+        
+        // Send notification to each employee sequentially to ensure they're all created
+        for (const employeeId of filteredEmployeeIds) {
+          await this.sendNotificationToEmployee(employeeId, type, message);
+        }
+      } catch (error) {
+        console.error('[Notification] Error sending notifications to roles:', error);
+        // Don't throw - notifications are non-critical
+      }
+    }
+
+    /**
+     * Send notification when change request is created
+     */
+    private async notifyChangeRequestCreated(
+      requestNumber: string,
+      requestType: StructureRequestType,
+      requesterId: Types.ObjectId,
+    ): Promise<void> {
+      try {
+        // Ensure requesterId is ObjectId
+        let requesterObjectId: Types.ObjectId;
+        if (requesterId instanceof Types.ObjectId) {
+          requesterObjectId = requesterId;
+        } else if (Types.ObjectId.isValid(requesterId)) {
+          requesterObjectId = new Types.ObjectId(requesterId);
+        } else {
+          console.error('[Notification] Invalid requester ID format:', requesterId);
+          return;
+        }
+        
+        // Get all SYSTEM_ADMIN users
+        const systemAdminIds = await this.getEmployeeIdsByRoles([SystemRole.SYSTEM_ADMIN]);
+        
+        if (systemAdminIds.length === 0) {
+          console.warn('[Notification] No SYSTEM_ADMIN users found');
+          return;
+        }
+        
+        // Filter out the requester (if they happen to be a SYSTEM_ADMIN)
+        const requesterIdStr = requesterObjectId.toString();
+        const adminIdsToNotify = systemAdminIds.filter(adminId => {
+          return adminId.toString() !== requesterIdStr;
+        });
+        
+        // Send notification to each SYSTEM_ADMIN (excluding requester)
+        const message = `New change request ${requestNumber} (${requestType}) has been submitted and requires your review.`;
+        
+        for (const adminId of adminIdsToNotify) {
+          await this.sendNotificationToEmployee(adminId, 'org_structure_change_request_created', message);
+        }
+      } catch (error) {
+        console.error('[Notification] Error sending change request created notification:', error);
+        // Don't throw - notifications are non-critical
+      }
+    }
+
+    /**
+     * Send notification when change request is approved
+     */
+    private async notifyChangeRequestApproved(
+      requestNumber: string,
+      requestType: StructureRequestType,
+      requesterId: Types.ObjectId,
+      approverComments?: string,
+    ): Promise<void> {
+      try {
+        // Ensure requesterId is ObjectId
+        const requesterObjectId = requesterId instanceof Types.ObjectId 
+          ? requesterId 
+          : (Types.ObjectId.isValid(requesterId) ? new Types.ObjectId(requesterId) : requesterId);
+        
+        if (!(requesterObjectId instanceof Types.ObjectId)) {
+          console.error('[Notification] Invalid requester ID format:', requesterId);
+          return;
+        }
+        
+        // Notify the requester (HR_MANAGER or HR_ADMIN who created the request)
+        const requesterMessage = `Your change request ${requestNumber} (${requestType}) has been approved${approverComments ? ` with comments: ${approverComments}` : ''}.`;
+        await this.sendNotificationToEmployee(
+          requesterObjectId,
+          'org_structure_change_request_approved',
+          requesterMessage,
+        );
+      } catch (error) {
+        console.error('[Notification] Error sending change request approved notification:', error);
+        // Don't throw - notifications are non-critical
+      }
+    }
+
+    /**
+     * Log a change to the audit trail
+     */
+    private async logChange(
+      action: ChangeLogAction,
+      entityType: 'Department' | 'Position',
+      entityId: Types.ObjectId,
+      userId: string,
+      beforeSnapshot?: Record<string, unknown>,
+      afterSnapshot?: Record<string, unknown>,
+      summary?: string,
+    ): Promise<void> {
+      try {
+        const entityName = entityType === 'Department' ? 'Department' : 'Position';
+        const defaultSummary = summary || `${action} ${entityName} ${entityId}`;
+        
+        const logData: any = {
+          action,
+          entityType,
+          entityId,
+          beforeSnapshot,
+          afterSnapshot,
+          summary: defaultSummary,
+        };
+
+        // Only add performedByEmployeeId if userId is valid
+        if (userId && Types.ObjectId.isValid(userId)) {
+          logData.performedByEmployeeId = new Types.ObjectId(userId);
+        }
+
+        console.log('[ChangeLog] Attempting to create log with data:', {
+          action,
+          entityType,
+          entityId: entityId?.toString(),
+          userId,
+          hasModel: !!this.changeLogModel,
+          logData: JSON.stringify(logData, null, 2),
+        });
+        
+        if (!this.changeLogModel) {
+          throw new Error('changeLogModel is not available');
+        }
+        
+        // Use insertOne directly to ensure it works - bypass Mongoose validation
+        console.log('[ChangeLog] Collection name:', this.changeLogModel.collection.name);
+        
+        const insertDoc: any = {
+          action: logData.action,
+          entityType: logData.entityType,
+          entityId: logData.entityId,
+          beforeSnapshot: logData.beforeSnapshot || {},
+          afterSnapshot: logData.afterSnapshot || {},
+          summary: logData.summary,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        
+        if (logData.performedByEmployeeId) {
+          insertDoc.performedByEmployeeId = logData.performedByEmployeeId;
+        }
+        
+        console.log('[ChangeLog] Inserting document:', JSON.stringify(insertDoc, null, 2));
+        
+        const result = await this.changeLogModel.collection.insertOne(insertDoc);
+        
+        console.log('[ChangeLog] Insert result:', {
+          insertedId: result.insertedId?.toString(),
+          acknowledged: result.acknowledged,
+        });
+        
+        // Verify it was saved
+        const verifyLog = await this.changeLogModel.findById(result.insertedId);
+        if (!verifyLog) {
+          throw new Error('Log was created but could not be retrieved');
+        }
+        
+        console.log('[ChangeLog] ✅ Successfully logged and verified change:', {
+          logId: result.insertedId?.toString(),
+          action,
+          entityType,
+          entityId: entityId?.toString(),
+          userId,
+          summary: defaultSummary,
+          createdAt: verifyLog.createdAt,
+        });
+      } catch (error: any) {
+        console.error('[ChangeLog] ❌ CRITICAL ERROR recording change:', error);
+        console.error('[ChangeLog] Error details:', {
+          action,
+          entityType,
+          entityId: entityId?.toString(),
+          userId,
+          errorMessage: error?.message || String(error),
+          errorStack: error?.stack,
+          errorName: error?.name,
+          logData: JSON.stringify(logData, null, 2),
+        });
+        // Don't throw - logging is non-critical, but log the error
+        // The error will be visible in console
+      }
+    }
+
+    /**
+     * Notify HR_MANAGER and HR_ADMIN about structural changes
+     */
+    private async notifyHRTeamAboutStructuralChange(
+      action: string,
+      entityType: 'Department' | 'Position',
+      entityName: string,
+      entityCode?: string,
+    ): Promise<void> {
+      try {
+        const message = `${entityType} ${entityCode ? `"${entityCode}"` : entityName} has been ${action}.`;
+        
+        await this.sendNotificationToRoles(
+          [SystemRole.HR_ADMIN, SystemRole.HR_MANAGER],
+          'org_structure_change',
+          message,
+        );
+      } catch (error) {
+        console.error('[Notification] Error sending structural change notification:', error);
+        // Don't throw - notifications are non-critical
+      }
+    }
+
+    /**
+     * Send notification when change request is rejected
+     */
+    private async notifyChangeRequestRejected(
+      requestNumber: string,
+      requestType: StructureRequestType,
+      requesterId: Types.ObjectId,
+      rejectionReason: string,
+    ): Promise<void> {
+      try {
+        // Ensure requesterId is ObjectId
+        const requesterObjectId = requesterId instanceof Types.ObjectId 
+          ? requesterId 
+          : (Types.ObjectId.isValid(requesterId) ? new Types.ObjectId(requesterId) : requesterId);
+        
+        if (!(requesterObjectId instanceof Types.ObjectId)) {
+          console.error('[Notification] Invalid requester ID format:', requesterId);
+          return;
+        }
+        
+        // Notify the requester (HR_MANAGER or HR_ADMIN who created the request)
+        const requesterMessage = `Your change request ${requestNumber} (${requestType}) has been rejected. Reason: ${rejectionReason}`;
+        await this.sendNotificationToEmployee(
+          requesterObjectId,
+          'org_structure_change_request_rejected',
+          requesterMessage,
+        );
+      } catch (error) {
+        console.error('[Notification] Error sending change request rejected notification:', error);
+        // Don't throw - notifications are non-critical
+      }
+    }
+
+    /**
+     * Get audit logs (change history) with filtering and pagination
+     */
+    async getChangeLogs(query: {
+      page?: number;
+      limit?: number;
+      action?: ChangeLogAction;
+      entityType?: 'Department' | 'Position';
+      entityId?: string;
+      performedBy?: string;
+      startDate?: Date;
+      endDate?: Date;
+    }): Promise<{
+      data: StructureChangeLogDocument[];
+      total: number;
+      page: number;
+      totalPages: number;
+    }> {
+      const page = query.page || 1;
+      const limit = query.limit || 20;
+      const skip = (page - 1) * limit;
+
+      // Build filter
+      const filter: any = {};
+
+      if (query.action) {
+        filter.action = query.action;
+      }
+
+      if (query.entityType) {
+        filter.entityType = query.entityType;
+      }
+
+      if (query.entityId) {
+        filter.entityId = Types.ObjectId.isValid(query.entityId)
+          ? new Types.ObjectId(query.entityId)
+          : query.entityId;
+      }
+
+      if (query.performedBy) {
+        filter.performedByEmployeeId = Types.ObjectId.isValid(query.performedBy)
+          ? new Types.ObjectId(query.performedBy)
+          : query.performedBy;
+      }
+
+      if (query.startDate || query.endDate) {
+        filter.createdAt = {};
+        if (query.startDate) {
+          filter.createdAt.$gte = query.startDate;
+        }
+        if (query.endDate) {
+          filter.createdAt.$lte = query.endDate;
+        }
+      }
+
+      // Fetch logs with pagination
+      console.log('[ChangeLog] Fetching logs with filter:', JSON.stringify(filter, null, 2));
+      console.log('[ChangeLog] Query params:', { page, limit, skip });
+      
+      // First check total count without filter
+      const totalWithoutFilter = await this.changeLogModel.countDocuments({}).exec();
+      console.log('[ChangeLog] Total logs in database (no filter):', totalWithoutFilter);
+      
+      const [data, total] = await Promise.all([
+        this.changeLogModel
+          .find(filter)
+          .sort({ createdAt: -1 }) // Newest first
+          .skip(skip)
+          .limit(limit)
+          .populate({
+            path: 'performedByEmployeeId',
+            model: 'EmployeeProfile',
+            select: 'firstName lastName email',
+          })
+          .exec(),
+        this.changeLogModel.countDocuments(filter).exec(),
+      ]);
+
+      console.log('[ChangeLog] Query results:', {
+        count: data.length,
+        total,
+        page,
+        totalPages: Math.ceil(total / limit),
+        sampleLog: data.length > 0 ? {
+          _id: data[0]._id?.toString(),
+          action: data[0].action,
+          entityType: data[0].entityType,
+          entityId: data[0].entityId?.toString(),
+          createdAt: data[0].createdAt,
+        } : null,
+      });
+
+      // Convert to plain objects for JSON serialization
+      const plainData = data.map((doc: any) => {
+        const performedBy = doc.performedByEmployeeId;
+        let performedByEmployeeId: string | undefined;
+        let performedByEmployee: any = undefined;
+
+        if (performedBy) {
+          if (typeof performedBy === 'object' && !(performedBy instanceof Types.ObjectId)) {
+            // Populated employee
+            performedByEmployeeId = performedBy._id?.toString() || performedBy.toString();
+            performedByEmployee = {
+              firstName: performedBy.firstName || '',
+              lastName: performedBy.lastName || '',
+              email: performedBy.email || '',
+            };
+          } else {
+            // Just ObjectId
+            performedByEmployeeId = performedBy.toString();
+          }
+        }
+
+        return {
+          _id: doc._id?.toString() || '',
+          action: doc.action || '',
+          entityType: doc.entityType || '',
+          entityId: doc.entityId?.toString() || '',
+          performedByEmployeeId,
+          performedByEmployee,
+          summary: doc.summary || '',
+          beforeSnapshot: doc.beforeSnapshot || {},
+          afterSnapshot: doc.afterSnapshot || {},
+          createdAt: doc.createdAt 
+            ? (doc.createdAt instanceof Date 
+                ? doc.createdAt.toISOString() 
+                : new Date(doc.createdAt).toISOString())
+            : new Date().toISOString(),
+          updatedAt: doc.updatedAt 
+            ? (doc.updatedAt instanceof Date 
+                ? doc.updatedAt.toISOString() 
+                : new Date(doc.updatedAt).toISOString())
+            : new Date().toISOString(),
+        };
+      });
+
+      return {
+        data: plainData as any,
+        total,
+        page,
+        totalPages: Math.ceil(total / limit),
+      };
+    }
+
+    /**
+     * Get notifications for a specific employee
+     */
+    async getNotificationsForEmployee(employeeId: string | Types.ObjectId): Promise<any[]> {
+      // Convert to ObjectId
+      let employeeObjectId: Types.ObjectId;
+      
+      if (employeeId instanceof Types.ObjectId) {
+        employeeObjectId = employeeId;
+      } else if (typeof employeeId === 'string' && Types.ObjectId.isValid(employeeId)) {
+        employeeObjectId = new Types.ObjectId(employeeId);
+      } else {
+        return [];
+      }
+      
+      // Query - MongoDB will match ObjectId correctly
+      const notifications = await this.notificationLogModel
+        .find({ to: employeeObjectId })
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .lean()
+        .exec();
+      
+      return notifications.map((n: any) => ({
+        _id: n._id,
+        to: n.to,
+        type: n.type,
+        message: n.message,
+        createdAt: n.createdAt,
+        updatedAt: n.updatedAt,
+      }));
+    }
+
+    /**
+     * Create a test notification for debugging
+     */
+    async createTestNotification(employeeId: string): Promise<any> {
+      const employeeObjectId = new Types.ObjectId(employeeId);
+      
+      const testNotification = await this.notificationLogModel.create({
+        to: employeeObjectId,
+        type: 'test_notification',
+        message: `Test notification created at ${new Date().toISOString()}`,
+      });
+      
+      console.log('[Notification] Test notification created:', {
+        notificationId: testNotification._id,
+        to: testNotification.to,
+        type: testNotification.type,
+        message: testNotification.message,
+      });
+      
+      return testNotification;
+    }
+
+    /**
+     * Debug method to check notifications and SYSTEM_ADMIN users
+     */
+    async debugNotifications(): Promise<any> {
+      // Get all SYSTEM_ADMIN users
+      const systemAdmins = await this.employeeSystemRoleModel
+        .find({ 
+          roles: { $in: [SystemRole.SYSTEM_ADMIN] }, 
+          isActive: true 
+        })
+        .populate('employeeProfileId', 'firstName lastName workEmail employeeNumber')
+        .lean()
+        .exec();
+
+      // Get all notifications
+      const allNotifications = await this.notificationLogModel
+        .find({})
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .populate('to', 'firstName lastName workEmail employeeNumber')
+        .lean()
+        .exec();
+
+      // Get notifications for each SYSTEM_ADMIN
+      const adminNotifications = await Promise.all(
+        systemAdmins.map(async (admin: any) => {
+          const adminId = admin.employeeProfileId?._id || admin.employeeProfileId;
+          const notifications = await this.notificationLogModel
+            .find({ to: adminId })
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .lean()
+            .exec();
+          return {
+            admin: {
+              id: adminId,
+              name: admin.employeeProfileId?.firstName + ' ' + admin.employeeProfileId?.lastName,
+              email: admin.employeeProfileId?.workEmail,
+            },
+            notificationCount: notifications.length,
+            notifications: notifications.map((n: any) => ({
+              id: n._id,
+              type: n.type,
+              message: n.message,
+              createdAt: n.createdAt,
+            })),
+          };
+        })
+      );
+
+      return {
+        systemAdmins: systemAdmins.map((admin: any) => ({
+          id: admin.employeeProfileId?._id || admin.employeeProfileId,
+          name: admin.employeeProfileId?.firstName + ' ' + admin.employeeProfileId?.lastName,
+          email: admin.employeeProfileId?.workEmail,
+          employeeNumber: admin.employeeProfileId?.employeeNumber,
+        })),
+        totalNotifications: allNotifications.length,
+        recentNotifications: allNotifications.slice(0, 10).map((n: any) => ({
+          id: n._id,
+          to: n.to?._id || n.to,
+          toName: n.to?.firstName + ' ' + n.to?.lastName,
+          type: n.type,
+          message: n.message,
+          createdAt: n.createdAt,
+        })),
+        adminNotifications,
+      };
     }
   }
 }
