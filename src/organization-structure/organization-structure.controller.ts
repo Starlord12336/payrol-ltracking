@@ -901,4 +901,34 @@ export class OrganizationStructureController {
     );
     res.send(csv);
   }
+
+  /**
+   * Check if an employee is a department head based on their position
+   * GET /organization-structure/employees/:employeeId/is-department-head
+   */
+  @Get('employees/:employeeId/is-department-head')
+  @UseGuards(JwtAuthGuard)
+  async checkIsDepartmentHead(@Param('employeeId') employeeId: string) {
+    const isDepartmentHead =
+      await this.orgStructureService.isEmployeeDepartmentHead(employeeId);
+    return {
+      success: true,
+      isDepartmentHead,
+    };
+  }
+
+  /**
+   * Sync roles for an employee based on their position and department
+   * POST /organization-structure/employees/:employeeId/sync-roles
+   */
+  @Post('employees/:employeeId/sync-roles')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  async syncEmployeeRoles(@Param('employeeId') employeeId: string) {
+    await this.orgStructureService.syncEmployeeRoles(employeeId);
+    return {
+      success: true,
+      message: 'Employee roles synced successfully',
+    };
+  }
 }

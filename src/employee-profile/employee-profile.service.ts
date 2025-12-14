@@ -35,6 +35,7 @@ import { ReviewChangeRequestDto } from './dto/review-change-request.dto';
 import { SearchEmployeeProfilesDto } from './dto/search-employee-profiles.dto';
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
 import { UpdateEmployeeProfileAsHrDto } from './dto/update-employee-profile-as-hr.dto';
+import { OrganizationStructureService } from '../organization-structure/organization-structure.service';
 
 @Injectable()
 export class EmployeeProfileService {
@@ -54,6 +55,8 @@ export class EmployeeProfileService {
     private readonly roleModel: Model<EmployeeSystemRoleDocument>,
 
     @InjectConnection() private connection: Connection,
+
+    private readonly orgStructureService: OrganizationStructureService,
   ) {
     // Initialize GridFS bucket for profile pictures
     // This creates collections: profile_pictures.files and profile_pictures.chunks
@@ -214,6 +217,49 @@ export class EmployeeProfileService {
     if (dto.contractType)
       andConditions.push({ contractType: dto.contractType });
     if (dto.workType) andConditions.push({ workType: dto.workType });
+
+    // --- Department filter ---
+    if (dto.departmentId) {
+      andConditions.push({
+        primaryDepartmentId: new Types.ObjectId(dto.departmentId),
+      });
+    }
+
+    // --- Position filter ---
+    if (dto.positionId) {
+      andConditions.push({
+        primaryPositionId: new Types.ObjectId(dto.positionId),
+      });
+    }
+
+    // --- Pay Grade filter ---
+    if (dto.payGradeId) {
+      andConditions.push({ payGradeId: new Types.ObjectId(dto.payGradeId) });
+    }
+
+    // --- Email filters ---
+    if (dto.personalEmail) {
+      orConditions.push({
+        personalEmail: { $regex: dto.personalEmail, $options: 'i' },
+      });
+    }
+    if (dto.workEmail) {
+      orConditions.push({
+        workEmail: { $regex: dto.workEmail, $options: 'i' },
+      });
+    }
+
+    // --- Phone filters ---
+    if (dto.mobilePhone) {
+      orConditions.push({
+        mobilePhone: { $regex: dto.mobilePhone, $options: 'i' },
+      });
+    }
+    if (dto.homePhone) {
+      orConditions.push({
+        homePhone: { $regex: dto.homePhone, $options: 'i' },
+      });
+    }
 
     // --- Filter building ---
     const filter: any = {};
@@ -882,6 +928,14 @@ export class EmployeeProfileService {
 
     if (!updated) {
       throw new NotFoundException('Employee profile not found');
+    }
+
+    // Sync roles if position or department was updated
+    if (dto.primaryPositionId !== undefined || dto.primaryDepartmentId !== undefined) {
+      // Run role sync asynchronously to avoid blocking the response
+      this.orgStructureService.syncEmployeeRoles(profileId).catch((error) => {
+        console.error('Error syncing employee roles after profile update:', error);
+      });
     }
 
     return updated;

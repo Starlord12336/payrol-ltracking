@@ -27,6 +27,15 @@
     PositionAssignmentDocument,
   } from './models/position-assignment.schema';
   import {
+    EmployeeProfile,
+    EmployeeProfileDocument,
+  } from '../employee-profile/models/employee-profile.schema';
+  import {
+    EmployeeSystemRole,
+    EmployeeSystemRoleDocument,
+  } from '../employee-profile/models/employee-system-role.schema';
+  import { SystemRole } from '../employee-profile/enums/employee-profile.enums';
+  import {
     CreateDepartmentDto,
     UpdateDepartmentDto,
     QueryDepartmentDto,
@@ -64,6 +73,10 @@
       private changeLogModel: Model<StructureChangeLogDocument>,
       @InjectModel(PositionAssignment.name)
       private positionAssignmentModel: Model<PositionAssignmentDocument>,
+      @InjectModel(EmployeeProfile.name)
+      private employeeModel: Model<EmployeeProfileDocument>,
+      @InjectModel(EmployeeSystemRole.name)
+      private employeeSystemRoleModel: Model<EmployeeSystemRoleDocument>,
     ) {}
 
     // =====================================
@@ -307,12 +320,95 @@
         await this.validatePositionExists(positionId);
       }
 
+      // Get the old head position before updating
+      const oldHeadPositionId = department.headPositionId?.toString();
+
       const departmentDoc = department as DepartmentDocument;
       departmentDoc.headPositionId = positionId
         ? (new Types.ObjectId(positionId) as any)
         : undefined;
 
-      return departmentDoc.save();
+      const savedDepartment = await departmentDoc.save();
+
+      // Sync roles: Remove DEPARTMENT_HEAD role from employees with old position
+      if (oldHeadPositionId && oldHeadPositionId !== positionId) {
+        await this.removeDepartmentHeadRoleFromPosition(oldHeadPositionId);
+      }
+
+      // Sync roles: Add DEPARTMENT_HEAD role to employees with new position
+      if (positionId) {
+        await this.addDepartmentHeadRoleToPosition(positionId);
+        // Also sync DEPARTMENT_EMPLOYEE role for employees with this position
+        await this.syncEmployeeRolesForPosition(positionId);
+      }
+
+      return savedDepartment;
+    }
+
+    /**
+     * Add DEPARTMENT_HEAD role to all employees with the given position
+     */
+    private async addDepartmentHeadRoleToPosition(
+      positionId: string,
+    ): Promise<void> {
+      // Find all employees with this position as their primaryPositionId
+      const employees = await this.employeeModel
+        .find({ primaryPositionId: new Types.ObjectId(positionId) })
+        .select('_id')
+        .lean()
+        .exec();
+
+      for (const employee of employees) {
+        // Get or create EmployeeSystemRole for this employee
+        let systemRole = await this.employeeSystemRoleModel
+          .findOne({ employeeProfileId: employee._id, isActive: true })
+          .exec();
+
+        if (!systemRole) {
+          // Create new EmployeeSystemRole if it doesn't exist
+          systemRole = new this.employeeSystemRoleModel({
+            employeeProfileId: employee._id,
+            roles: [],
+            permissions: [],
+            isActive: true,
+          });
+        }
+
+        // Add DEPARTMENT_HEAD role if not already present
+        if (!systemRole.roles.includes(SystemRole.DEPARTMENT_HEAD)) {
+          systemRole.roles.push(SystemRole.DEPARTMENT_HEAD);
+          await systemRole.save();
+        }
+      }
+    }
+
+    /**
+     * Remove DEPARTMENT_HEAD role from all employees with the given position
+     */
+    private async removeDepartmentHeadRoleFromPosition(
+      positionId: string,
+    ): Promise<void> {
+      // Find all employees with this position as their primaryPositionId
+      const employees = await this.employeeModel
+        .find({ primaryPositionId: new Types.ObjectId(positionId) })
+        .select('_id')
+        .lean()
+        .exec();
+
+      for (const employee of employees) {
+        // Get EmployeeSystemRole for this employee
+        const systemRole = await this.employeeSystemRoleModel
+          .findOne({ employeeProfileId: employee._id, isActive: true })
+          .exec();
+
+        if (systemRole && systemRole.roles.includes(SystemRole.DEPARTMENT_HEAD)) {
+          // Remove DEPARTMENT_HEAD role
+          systemRole.roles = systemRole.roles.filter(
+            (role) => role !== SystemRole.DEPARTMENT_HEAD,
+          );
+          await systemRole.save();
+        }
+      }
     }
 
     // =====================================
@@ -1515,4 +1611,167 @@
 
       return `${prefix}${sequence.toString().padStart(4, '0')}`;
     }
+
+  /**
+   * Check if an employee is a department head based on their primaryPositionId
+   * matching any department's headPositionId
+   */
+  async isEmployeeDepartmentHead(employeeId: string): Promise<boolean> {
+    try {
+      const employee = await this.employeeModel
+        .findById(employeeId)
+        .select('primaryPositionId primaryDepartmentId')
+        .lean()
+        .exec();
+
+      if (!employee || !employee.primaryPositionId) {
+        return false;
+      }
+
+      // Check if the employee's primaryPositionId matches any department's headPositionId
+      const department = await this.departmentModel
+        .findOne({
+          headPositionId: employee.primaryPositionId,
+          isActive: true,
+        })
+        .lean()
+        .exec();
+
+      return !!department;
+    } catch (error) {
+      return false;
+    }
   }
+
+  /**
+   * Sync roles for an employee based on their position and department
+   * This should be called whenever an employee's primaryPositionId or primaryDepartmentId is updated
+   */
+  async syncEmployeeRoles(employeeId: string): Promise<void> {
+    try {
+      const employee = await this.employeeModel
+        .findById(employeeId)
+        .select('primaryPositionId primaryDepartmentId')
+        .lean()
+        .exec();
+
+      if (!employee) {
+        return;
+      }
+
+      // Get or create EmployeeSystemRole for this employee
+      let systemRole = await this.employeeSystemRoleModel
+        .findOne({ employeeProfileId: new Types.ObjectId(employeeId), isActive: true })
+        .exec();
+
+      if (!systemRole) {
+        systemRole = new this.employeeSystemRoleModel({
+          employeeProfileId: new Types.ObjectId(employeeId),
+          roles: [],
+          permissions: [],
+          isActive: true,
+        });
+      }
+
+      const rolesToAdd: SystemRole[] = [];
+      const rolesToRemove: SystemRole[] = [];
+
+      // Check if employee is a department head
+      if (employee.primaryPositionId) {
+        const isDepartmentHead = await this.isPositionDepartmentHead(
+          employee.primaryPositionId.toString(),
+        );
+        if (isDepartmentHead) {
+          if (!systemRole.roles.includes(SystemRole.DEPARTMENT_HEAD)) {
+            rolesToAdd.push(SystemRole.DEPARTMENT_HEAD);
+          }
+        } else {
+          // Remove DEPARTMENT_HEAD if they're no longer a head
+          if (systemRole.roles.includes(SystemRole.DEPARTMENT_HEAD)) {
+            rolesToRemove.push(SystemRole.DEPARTMENT_HEAD);
+          }
+        }
+      } else {
+        // Remove DEPARTMENT_HEAD if they don't have a position
+        if (systemRole.roles.includes(SystemRole.DEPARTMENT_HEAD)) {
+          rolesToRemove.push(SystemRole.DEPARTMENT_HEAD);
+        }
+      }
+
+      // Check if employee is assigned to a department (has primaryDepartmentId or primaryPositionId)
+      // DEPARTMENT_EMPLOYEE role should be kept if they have ANY department/position assignment
+      // This role is NOT mutually exclusive with DEPARTMENT_HEAD - someone can be both
+      // (e.g., head in one department, employee in another, or just associated with departments)
+      if (employee.primaryDepartmentId || employee.primaryPositionId) {
+        if (!systemRole.roles.includes(SystemRole.DEPARTMENT_EMPLOYEE)) {
+          rolesToAdd.push(SystemRole.DEPARTMENT_EMPLOYEE);
+        }
+        // Don't remove DEPARTMENT_EMPLOYEE even if they become a head - they're still an employee
+      } else {
+        // Only remove DEPARTMENT_EMPLOYEE if they have NO department or position assignment
+        if (systemRole.roles.includes(SystemRole.DEPARTMENT_EMPLOYEE)) {
+          rolesToRemove.push(SystemRole.DEPARTMENT_EMPLOYEE);
+        }
+      }
+
+      // Apply role changes
+      if (rolesToAdd.length > 0 || rolesToRemove.length > 0) {
+        // Add new roles
+        for (const role of rolesToAdd) {
+          if (!systemRole.roles.includes(role)) {
+            systemRole.roles.push(role);
+          }
+        }
+
+        // Remove roles
+        systemRole.roles = systemRole.roles.filter(
+          (role) => !rolesToRemove.includes(role),
+        );
+
+        await systemRole.save();
+      }
+    } catch (error) {
+      console.error('Error syncing employee roles:', error);
+      // Don't throw - this is a background sync operation
+    }
+  }
+
+  /**
+   * Check if a position is a department head position
+   */
+  private async isPositionDepartmentHead(positionId: string): Promise<boolean> {
+    try {
+      const department = await this.departmentModel
+        .findOne({
+          headPositionId: new Types.ObjectId(positionId),
+          isActive: true,
+        })
+        .lean()
+        .exec();
+
+      return !!department;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Sync roles for all employees with a given position
+   * Used when a position becomes a department head or when department head is removed
+   */
+  private async syncEmployeeRolesForPosition(positionId: string): Promise<void> {
+    try {
+      const employees = await this.employeeModel
+        .find({ primaryPositionId: new Types.ObjectId(positionId) })
+        .select('_id')
+        .lean()
+        .exec();
+
+      for (const employee of employees) {
+        await this.syncEmployeeRoles(employee._id.toString());
+      }
+    } catch (error) {
+      console.error('Error syncing roles for position:', error);
+    }
+  }
+}

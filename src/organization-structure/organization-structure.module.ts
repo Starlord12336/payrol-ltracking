@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from '../auth/auth.module';
 
@@ -21,6 +21,14 @@ import {
   PositionAssignment,
   PositionAssignmentSchema,
 } from './models/position-assignment.schema';
+import {
+  EmployeeProfile,
+  EmployeeProfileSchema,
+} from '../employee-profile/models/employee-profile.schema';
+import {
+  EmployeeSystemRole,
+  EmployeeSystemRoleSchema,
+} from '../employee-profile/models/employee-system-role.schema';
 
 // Controllers
 import { OrganizationStructureController } from './organization-structure.controller';
@@ -30,7 +38,7 @@ import { OrganizationStructureService } from './organization-structure.service';
 
 @Module({
   imports: [
-    AuthModule, // Import AuthModule to use JwtAuthGuard and RolesGuard
+    forwardRef(() => AuthModule), // Use forwardRef to break circular dependency
     MongooseModule.forFeature([
       // Organization Structure schemas
       { name: Department.name, schema: DepartmentSchema },
@@ -42,6 +50,8 @@ import { OrganizationStructureService } from './organization-structure.service';
       { name: StructureApproval.name, schema: StructureApprovalSchema },
       { name: StructureChangeLog.name, schema: StructureChangeLogSchema },
       { name: PositionAssignment.name, schema: PositionAssignmentSchema },
+      { name: EmployeeProfile.name, schema: EmployeeProfileSchema },
+      { name: EmployeeSystemRole.name, schema: EmployeeSystemRoleSchema },
     ]),
   ],
   controllers: [OrganizationStructureController],

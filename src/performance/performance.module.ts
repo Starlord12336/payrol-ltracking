@@ -37,6 +37,10 @@ import {
   Position,
   PositionSchema,
 } from '../organization-structure/models/position.schema';
+import {
+  NotificationLog,
+  NotificationLogSchema,
+} from '../time-management/models/notification-log.schema';
 
 @Module({
   imports: [
@@ -52,6 +56,7 @@ import {
       { name: EmployeeProfile.name, schema: EmployeeProfileSchema },
       { name: Department.name, schema: DepartmentSchema },
       { name: Position.name, schema: PositionSchema },
+      { name: NotificationLog.name, schema: NotificationLogSchema },
     ]),
   ],
   controllers: [PerformanceController],

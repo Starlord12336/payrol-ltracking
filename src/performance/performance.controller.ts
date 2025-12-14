@@ -12,7 +12,9 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { PerformanceService } from './performance.service';
 import { CreateAppraisalTemplateDto } from './dto/create-appraisal-template.dto';
 import { UpdateAppraisalTemplateDto } from './dto/update-appraisal-template.dto';
@@ -31,6 +33,19 @@ import { UpdatePerformanceFeedbackDto } from './dto/update-performance-feedback.
 import { CreateAppraisalAssignmentDto } from './dto/create-appraisal-assignment.dto';
 import { BulkAssignTemplateDto } from './dto/create-appraisal-assignment.dto';
 import { UpdateAppraisalAssignmentDto } from './dto/update-appraisal-assignment.dto';
+import { ExportAppraisalSummaryDto } from './dto/export-appraisal-summary.dto';
+import { ExportOutcomeReportDto } from './dto/export-outcome-report.dto';
+import { FlagHighPerformerDto } from './dto/flag-high-performer.dto';
+import { CreatePerformanceImprovementPlanDto } from './dto/create-performance-improvement-plan.dto';
+import { UpdatePerformanceImprovementPlanDto } from './dto/update-performance-improvement-plan.dto';
+import {
+  CreateVisibilityRuleDto,
+  UpdateVisibilityRuleDto,
+} from './dto/visibility-rule.dto';
+import {
+  CreateOneOnOneMeetingDto,
+  UpdateOneOnOneMeetingDto,
+} from './dto/one-on-one-meeting.dto';
 import { AppraisalCycleStatus } from './enums/performance.enums';
 import { AppraisalDisputeStatus } from './enums/performance.enums';
 import { JwtAuthGuard, RolesGuard, Roles } from '../auth';
@@ -199,6 +214,59 @@ export class PerformanceController {
     return this.performanceService.getCycleProgress(id);
   }
 
+  /**
+   * Export appraisal summaries
+   * GET /performance/export/summaries
+   * REQ-AE-11: HR Employee exports ad-hoc appraisal summaries
+   */
+  @Get('export/summaries')
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.HR_EMPLOYEE, SystemRole.SYSTEM_ADMIN)
+  async exportAppraisalSummaries(
+    @Query() query: ExportAppraisalSummaryDto,
+    @Res() res: Response,
+  ) {
+    const { data, filename, contentType } =
+      await this.performanceService.exportAppraisalSummaries(
+        query.cycleId,
+        query.departmentId,
+        query.employeeId,
+        query.format || 'csv',
+        query.status,
+      );
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(data);
+  }
+
+  /**
+   * Generate outcome report
+   * GET /performance/export/outcome-report
+   * REQ-OD-06: HR Employee generates outcome reports
+   */
+  @Get('export/outcome-report')
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.HR_EMPLOYEE, SystemRole.SYSTEM_ADMIN)
+  async generateOutcomeReport(
+    @Query() query: ExportOutcomeReportDto,
+    @Res() res: Response,
+  ) {
+    const { data, filename, contentType } =
+      await this.performanceService.generateOutcomeReport(
+        query.cycleId,
+        query.departmentId,
+        query.format || 'csv',
+        query.includeHighPerformers === 'true' || query.includeHighPerformers === undefined,
+        query.includePIPs === 'true' || query.includePIPs === undefined,
+        query.includeDisputes === 'true' || query.includeDisputes === undefined,
+      );
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(data);
+  }
+
   // ==================== APPRAISAL ASSIGNMENT ENDPOINTS ====================
 
   /**
@@ -255,11 +323,12 @@ export class PerformanceController {
   /**
    * Get all assignments with optional filters
    * GET /performance/assignments?cycleId=xxx&templateId=xxx&employeeProfileId=xxx&managerProfileId=xxx&departmentId=xxx&status=xxx
-   * Roles: HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   * REQ-PP-05: HR Employee assigns appraisal forms/templates
+   * Roles: HR_EMPLOYEE, HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
    */
   @Get('assignments')
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
   async findAllAssignments(
     @Query('cycleId') cycleId?: string,
     @Query('templateId') templateId?: string,
@@ -290,12 +359,13 @@ export class PerformanceController {
   /**
    * Manually assign template to employee(s)
    * POST /performance/assignments
-   * Roles: HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   * REQ-PP-05: HR Employee assigns appraisal forms/templates to employees and managers
+   * Roles: HR_EMPLOYEE, HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
    */
   @Post('assignments')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
   async assignTemplateToEmployees(@Body() createDto: CreateAppraisalAssignmentDto) {
     return this.performanceService.assignTemplateToEmployees(createDto);
   }
@@ -303,12 +373,13 @@ export class PerformanceController {
   /**
    * Bulk assign template to departments, positions, or employees
    * POST /performance/assignments/bulk
-   * Roles: HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   * REQ-PP-05: HR Employee assigns appraisal forms/templates to employees and managers
+   * Roles: HR_EMPLOYEE, HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
    */
   @Post('assignments/bulk')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
   async bulkAssignTemplate(@Body() bulkDto: BulkAssignTemplateDto) {
     return this.performanceService.bulkAssignTemplate(bulkDto);
   }
@@ -316,11 +387,12 @@ export class PerformanceController {
   /**
    * Update an assignment
    * PUT /performance/assignments/:id
-   * Roles: HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   * REQ-PP-05: HR Employee assigns appraisal forms/templates
+   * Roles: HR_EMPLOYEE, HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
    */
   @Put('assignments/:id')
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
   async updateAssignment(
     @Param('id') id: string,
     @Body() updateDto: UpdateAppraisalAssignmentDto,
@@ -331,12 +403,13 @@ export class PerformanceController {
   /**
    * Remove an assignment
    * DELETE /performance/assignments/:id
-   * Roles: HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   * REQ-PP-05: HR Employee assigns appraisal forms/templates
+   * Roles: HR_EMPLOYEE, HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
    */
   @Delete('assignments/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
   async removeAssignment(@Param('id') id: string) {
     await this.performanceService.removeAssignment(id);
   }
@@ -430,7 +503,8 @@ export class PerformanceController {
   /**
    * Create a dispute for an appraisal evaluation
    * POST /performance/disputes
-   * Roles: EMPLOYEE, DEPARTMENT_MANAGER, HR_MANAGER, HR_ADMIN
+   * Roles: EMPLOYEE, DEPARTMENT_MANAGER, HR_MANAGER, HR_ADMIN, HR_EMPLOYEE
+   * REQ-AE-07: Employee or HR Employee flags or raises a concern about a rating
    */
   @Post('disputes')
   @HttpCode(HttpStatus.CREATED)
@@ -440,6 +514,7 @@ export class PerformanceController {
     SystemRole.DEPARTMENT_HEAD,
     SystemRole.HR_MANAGER,
     SystemRole.HR_ADMIN,
+    SystemRole.HR_EMPLOYEE,
     SystemRole.SYSTEM_ADMIN,
   )
   async createDispute(
@@ -650,9 +725,371 @@ export class PerformanceController {
   /**
    * Get performance history for an employee
    * GET /performance/employees/:employeeId/history
+   * REQ-OD-08: Employee / Line Manager access past appraisal history
+   * Authorization: Employee can see own history, Manager can see direct reports, HR/Admin can see any
    */
   @Get('employees/:employeeId/history')
-  async getEmployeePerformanceHistory(@Param('employeeId') employeeId: string) {
-    return this.performanceService.getEmployeePerformanceHistory(employeeId);
+  @UseGuards(RolesGuard)
+  async getEmployeePerformanceHistory(
+    @Param('employeeId') employeeId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.performanceService.getEmployeePerformanceHistory(
+      employeeId,
+      user.userid?.toString(),
+      user.roles || [],
+    );
+  }
+
+  // ==================== HIGH-PERFORMER FLAGGING ENDPOINTS ====================
+  // Note: Uses existing AppraisalRecord fields (managerSummary, strengths) to store flags
+
+  /**
+   * Flag an employee as a high-performer
+   * POST /performance/high-performers/flag
+   */
+  @Post('high-performers/flag')
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(RolesGuard)
+  @Roles(
+    SystemRole.DEPARTMENT_HEAD,
+    SystemRole.HR_MANAGER,
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+  )
+  async flagHighPerformer(
+    @CurrentUser() user: any,
+    @Body() flagDto: FlagHighPerformerDto,
+  ) {
+    const managerId = user.userid || user._id;
+    return this.performanceService.flagHighPerformer(
+      flagDto.appraisalRecordId,
+      managerId,
+      {
+        isHighPerformer: flagDto.isHighPerformer ?? true,
+        notes: flagDto.notes,
+        promotionRecommendation: flagDto.promotionRecommendation,
+      },
+    );
+  }
+
+  /**
+   * Unflag a high-performer
+   * POST /performance/high-performers/unflag/:appraisalRecordId
+   */
+  @Post('high-performers/unflag/:appraisalRecordId')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles(
+    SystemRole.DEPARTMENT_HEAD,
+    SystemRole.HR_MANAGER,
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+  )
+  async unflagHighPerformer(
+    @CurrentUser() user: any,
+    @Param('appraisalRecordId') appraisalRecordId: string,
+  ) {
+    const managerId = user.userid || user._id;
+    await this.performanceService.unflagHighPerformer(
+      appraisalRecordId,
+      managerId,
+    );
+    return { message: 'High-performer flag removed successfully' };
+  }
+
+  /**
+   * Get high-performer flag for an appraisal
+   * GET /performance/high-performers/flag/:appraisalRecordId
+   */
+  @Get('high-performers/flag/:appraisalRecordId')
+  async getHighPerformerFlag(
+    @Param('appraisalRecordId') appraisalRecordId: string,
+  ) {
+    return this.performanceService.getHighPerformerFlag(appraisalRecordId);
+  }
+
+  /**
+   * Get all high-performers flagged by a manager
+   * GET /performance/high-performers/manager/:managerId
+   */
+  @Get('high-performers/manager/:managerId')
+  @UseGuards(RolesGuard)
+  @Roles(
+    SystemRole.DEPARTMENT_HEAD,
+    SystemRole.HR_MANAGER,
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+  )
+  async getHighPerformersByManager(@Param('managerId') managerId: string) {
+    return this.performanceService.getHighPerformersByManager(managerId);
+  }
+
+  /**
+   * Get all high-performers (HR/Admin view)
+   * GET /performance/high-performers
+   */
+  @Get('high-performers')
+  @UseGuards(RolesGuard)
+  @Roles(
+    SystemRole.HR_MANAGER,
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+  )
+  async getAllHighPerformers() {
+    return this.performanceService.getAllHighPerformers();
+  }
+
+  // ==================== PERFORMANCE IMPROVEMENT PLAN (PIP) ENDPOINTS ====================
+  // REQ-OD-05: Line Manager initiates Performance Improvement Plans
+  // Note: PIP data is stored in existing AppraisalRecord fields using special markers
+
+  /**
+   * Create a Performance Improvement Plan
+   * POST /performance/improvement-plans
+   * REQ-OD-05: Line Manager initiates PIPs
+   * Roles: DEPARTMENT_HEAD, HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   */
+  @Post('improvement-plans')
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(RolesGuard)
+  @Roles(
+    SystemRole.DEPARTMENT_HEAD,
+    SystemRole.HR_MANAGER,
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+  )
+  async createPerformanceImprovementPlan(
+    @CurrentUser() user: any,
+    @Body() createDto: CreatePerformanceImprovementPlanDto,
+  ) {
+    const managerId = user.userid || user._id;
+    return this.performanceService.createPerformanceImprovementPlan(managerId, createDto);
+  }
+
+  /**
+   * Get all PIPs for an employee
+   * GET /performance/employees/:employeeId/improvement-plans
+   */
+  @Get('employees/:employeeId/improvement-plans')
+  async getPIPsByEmployee(@Param('employeeId') employeeId: string) {
+    return this.performanceService.getPIPsByEmployee(employeeId);
+  }
+
+  /**
+   * Get all PIPs created by a manager
+   * GET /performance/managers/:managerId/improvement-plans
+   * REQ-OD-05: Line Manager initiates PIPs
+   * Roles: DEPARTMENT_HEAD, HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   */
+  @Get('managers/:managerId/improvement-plans')
+  @UseGuards(RolesGuard)
+  @Roles(
+    SystemRole.DEPARTMENT_HEAD,
+    SystemRole.HR_MANAGER,
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+  )
+  async getPIPsByManager(@Param('managerId') managerId: string) {
+    return this.performanceService.getPIPsByManager(managerId);
+  }
+
+  /**
+   * Get all PIPs (HR/Admin view)
+   * GET /performance/improvement-plans?status=ACTIVE
+   * Roles: HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   */
+  @Get('improvement-plans')
+  @UseGuards(RolesGuard)
+  @Roles(
+    SystemRole.HR_MANAGER,
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+  )
+  async getAllPIPs(@Query('status') status?: string) {
+    return this.performanceService.getAllPIPs(status);
+  }
+
+  /**
+   * Get a single PIP by appraisal record ID
+   * GET /performance/improvement-plans/appraisal/:appraisalRecordId
+   */
+  @Get('improvement-plans/appraisal/:appraisalRecordId')
+  async getPIPByAppraisalId(@Param('appraisalRecordId') appraisalRecordId: string) {
+    return this.performanceService.getPIPByAppraisalId(appraisalRecordId);
+  }
+
+  /**
+   * Update a PIP
+   * PUT /performance/improvement-plans/appraisal/:appraisalRecordId
+   * REQ-OD-05: Line Manager initiates PIPs
+   * Roles: DEPARTMENT_HEAD, HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   */
+  @Put('improvement-plans/appraisal/:appraisalRecordId')
+  @UseGuards(RolesGuard)
+  @Roles(
+    SystemRole.DEPARTMENT_HEAD,
+    SystemRole.HR_MANAGER,
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+  )
+  async updatePIP(
+    @CurrentUser() user: any,
+    @Param('appraisalRecordId') appraisalRecordId: string,
+    @Body() updateDto: UpdatePerformanceImprovementPlanDto,
+  ) {
+    const managerId = user.userid || user._id;
+    return this.performanceService.updatePIP(appraisalRecordId, managerId, updateDto);
+  }
+
+  /**
+   * Delete a PIP
+   * DELETE /performance/improvement-plans/appraisal/:appraisalRecordId
+   * REQ-OD-05: Line Manager initiates PIPs
+   * Roles: DEPARTMENT_HEAD, HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   */
+  @Delete('improvement-plans/appraisal/:appraisalRecordId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(RolesGuard)
+  @Roles(
+    SystemRole.DEPARTMENT_HEAD,
+    SystemRole.HR_MANAGER,
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+  )
+  async deletePIP(
+    @CurrentUser() user: any,
+    @Param('appraisalRecordId') appraisalRecordId: string,
+  ) {
+    const managerId = user.userid || user._id;
+    await this.performanceService.deletePIP(appraisalRecordId, managerId);
+  }
+
+  /**
+   * REQ-OD-16: System Admin configures visibility rules
+   * Roles: SYSTEM_ADMIN only
+   */
+
+  @Get('visibility-rules')
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.SYSTEM_ADMIN)
+  async getAllVisibilityRules() {
+    return this.performanceService.getAllVisibilityRules();
+  }
+
+  @Get('visibility-rules/active')
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.SYSTEM_ADMIN)
+  async getActiveVisibilityRules() {
+    return this.performanceService.getActiveVisibilityRules();
+  }
+
+  @Get('visibility-rules/:id')
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.SYSTEM_ADMIN)
+  async getVisibilityRuleById(@Param('id') id: string) {
+    return this.performanceService.getVisibilityRuleById(id);
+  }
+
+  @Post('visibility-rules')
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.SYSTEM_ADMIN)
+  async createVisibilityRule(@Body() createDto: CreateVisibilityRuleDto) {
+    return this.performanceService.createVisibilityRule(createDto);
+  }
+
+  @Put('visibility-rules/:id')
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.SYSTEM_ADMIN)
+  async updateVisibilityRule(
+    @Param('id') id: string,
+    @Body() updateDto: UpdateVisibilityRuleDto,
+  ) {
+    return this.performanceService.updateVisibilityRule(id, updateDto);
+  }
+
+  @Delete('visibility-rules/:id')
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.SYSTEM_ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteVisibilityRule(@Param('id') id: string) {
+    await this.performanceService.deleteVisibilityRule(id);
+  }
+
+  /**
+   * REQ-OD-14: Line Manager schedules 1-on-1 meetings
+   * Roles: DEPARTMENT_HEAD (Line Manager)
+   */
+
+  @Post('meetings')
+  @UseGuards(JwtAuthGuard)
+  async createOneOnOneMeeting(
+    @CurrentUser() user: any,
+    @Body() createDto: CreateOneOnOneMeetingDto,
+  ) {
+    const managerId = user.userid || user._id;
+    // Service will check if manager is department head by position
+    return this.performanceService.createOneOnOneMeeting(managerId, createDto);
+  }
+
+  @Get('managers/:managerId/meetings')
+  @UseGuards(JwtAuthGuard)
+  async getMeetingsByManager(@Param('managerId') managerId: string) {
+    // Service will check if manager is department head by position
+    return this.performanceService.getMeetingsByManager(managerId);
+  }
+
+  @Get('employees/:employeeId/meetings')
+  @UseGuards(RolesGuard)
+  @Roles(
+    SystemRole.DEPARTMENT_EMPLOYEE,
+    SystemRole.DEPARTMENT_HEAD,
+    SystemRole.HR_MANAGER,
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+  )
+  async getMeetingsByEmployee(@Param('employeeId') employeeId: string) {
+    return this.performanceService.getMeetingsByEmployee(employeeId);
+  }
+
+  @Get('meetings/:id')
+  @UseGuards(RolesGuard)
+  @Roles(
+    SystemRole.DEPARTMENT_HEAD,
+    SystemRole.DEPARTMENT_EMPLOYEE,
+    SystemRole.HR_MANAGER,
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+  )
+  async getMeetingById(@Param('id') id: string) {
+    return this.performanceService.getMeetingById(id);
+  }
+
+  @Put('meetings/:id')
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.DEPARTMENT_HEAD)
+  async updateOneOnOneMeeting(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() updateDto: UpdateOneOnOneMeetingDto,
+  ) {
+    const managerId = user.userid || user._id;
+    return this.performanceService.updateOneOnOneMeeting(
+      id,
+      managerId,
+      updateDto,
+    );
+  }
+
+  @Delete('meetings/:id')
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.DEPARTMENT_HEAD)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteOneOnOneMeeting(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+  ) {
+    const managerId = user.userid || user._id;
+    await this.performanceService.deleteOneOnOneMeeting(id, managerId);
   }
 }

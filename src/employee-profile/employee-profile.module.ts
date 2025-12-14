@@ -1,6 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from '../auth/auth.module';
+import { OrganizationStructureModule } from '../organization-structure/organization-structure.module';
 import { EmployeeProfileController } from './employee-profile.controller';
 import { EmployeeProfileService } from './employee-profile.service';
 import { Candidate, CandidateSchema } from './models/candidate.schema';
@@ -34,6 +35,7 @@ import {
       { name: EmployeeQualification.name, schema: EmployeeQualificationSchema },
     ]),
     forwardRef(() => AuthModule), // Use forwardRef to break circular dependency
+    forwardRef(() => OrganizationStructureModule), // Use forwardRef to break circular dependency
   ],
   controllers: [EmployeeProfileController],
   providers: [EmployeeProfileService],

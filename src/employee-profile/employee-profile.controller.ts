@@ -336,8 +336,56 @@ export class EmployeeProfileController {
   @Get('search')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
-  async searchProfiles(@Query() query: SearchEmployeeProfilesDto) {
+  @Roles(
+    SystemRole.HR_MANAGER,
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+    SystemRole.HR_EMPLOYEE,
+  )
+  async searchProfiles(
+    @Query() query: SearchEmployeeProfilesDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    // For HR Employees, restrict search to their own department only
+    const userRoles = user.roles || [];
+    const isHrEmployee =
+      userRoles.includes(SystemRole.HR_EMPLOYEE) &&
+      !userRoles.includes(SystemRole.HR_MANAGER) &&
+      !userRoles.includes(SystemRole.HR_ADMIN) &&
+      !userRoles.includes(SystemRole.SYSTEM_ADMIN);
+
+    if (isHrEmployee) {
+      // HR Employees should always be employees, not candidates
+      if (user.userType === 'candidate') {
+        return {
+          success: true,
+          message: 'Candidates cannot search employees.',
+          data: [],
+        };
+      }
+
+      // Get the HR Employee's profile to find their department
+      const employeeProfile =
+        await this.employeeProfileService.getMyProfile(
+          user.userid.toString(),
+          'employee', // Force employee type for HR Employees
+        );
+
+      // Type assertion: HR Employees are always EmployeeProfile, not Candidate
+      const profile = employeeProfile as any;
+
+      if (!profile.primaryDepartmentId) {
+        return {
+          success: true,
+          message: 'No department assigned. Cannot search employees.',
+          data: [],
+        };
+      }
+
+      // Force the search to only include their department
+      query.departmentId = profile.primaryDepartmentId.toString();
+    }
+
     const results = await this.employeeProfileService.searchProfiles(query);
 
     return {
