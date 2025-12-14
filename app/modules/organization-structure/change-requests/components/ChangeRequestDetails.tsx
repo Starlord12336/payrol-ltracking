@@ -155,13 +155,11 @@ export function ChangeRequestDetails({
   };
 
   const userRoles = user?.roles || [];
-  const canReview = userRoles.includes(SystemRole.HR_ADMIN) ||
-    userRoles.includes(SystemRole.HR_MANAGER) ||
-    userRoles.includes(SystemRole.SYSTEM_ADMIN);
+  // Only SYSTEM_ADMIN can approve/reject change requests
+  const canApproveReject = request.status === 'SUBMITTED' && userRoles.includes(SystemRole.SYSTEM_ADMIN);
   const canEdit = request.status === 'DRAFT';
   const canSubmit = request.status === 'DRAFT';
   const canCancel = request.status === 'DRAFT' || request.status === 'SUBMITTED';
-  const canApproveReject = request.status === 'SUBMITTED' && canReview;
 
   // Parse details if it's JSON (for NEW_DEPARTMENT and NEW_POSITION)
   let parsedDetails: any = null;

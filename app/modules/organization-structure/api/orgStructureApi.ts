@@ -26,7 +26,10 @@ import type {
   ChangeRequestsListResponse,
   OrgChartResponse,
   SimplifiedOrgChartResponse,
+  ChangeLog,
+  ChangeLogsListResponse,
 } from '../types';
+import { ChangeLogAction } from '../types';
 
 /**
  * Create a new department
@@ -495,5 +498,35 @@ export async function exportOrgChartCsv(departmentId?: string): Promise<void> {
   link.click();
   document.body.removeChild(link);
   window.URL.revokeObjectURL(url_blob);
+}
+
+/**
+ * Get audit logs (change history)
+ */
+export async function getAuditLogs(params?: {
+  page?: number;
+  limit?: number;
+  action?: ChangeLogAction;
+  entityType?: 'Department' | 'Position';
+  entityId?: string;
+  performedBy?: string;
+  startDate?: string;
+  endDate?: string;
+}): Promise<ChangeLogsListResponse> {
+  const queryParams = new URLSearchParams();
+  
+  if (params?.page) queryParams.append('page', params.page.toString());
+  if (params?.limit) queryParams.append('limit', params.limit.toString());
+  if (params?.action) queryParams.append('action', params.action);
+  if (params?.entityType) queryParams.append('entityType', params.entityType);
+  if (params?.entityId) queryParams.append('entityId', params.entityId);
+  if (params?.performedBy) queryParams.append('performedBy', params.performedBy);
+  if (params?.startDate) queryParams.append('startDate', params.startDate);
+  if (params?.endDate) queryParams.append('endDate', params.endDate);
+
+  const response = await apiClient.get<ChangeLogsListResponse>(
+    `${API_ENDPOINTS.ORGANIZATION_STRUCTURE}/audit-logs?${queryParams.toString()}`
+  );
+  return response.data;
 }
 

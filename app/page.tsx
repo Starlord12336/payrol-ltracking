@@ -197,7 +197,8 @@ export default function Home() {
       userRoles.includes(SystemRole.HR_ADMIN) ||
       userRoles.includes(SystemRole.HR_MANAGER) ||
       userRoles.includes(SystemRole.SYSTEM_ADMIN) ||
-      userRoles.includes(SystemRole.DEPARTMENT_HEAD);
+      userRoles.includes(SystemRole.DEPARTMENT_HEAD) ||
+      userRoles.includes(SystemRole.DEPARTMENT_EMPLOYEE);
 
     if (canAccessOrgStructure) {
       actions.push({
@@ -209,6 +210,7 @@ export default function Home() {
           SystemRole.HR_MANAGER,
           SystemRole.SYSTEM_ADMIN,
           SystemRole.DEPARTMENT_HEAD,
+          SystemRole.DEPARTMENT_EMPLOYEE,
         ],
       });
     }

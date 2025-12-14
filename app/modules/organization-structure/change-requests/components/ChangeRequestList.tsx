@@ -39,6 +39,8 @@ export function ChangeRequestList({ onRefresh }: ChangeRequestListProps) {
       const params: any = {
         page,
         limit: 10,
+        sortBy: 'createdAt',
+        sortOrder: 'desc', // Newest first
       };
       
       if (statusFilter !== 'ALL') {
@@ -54,8 +56,27 @@ export function ChangeRequestList({ onRefresh }: ChangeRequestListProps) {
       }
       
       const response = await getChangeRequests(params);
-      setRequests(response.data);
-      setTotalPages(response.totalPages);
+      console.log('Change requests API response:', response);
+      console.log('Change requests data:', response.data);
+      console.log('Change requests data length:', response.data?.length);
+      console.log('Total pages:', response.totalPages);
+      console.log('Total requests:', response.total);
+      console.log('Current page:', response.page);
+      console.log('Status filter:', statusFilter);
+      console.log('Type filter:', typeFilter);
+      // Log all request IDs and numbers to see what we got
+      if (response.data && response.data.length > 0) {
+        console.log('All request IDs:', response.data.map((r: any) => r._id));
+        console.log('All request numbers:', response.data.map((r: any) => r.requestNumber));
+        console.log('All request statuses:', response.data.map((r: any) => r.status));
+        console.log('First request in list:', response.data[0]);
+        console.log('First request ID:', response.data[0]._id);
+        console.log('First request number:', response.data[0].requestNumber);
+        console.log('First request status:', response.data[0].status);
+        console.log('First request createdAt:', response.data[0].createdAt);
+      }
+      setRequests(response.data || []);
+      setTotalPages(response.totalPages || 1);
     } catch (err: any) {
       console.error('Error fetching change requests:', err);
       setError(err.response?.data?.message || 'Failed to load change requests');
@@ -68,9 +89,42 @@ export function ChangeRequestList({ onRefresh }: ChangeRequestListProps) {
     fetchRequests();
   }, [fetchRequests]);
 
-  const handleCreateSuccess = () => {
+  const handleCreateSuccess = async () => {
     setShowCreateModal(false);
-    fetchRequests();
+    // Reset to page 1 to see the newly created request
+    setPage(1);
+    // Small delay to ensure backend has processed the request
+    await new Promise(resolve => setTimeout(resolve, 500));
+    // Force refresh with page 1
+    const params: any = {
+      page: 1,
+      limit: 10,
+      sortBy: 'createdAt',
+      sortOrder: 'desc', // Newest first
+    };
+    
+    if (statusFilter !== 'ALL') {
+      params.status = statusFilter;
+    }
+    
+    if (typeFilter !== 'ALL') {
+      params.requestType = typeFilter;
+    }
+    
+    if (searchQuery.trim()) {
+      params.requestNumber = searchQuery.trim().toUpperCase();
+    }
+    
+    try {
+      const response = await getChangeRequests(params);
+      console.log('Refresh after create - Change requests API response:', response);
+      console.log('Refresh after create - Change requests data:', response.data);
+      setRequests(response.data || []);
+      setTotalPages(response.totalPages || 1);
+    } catch (err: any) {
+      console.error('Error refreshing change requests:', err);
+    }
+    
     if (onRefresh) onRefresh();
   };
 

@@ -246,3 +246,38 @@ export interface SimplifiedOrgChartResponse {
     departments: SimplifiedDepartmentChart[];
   };
 }
+
+// Audit Log Types
+export enum ChangeLogAction {
+  CREATED = 'CREATED',
+  UPDATED = 'UPDATED',
+  DEACTIVATED = 'DEACTIVATED',
+  REASSIGNED = 'REASSIGNED',
+}
+
+export interface ChangeLog {
+  _id: string;
+  action: ChangeLogAction;
+  entityType: 'Department' | 'Position';
+  entityId: string;
+  performedByEmployeeId?: string;
+  performedByEmployee?: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+  };
+  summary?: string;
+  beforeSnapshot?: Record<string, unknown>;
+  afterSnapshot?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChangeLogsListResponse {
+  success: boolean;
+  message: string;
+  data: ChangeLog[];
+  total: number;
+  page: number;
+  totalPages: number;
+}

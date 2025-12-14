@@ -14,6 +14,7 @@ import styles from './NotificationDropdown.module.css';
 interface NotificationDropdownProps {
   pendingAcknowledgments: number;
   newAssignments: number;
+  backendNotifications?: any[];
   onClose: () => void;
   onRefresh: () => void;
 }
@@ -21,6 +22,7 @@ interface NotificationDropdownProps {
 export default function NotificationDropdown({
   pendingAcknowledgments,
   newAssignments,
+  backendNotifications = [],
   onClose,
   onRefresh,
 }: NotificationDropdownProps) {
@@ -38,7 +40,7 @@ export default function NotificationDropdown({
     onRefresh();
   };
 
-  const hasAnyNotifications = notifications.length > 0 || pendingAcknowledgments > 0 || newAssignments > 0;
+  const hasAnyNotifications = notifications.length > 0 || pendingAcknowledgments > 0 || newAssignments > 0 || backendNotifications.length > 0;
 
   return (
     <div className={styles.dropdown} onClick={(e) => e.stopPropagation()}>
@@ -96,6 +98,33 @@ export default function NotificationDropdown({
                   </div>
                   <div className={styles.notificationAction}>Click to view →</div>
                 </div>
+              </div>
+            )}
+
+            {/* Backend Notifications */}
+            {backendNotifications.length > 0 && (
+              <div className={styles.section}>
+                <div className={styles.sectionTitle}>System Notifications</div>
+                {backendNotifications.slice(0, 10).map((notification: any) => (
+                  <div key={notification._id || notification.id} className={styles.notificationItem}>
+                    <div className={styles.notificationIcon}>
+                      {notification.type?.includes('approved') && '✓'}
+                      {notification.type?.includes('rejected') && '✕'}
+                      {notification.type?.includes('created') && '📢'}
+                      {!notification.type?.includes('approved') && !notification.type?.includes('rejected') && !notification.type?.includes('created') && 'ℹ'}
+                    </div>
+                    <div className={styles.notificationContent}>
+                      <div className={styles.notificationMessage}>{notification.message}</div>
+                      <div className={styles.notificationTime}>
+                        {notification.createdAt 
+                          ? new Date(notification.createdAt).toLocaleString()
+                          : notification.timestamp
+                          ? new Date(notification.timestamp).toLocaleString()
+                          : 'Just now'}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 

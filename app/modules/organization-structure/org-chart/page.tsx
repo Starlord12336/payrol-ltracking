@@ -37,7 +37,14 @@ function OrgChartContent() {
   const canAccessOrgStructure =
     userRoles.includes(SystemRole.HR_ADMIN) ||
     userRoles.includes(SystemRole.HR_MANAGER) ||
-    userRoles.includes(SystemRole.SYSTEM_ADMIN);
+    userRoles.includes(SystemRole.SYSTEM_ADMIN) ||
+    userRoles.includes(SystemRole.DEPARTMENT_EMPLOYEE) ||
+    userRoles.includes(SystemRole.DEPARTMENT_HEAD);
+  
+  // Employees and Managers have read-only access
+  const isReadOnly = !userRoles.includes(SystemRole.SYSTEM_ADMIN) && 
+                     !userRoles.includes(SystemRole.HR_ADMIN) && 
+                     !userRoles.includes(SystemRole.HR_MANAGER);
 
   // Fetch departments for dropdown
   useEffect(() => {
@@ -140,7 +147,6 @@ function OrgChartContent() {
           <div className={styles.emptyStateContent}>
             <h2>Access Denied</h2>
             <p>You don&apos;t have permission to access the Organization Chart.</p>
-            <p>Required roles: HR Admin, HR Manager, or System Admin</p>
           </div>
         </Card>
       </div>

@@ -13,9 +13,10 @@ import styles from './DepartmentList.module.css';
 interface DepartmentListProps {
   departments: Department[];
   onRefresh: () => void;
+  isReadOnly?: boolean; // If true, hide edit/delete/add buttons
 }
 
-export function DepartmentList({ departments, onRefresh }: DepartmentListProps) {
+export function DepartmentList({ departments, onRefresh, isReadOnly = false }: DepartmentListProps) {
   const [expandedDepartments, setExpandedDepartments] = useState<Set<string>>(new Set());
   const [selectedDepartmentForPosition, setSelectedDepartmentForPosition] = useState<{ id: string; name: string } | null>(null);
   const [selectedDepartmentForEdit, setSelectedDepartmentForEdit] = useState<Department | null>(null);
@@ -368,28 +369,32 @@ export function DepartmentList({ departments, onRefresh }: DepartmentListProps) 
                 </div>
               </div>
               <div className={styles.departmentActions}>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => handleAddPosition(department._id, department.name)}
-                >
-                  + Add Position
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleEditDepartment(department)}
-                >
-                  Edit
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setDepartmentToDelete(department)}
-                  className={styles.deleteButton}
-                >
-                  Delete
-                </Button>
+                {!isReadOnly && (
+                  <>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handleAddPosition(department._id, department.name)}
+                    >
+                      + Add Position
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEditDepartment(department)}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDepartmentToDelete(department)}
+                      className={styles.deleteButton}
+                    >
+                      Delete
+                    </Button>
+                  </>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -404,13 +409,15 @@ export function DepartmentList({ departments, onRefresh }: DepartmentListProps) 
               <div className={styles.positionsSection}>
                 <div className={styles.positionsHeader}>
                   <h4>Positions</h4>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => handleAddPosition(department._id, department.name)}
-                  >
-                    + Add Position
-                  </Button>
+                  {!isReadOnly && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handleAddPosition(department._id, department.name)}
+                    >
+                      + Add Position
+                    </Button>
+                  )}
                 </div>
                 <div className={styles.positionsList}>
                   {loadingPositions[department._id] ? (
@@ -420,6 +427,7 @@ export function DepartmentList({ departments, onRefresh }: DepartmentListProps) 
                       positions={positionsByDepartment[department._id]}
                       headPositionId={department.headPositionId || null}
                       departmentId={department._id}
+                      isReadOnly={isReadOnly}
                       onUpdate={async () => {
                         // Refresh positions after tree update
                         try {
@@ -448,8 +456,8 @@ export function DepartmentList({ departments, onRefresh }: DepartmentListProps) 
                         // Refresh departments to get updated head position
                         onRefresh();
                       }}
-                      onEdit={(position) => handleEditPosition(position, department.name)}
-                      onDelete={(position) => setPositionToDelete({ position, departmentId: department._id })}
+                      onEdit={!isReadOnly ? ((position) => handleEditPosition(position, department.name)) : undefined}
+                      onDelete={!isReadOnly ? ((position) => setPositionToDelete({ position, departmentId: department._id })) : undefined}
                     />
                   ) : (
                     <p className={styles.emptyPositions}>

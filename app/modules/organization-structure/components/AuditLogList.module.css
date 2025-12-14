@@ -1,0 +1,185 @@
+.container {
+  width: 100%;
+}
+
+.header {
+  margin-bottom: 1.5rem;
+}
+
+.header h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.header p {
+  margin: 0;
+  color: #666;
+  font-size: 0.875rem;
+}
+
+.filters {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.filterGroup label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #666;
+}
+
+.filterSelect,
+.searchInput {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  min-width: 150px;
+}
+
+.searchInput {
+  min-width: 200px;
+}
+
+.loading,
+.error,
+.emptyState {
+  text-align: center;
+  padding: 2rem;
+}
+
+.error {
+  color: #dc3545;
+}
+
+.emptyState h3 {
+  margin: 0 0 0.5rem 0;
+  color: #666;
+}
+
+.emptyState p {
+  margin: 0;
+  color: #999;
+}
+
+.tableContainer {
+  overflow-x: auto;
+  margin-bottom: 1.5rem;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.table thead {
+  background: #f8f9fa;
+}
+
+.table th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #495057;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.table td {
+  padding: 1rem;
+  border-bottom: 1px solid #e9ecef;
+  font-size: 0.875rem;
+}
+
+.table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.actionBadge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badgeCreated {
+  background: #d4edda;
+  color: #155724;
+}
+
+.badgeUpdated {
+  background: #cce5ff;
+  color: #004085;
+}
+
+.badgeDeactivated {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.badgeReassigned {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.entityType {
+  font-weight: 500;
+  color: #495057;
+}
+
+.summary {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dateCell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.relativeTime {
+  font-weight: 500;
+  color: #495057;
+}
+
+.fullDate {
+  font-size: 0.75rem;
+  color: #6c757d;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.pageInfo {
+  font-size: 0.875rem;
+  color: #666;
+}
+

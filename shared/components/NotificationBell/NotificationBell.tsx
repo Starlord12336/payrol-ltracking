@@ -10,6 +10,7 @@ import { useNotificationContext } from '../../contexts/NotificationContext';
 import { useAuth } from '../../hooks/useAuth';
 import { performanceApi } from '@/app/modules/performance/api/performanceApi';
 import { AppraisalAssignmentStatus } from '@/app/modules/performance/types';
+import { apiClient } from '../../utils/api';
 import NotificationDropdown from './NotificationDropdown';
 import styles from './NotificationBell.module.css';
 
@@ -19,8 +20,30 @@ export default function NotificationBell() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [pendingAcknowledgments, setPendingAcknowledgments] = useState(0);
   const [newAssignments, setNewAssignments] = useState(0);
+  const [backendNotifications, setBackendNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Fetch backend notifications
+  const fetchBackendNotifications = useCallback(async () => {
+    if (!user?.userid) {
+      console.log('[NotificationBell] No user ID, skipping fetch');
+      setBackendNotifications([]);
+      return;
+    }
+
+    try {
+      console.log('[NotificationBell] Fetching notifications for user:', user.userid);
+      const response = await apiClient.get('/organization-structure/notifications');
+      const notifications = response.data || [];
+      console.log('[NotificationBell] Received notifications:', notifications.length, notifications);
+      setBackendNotifications(notifications);
+    } catch (error) {
+      // Silently fail - don't show error to user
+      console.error('[NotificationBell] Error fetching backend notifications:', error);
+      setBackendNotifications([]);
+    }
+  }, [user]);
 
   // Check for pending acknowledgments
   const checkPendingAcknowledgments = useCallback(async () => {
@@ -79,14 +102,24 @@ export default function NotificationBell() {
 
   // Check on mount and when user changes
   useEffect(() => {
-    if (user?.userType === 'employee') {
-      checkPendingAcknowledgments();
+    if (user) {
+      // Only check performance acknowledgments for employees
+      if (user.userType === 'employee') {
+        checkPendingAcknowledgments();
+      }
+      // Always fetch backend notifications for all users
+      fetchBackendNotifications();
       
       // Refresh every 30 seconds
-      const interval = setInterval(checkPendingAcknowledgments, 30000);
+      const interval = setInterval(() => {
+        if (user.userType === 'employee') {
+          checkPendingAcknowledgments();
+        }
+        fetchBackendNotifications();
+      }, 30000);
       return () => clearInterval(interval);
     }
-  }, [user, checkPendingAcknowledgments]);
+  }, [user, checkPendingAcknowledgments, fetchBackendNotifications]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -104,8 +137,8 @@ export default function NotificationBell() {
     }
   }, [isDropdownOpen]);
 
-  // Total notification count (toast notifications + pending acknowledgments + new assignments)
-  const totalCount = notifications.length + pendingAcknowledgments + newAssignments;
+  // Total notification count (toast notifications + pending acknowledgments + new assignments + backend notifications)
+  const totalCount = notifications.length + pendingAcknowledgments + newAssignments + backendNotifications.length;
   const hasNotifications = totalCount > 0;
 
   const toggleDropdown = () => {
@@ -114,14 +147,17 @@ export default function NotificationBell() {
 
   const handleBellClick = () => {
     toggleDropdown();
-    // Refresh pending acknowledgments when opening
-    if (!isDropdownOpen && user?.userType === 'employee') {
-      checkPendingAcknowledgments();
+    // Refresh notifications when opening
+    if (!isDropdownOpen && user) {
+      if (user.userType === 'employee') {
+        checkPendingAcknowledgments();
+      }
+      fetchBackendNotifications();
     }
   };
 
-  // Don't show for non-employees
-  if (user?.userType !== 'employee') {
+  // Show for all authenticated users (employees, admins, managers, etc.)
+  if (!user) {
     return null;
   }
 
@@ -145,8 +181,12 @@ export default function NotificationBell() {
         <NotificationDropdown
           pendingAcknowledgments={pendingAcknowledgments}
           newAssignments={newAssignments}
+          backendNotifications={backendNotifications}
           onClose={() => setIsDropdownOpen(false)}
-          onRefresh={checkPendingAcknowledgments}
+          onRefresh={() => {
+            checkPendingAcknowledgments();
+            fetchBackendNotifications();
+          }}
         />
       )}
     </div>

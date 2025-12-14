@@ -90,13 +90,14 @@ export function Navbar() {
       userRoles.includes(SystemRole.HR_ADMIN) ||
       userRoles.includes(SystemRole.HR_MANAGER) ||
       userRoles.includes(SystemRole.SYSTEM_ADMIN) ||
-      userRoles.includes(SystemRole.DEPARTMENT_HEAD);
+      userRoles.includes(SystemRole.DEPARTMENT_HEAD) ||
+      userRoles.includes(SystemRole.DEPARTMENT_EMPLOYEE);
 
     if (canAccessOrgStructure) {
       items.push({
         label: 'Organization',
         route: ROUTES.ORGANIZATION_STRUCTURE,
-        roles: [SystemRole.HR_ADMIN, SystemRole.HR_MANAGER, SystemRole.SYSTEM_ADMIN, SystemRole.DEPARTMENT_HEAD],
+        roles: [SystemRole.HR_ADMIN, SystemRole.HR_MANAGER, SystemRole.SYSTEM_ADMIN, SystemRole.DEPARTMENT_HEAD, SystemRole.DEPARTMENT_EMPLOYEE],
       });
     }
 

@@ -12,12 +12,13 @@ import styles from './page.module.css';
 import { CreateDepartmentForm } from './components/CreateDepartmentForm';
 import { DepartmentList } from './components/DepartmentList';
 import { ChangeRequestList } from './change-requests/components/ChangeRequestList';
+import { AuditLogList } from './components/AuditLogList';
 
 function OrganizationStructureContent() {
   // All hooks must be called at the top level, before any conditional returns
   const { user } = useAuth();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'departments' | 'change-requests'>('departments');
+  const [activeTab, setActiveTab] = useState<'departments' | 'change-requests' | 'audit-log'>('departments');
   const [departments, setDepartments] = useState<Department[]>([]);
   const [isLoadingDepartments, setIsLoadingDepartments] = useState(true);
   const [showAddDepartmentModal, setShowAddDepartmentModal] = useState(false);
@@ -29,7 +30,9 @@ function OrganizationStructureContent() {
     const canAccessOrgStructure = 
       userRoles.includes(SystemRole.HR_ADMIN) ||
       userRoles.includes(SystemRole.HR_MANAGER) ||
-      userRoles.includes(SystemRole.SYSTEM_ADMIN);
+      userRoles.includes(SystemRole.SYSTEM_ADMIN) ||
+      userRoles.includes(SystemRole.DEPARTMENT_EMPLOYEE) ||
+      userRoles.includes(SystemRole.DEPARTMENT_HEAD);
 
     if (canAccessOrgStructure && activeTab === 'departments') {
       const fetchDepartments = async () => {
@@ -54,7 +57,15 @@ function OrganizationStructureContent() {
   const canAccessOrgStructure = 
     userRoles.includes(SystemRole.HR_ADMIN) ||
     userRoles.includes(SystemRole.HR_MANAGER) ||
-    userRoles.includes(SystemRole.SYSTEM_ADMIN);
+    userRoles.includes(SystemRole.SYSTEM_ADMIN) ||
+    userRoles.includes(SystemRole.DEPARTMENT_EMPLOYEE) ||
+    userRoles.includes(SystemRole.DEPARTMENT_HEAD);
+  
+  // Only SYSTEM_ADMIN can create/edit/delete departments and positions
+  const isSystemAdmin = userRoles.includes(SystemRole.SYSTEM_ADMIN);
+  
+  // Employees and Managers have read-only access
+  const isReadOnly = !isSystemAdmin && !userRoles.includes(SystemRole.HR_ADMIN) && !userRoles.includes(SystemRole.HR_MANAGER);
 
   const handleDepartmentCreated = () => {
     setShowAddDepartmentModal(false);
@@ -69,7 +80,6 @@ function OrganizationStructureContent() {
           <div className={styles.emptyStateContent}>
             <h2>Access Denied</h2>
             <p>You don&apos;t have permission to access the Organization Structure module.</p>
-            <p>Required roles: HR Admin, HR Manager, or System Admin</p>
             <p>Your roles: {userRoles.length > 0 ? userRoles.join(', ') : 'None'}</p>
           </div>
         </Card>
@@ -78,7 +88,7 @@ function OrganizationStructureContent() {
           <div className={styles.header}>
             <div>
               <h1>Organization Structure</h1>
-              <p>Manage departments, positions, and change requests</p>
+              <p>{isReadOnly ? 'View departments, positions, and organizational structure' : 'Manage departments, positions, and change requests'}</p>
             </div>
             <div className={styles.headerActions}>
               <Button
@@ -88,7 +98,7 @@ function OrganizationStructureContent() {
               >
                 📊 View Org Chart
               </Button>
-              {activeTab === 'departments' && (
+              {activeTab === 'departments' && isSystemAdmin && !isReadOnly && (
                 <Button
                   variant="primary"
                   size="lg"
@@ -108,12 +118,22 @@ function OrganizationStructureContent() {
             >
               Departments
             </button>
-            <button
-              className={`${styles.tab} ${activeTab === 'change-requests' ? styles.tabActive : ''}`}
-              onClick={() => setActiveTab('change-requests')}
-            >
-              Change Requests
-            </button>
+            {!isReadOnly && (
+              <>
+                <button
+                  className={`${styles.tab} ${activeTab === 'change-requests' ? styles.tabActive : ''}`}
+                  onClick={() => setActiveTab('change-requests')}
+                >
+                  Change Requests
+                </button>
+                <button
+                  className={`${styles.tab} ${activeTab === 'audit-log' ? styles.tabActive : ''}`}
+                  onClick={() => setActiveTab('audit-log')}
+                >
+                  📋 Audit Log
+                </button>
+              </>
+            )}
           </div>
 
           {/* Tab Content */}
@@ -127,20 +147,27 @@ function OrganizationStructureContent() {
                 <Card padding="lg" className={styles.emptyState}>
                   <div className={styles.emptyStateContent}>
                     <h2>No departments yet</h2>
-                    <p>Get started by creating your first department</p>
-                    <Button
-                      variant="primary"
-                      size="lg"
-                      onClick={() => setShowAddDepartmentModal(true)}
-                    >
-                      Create First Department
-                    </Button>
+                    {isSystemAdmin ? (
+                      <>
+                        <p>Get started by creating your first department</p>
+                        <Button
+                          variant="primary"
+                          size="lg"
+                          onClick={() => setShowAddDepartmentModal(true)}
+                        >
+                          Create First Department
+                        </Button>
+                      </>
+                    ) : (
+                      <p>No departments available{isReadOnly ? '.' : '. Contact System Admin to create departments.'}</p>
+                    )}
                   </div>
                 </Card>
               ) : (
                 <DepartmentList
                   departments={departments}
                   onRefresh={() => setRefreshTrigger(prev => prev + 1)}
+                  isReadOnly={isReadOnly}
                 />
               )}
 
@@ -158,10 +185,32 @@ function OrganizationStructureContent() {
             </>
           )}
 
-          {activeTab === 'change-requests' && (
+          {activeTab === 'change-requests' && !isReadOnly && (
             <ChangeRequestList
               onRefresh={() => setRefreshTrigger(prev => prev + 1)}
             />
+          )}
+
+          {activeTab === 'change-requests' && isReadOnly && (
+            <Card padding="lg">
+              <div className={styles.emptyStateContent}>
+                <h2>Access Restricted</h2>
+                <p>Change requests are only available to HR and System Admin roles.</p>
+              </div>
+            </Card>
+          )}
+
+          {activeTab === 'audit-log' && !isReadOnly && (
+            <AuditLogList />
+          )}
+
+          {activeTab === 'audit-log' && isReadOnly && (
+            <Card padding="lg">
+              <div className={styles.emptyStateContent}>
+                <h2>Access Restricted</h2>
+                <p>Audit logs are only available to HR and System Admin roles.</p>
+              </div>
+            </Card>
           )}
         </>
       )}

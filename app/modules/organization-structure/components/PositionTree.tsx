@@ -13,6 +13,7 @@ interface PositionTreeProps {
   onEdit?: (position: Position) => void;
   onDelete?: (position: Position) => void;
   onHeadChanged?: (newHeadId: string | null) => void;
+  isReadOnly?: boolean; // If true, hide edit/delete buttons and disable drag-and-drop
 }
 
 interface HierarchyNode extends Position {
@@ -23,7 +24,7 @@ interface TreeNode extends Position {
   children: TreeNode[];
 }
 
-export function PositionTree({ positions, headPositionId, departmentId, onUpdate, onEdit, onDelete, onHeadChanged }: PositionTreeProps) {
+export function PositionTree({ positions, headPositionId, departmentId, onUpdate, onEdit, onDelete, onHeadChanged, isReadOnly = false }: PositionTreeProps) {
   const [draggedPosition, setDraggedPosition] = useState<string | null>(null);
   const [dragOverPosition, setDragOverPosition] = useState<string | null>(null);
   const [updating, setUpdating] = useState<Record<string, boolean>>({});
@@ -137,6 +138,10 @@ export function PositionTree({ positions, headPositionId, departmentId, onUpdate
   }, [positions, headPositionId, departmentId]);
 
   const handleDragStart = (e: React.DragEvent, positionId: string) => {
+    if (isReadOnly) {
+      e.preventDefault();
+      return;
+    }
     setDraggedPosition(positionId);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', positionId);
@@ -161,6 +166,11 @@ export function PositionTree({ positions, headPositionId, departmentId, onUpdate
   };
 
   const handleDrop = async (e: React.DragEvent, targetPositionId: string) => {
+    if (isReadOnly) {
+      e.preventDefault();
+      return;
+    }
+    
     e.preventDefault();
     e.stopPropagation();
     setDragOverPosition(null);
@@ -251,6 +261,11 @@ export function PositionTree({ positions, headPositionId, departmentId, onUpdate
   };
 
   const handleDropOnEmpty = async (e: React.DragEvent) => {
+    if (isReadOnly) {
+      e.preventDefault();
+      return;
+    }
+    
     e.preventDefault();
     setDragOverPosition(null);
 
@@ -294,14 +309,16 @@ export function PositionTree({ positions, headPositionId, departmentId, onUpdate
       <div key={nodeId} className={styles.treeNode}>
         <div
           className={`${styles.treeNodeContent} ${isHead ? styles.headNode : ''} ${isDragged ? styles.dragging : ''} ${isDragOver ? styles.dragOver : ''}`}
-          draggable={!isUpdating}
+          draggable={!isReadOnly && !isUpdating}
           onDragStart={(e) => {
-            e.stopPropagation();
-            handleDragStart(e, nodeId);
+            if (!isReadOnly) {
+              e.stopPropagation();
+              handleDragStart(e, nodeId);
+            }
           }}
           onDragOver={(e) => {
             // Always prevent default when dragging (required for drop to work)
-            if (draggedPosition) {
+            if (!isReadOnly && draggedPosition) {
               e.preventDefault();
               e.stopPropagation();
               
@@ -311,10 +328,12 @@ export function PositionTree({ positions, headPositionId, departmentId, onUpdate
               }
             }
           }}
-          onDragLeave={handleDragLeave}
+          onDragLeave={!isReadOnly ? handleDragLeave : undefined}
           onDrop={(e) => {
-            e.stopPropagation();
-            handleDrop(e, nodeId);
+            if (!isReadOnly) {
+              e.stopPropagation();
+              handleDrop(e, nodeId);
+            }
           }}
         >
           <div className={styles.nodeInfo}>
@@ -394,32 +413,34 @@ export function PositionTree({ positions, headPositionId, departmentId, onUpdate
                     <span className={styles.positionTitle}>{pos.title}</span>
                   </div>
                 </div>
-                <div className={styles.nodeActions}>
-                  {onEdit && (
-                    <button
-                      className={styles.actionButton}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onEdit(pos);
-                      }}
-                      title="Edit position"
-                    >
-                      ✏️
-                    </button>
-                  )}
-                  {onDelete && !isHead && (
-                    <button
-                      className={styles.actionButton}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete(pos);
-                      }}
-                      title="Delete position"
-                    >
-                      🗑️
-                    </button>
-                  )}
-                </div>
+                {!isReadOnly && (
+                  <div className={styles.nodeActions}>
+                    {onEdit && (
+                      <button
+                        className={styles.actionButton}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEdit(pos);
+                        }}
+                        title="Edit position"
+                      >
+                        ✏️
+                      </button>
+                    )}
+                    {onDelete && !isHead && (
+                      <button
+                        className={styles.actionButton}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete(pos);
+                        }}
+                        title="Delete position"
+                      >
+                        🗑️
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -431,18 +452,18 @@ export function PositionTree({ positions, headPositionId, departmentId, onUpdate
   return (
     <div 
       className={styles.treeContainer}
-      onDragOver={(e) => {
+      onDragOver={!isReadOnly ? (e) => {
         // Allow dragging over the container
         if (draggedPosition) {
           e.preventDefault();
           e.stopPropagation();
         }
-      }}
-      onDrop={(e) => {
+      } : undefined}
+      onDrop={!isReadOnly ? (e) => {
         // Prevent dropping on container (only allow dropping on positions)
         e.preventDefault();
         e.stopPropagation();
-      }}
+      } : undefined}
     >
       {tree.map((node, index) => {
         const headIdStr = headPositionId ? normalizePosId(headPositionId) : null;

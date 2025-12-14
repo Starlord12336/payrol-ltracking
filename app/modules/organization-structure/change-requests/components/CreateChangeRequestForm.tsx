@@ -167,16 +167,25 @@ export function CreateChangeRequestForm({
       console.log('Sending clean request data:', cleanRequestData);
 
       const response = await createChangeRequest(cleanRequestData);
+      console.log('Create change request response:', response);
+      const createdRequestId = response.data._id;
+      const createdRequestNumber = response.data.requestNumber;
+      console.log('Created request ID:', createdRequestId);
+      console.log('Created request number:', createdRequestNumber);
       
       if (submitForReview) {
         // If submitting for review, submit it immediately
         try {
-          await submitChangeRequest(response.data._id);
+          const submitResponse = await submitChangeRequest(createdRequestId);
+          console.log('Submit change request response:', submitResponse);
         } catch (submitErr: any) {
           console.error('Error submitting request:', submitErr);
           // Request was created but submission failed - user can submit from list
         }
       }
+      
+      // Add a small delay to ensure the backend has processed the request
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       onSuccess();
     } catch (err: any) {

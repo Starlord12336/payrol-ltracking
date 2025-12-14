@@ -28,6 +28,11 @@ export function ReviewChangeRequest({
   const userRoles = user?.roles || [];
   const isSystemAdmin = userRoles.includes(SystemRole.SYSTEM_ADMIN);
 
+  // Only SYSTEM_ADMIN can approve/reject - hide component if not system admin
+  if (!isSystemAdmin) {
+    return null;
+  }
+
   const handleReview = async () => {
     if (!action) {
       setError('Please select an action (Approve or Reject)');
@@ -44,13 +49,8 @@ export function ReviewChangeRequest({
 
     try {
       if (action === 'approve') {
-        if (isSystemAdmin) {
-          // System Admin can use approve endpoint
-          await approveChangeRequest(request._id, comments.trim() || undefined);
-        } else {
-          // Others use review endpoint
-          await reviewChangeRequest(request._id, true, comments.trim() || undefined);
-        }
+        // System Admin uses approve endpoint
+        await approveChangeRequest(request._id, comments.trim() || undefined);
       } else {
         // Reject
         await rejectChangeRequest(request._id, comments.trim());

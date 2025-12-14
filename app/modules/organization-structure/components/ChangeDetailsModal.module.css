@@ -1,0 +1,150 @@
+.modalContent {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.section {
+  margin-bottom: 2rem;
+}
+
+.section h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #e9ecef;
+  padding-bottom: 0.5rem;
+}
+
+.infoGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.infoRow {
+  display: flex;
+  gap: 1rem;
+}
+
+.infoLabel {
+  font-weight: 600;
+  color: #6c757d;
+  min-width: 120px;
+}
+
+.infoValue {
+  color: #212529;
+}
+
+.changesTable {
+  border: 1px solid #dee2e6;
+  border-radius: 0.25rem;
+  overflow: hidden;
+}
+
+.changesHeader {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  background: #f8f9fa;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.changesHeaderCell {
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #495057;
+}
+
+.changesRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.changesRow:last-child {
+  border-bottom: none;
+}
+
+.changesCell {
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+}
+
+.beforeValue {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.afterValue {
+  background: #d4edda;
+  color: #155724;
+}
+
+.snapshotsContainer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.snapshot {
+  border: 1px solid #dee2e6;
+  border-radius: 0.25rem;
+  padding: 1rem;
+  background: #f8f9fa;
+}
+
+.snapshot h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #495057;
+}
+
+.snapshotContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.snapshotRow {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.snapshotKey {
+  font-weight: 600;
+  color: #6c757d;
+  min-width: 100px;
+}
+
+.snapshotValue {
+  color: #212529;
+  word-break: break-word;
+}
+
+.noData {
+  color: #6c757d;
+  font-style: italic;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .snapshotsContainer {
+    grid-template-columns: 1fr;
+  }
+
+  .changesHeader,
+  .changesRow {
+    grid-template-columns: 1fr;
+  }
+
+  .changesHeaderCell,
+  .changesCell {
+    border-bottom: 1px solid #e9ecef;
+  }
+}
+
