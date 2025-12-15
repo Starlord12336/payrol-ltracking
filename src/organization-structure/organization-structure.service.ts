@@ -4,6 +4,7 @@
     NotFoundException,
     BadRequestException,
     ConflictException,
+    OnModuleInit,
   } from '@nestjs/common';
   import { InjectModel } from '@nestjs/mongoose';
   import { Model, Types } from 'mongoose';
@@ -60,7 +61,7 @@
   import { NotificationLog } from '../time-management/models/notification-log.schema';
 
   @Injectable()
-  export class OrganizationStructureService {
+  export class OrganizationStructureService implements OnModuleInit {
     constructor(
       @InjectModel(Department.name)
       private departmentModel: Model<DepartmentDocument>,
@@ -206,6 +207,10 @@
       return savedDepartment;
     }
 
+    async onModuleInit(): Promise<void> {
+      await this.ensureHrDepartmentExists();
+    }
+
     async findAllDepartments(queryDto: QueryDepartmentDto): Promise<{
       data: Department[];
       total: number;
@@ -213,6 +218,9 @@
       limit: number;
       totalPages: number;
     }> {
+    // Ensure a default HR department exists and is active before listing
+    await this.ensureHrDepartmentExists();
+
       const {
         page = 1,
         limit = 10,
@@ -258,6 +266,20 @@
         this.departmentModel.countDocuments(filter),
       ]);
 
+      // Always show HR department first, even if not in this page
+      const hrDept = await this.departmentModel
+        .findOne({ code: 'HR' })
+        .populate('headPositionId', 'code title')
+        .exec();
+      const hrIndex = hrDept ? data.findIndex((d) => d._id.toString() === hrDept._id.toString()) : -1;
+      if (hrDept && hrIndex > 0) {
+        const [existingHr] = data.splice(hrIndex, 1);
+        data.unshift(existingHr);
+      } else if (hrDept && hrIndex === -1) {
+        // If HR not in current page, prepend it
+        data.unshift(hrDept);
+      }
+
       return {
         data,
         total,
@@ -283,6 +305,41 @@
 
       return department;
     }
+
+  /**
+   * Ensure a default HR department exists (code: HR). Reactivate if found inactive.
+   * Does not change schemas; uses upsert.
+   */
+  private async ensureHrDepartmentExists(): Promise<void> {
+    try {
+      const result = await this.departmentModel.findOneAndUpdate(
+        { code: 'HR' },
+        {
+          $setOnInsert: {
+            code: 'HR',
+            name: 'Human Resources',
+            description: 'Default HR department',
+            isActive: true,
+          },
+          $set: {
+            isActive: true,
+          },
+        },
+        { upsert: true, new: true },
+      );
+      console.log('[OrganizationStructure] HR department ensured:', result?._id, 'isActive:', result?.isActive);
+    } catch (error) {
+      console.error('[OrganizationStructure] Error ensuring HR department:', error);
+      // Don't throw - allow app to continue even if HR department creation fails
+    }
+  }
+
+  // Ensure Department model is registered for hooks that call mongoose.model(Department)
+  private ensureDepartmentModelRegistered(): void {
+    if (!mongoose.models[Department.name]) {
+      mongoose.model(Department.name, DepartmentSchema);
+    }
+  }
 
     async findDepartmentByCode(code: string): Promise<Department> {
       const department = await this.departmentModel
@@ -627,6 +684,24 @@
         return savedPosition;
       }
 
+      // Ensure HR department is active if creating position in HR department
+      // and allow a graceful reactivation of HR without touching schemas.
+      const deptDoc = await this.departmentModel.findById(createPositionDto.departmentId).exec();
+      if (!deptDoc) {
+        throw new NotFoundException(
+          `Department with ID '${createPositionDto.departmentId}' not found`,
+        );
+      }
+      if (deptDoc.code === 'HR' && !deptDoc.isActive) {
+        // Reactivate HR department silently
+        await this.departmentModel.updateOne(
+          { _id: deptDoc._id },
+          { $set: { isActive: true } },
+        );
+        deptDoc.isActive = true;
+      }
+
+      // Validate (will still block non-HR inactive departments)
       const department = await this.validateDepartmentExists(createPositionDto.departmentId);
 
       if (createPositionDto.reportsToPositionId) {
@@ -1009,10 +1084,18 @@
         isActive: position.isActive,
       };
 
-      const positionDoc = position as PositionDocument;
-      positionDoc.isActive = false;
+      // Use updateOne directly on collection to bypass pre-save hook
+      // The hook tries to access Department model which can cause issues
+      await this.positionModel.collection.updateOne(
+        { _id: new Types.ObjectId(id) },
+        { $set: { isActive: false } }
+      );
 
-      const savedPosition = await positionDoc.save();
+      // Fetch the updated position
+      const savedPosition = await this.positionModel.findById(id).exec();
+      if (!savedPosition) {
+        throw new NotFoundException('Position not found after update');
+      }
 
       // Log the change
       await this.logChange(
@@ -1879,11 +1962,18 @@
         }
         departments = [department];
       } else {
-        departments = await this.departmentModel
+        const allDepartments = await this.departmentModel
           .find({ isActive: true })
           .populate('headPositionId')
           .sort({ name: 1 })
           .exec();
+        
+        // Sort so HR department (code 'HR') comes first
+        departments = allDepartments.sort((a, b) => {
+          if (a.code === 'HR') return -1;
+          if (b.code === 'HR') return 1;
+          return a.name.localeCompare(b.name);
+        });
       }
 
       const orgChart = await Promise.all(
@@ -1930,11 +2020,18 @@
     }
 
     async getSimplifiedOrgChart(): Promise<any> {
-      const departments = await this.departmentModel
+      const allDepartments = await this.departmentModel
         .find({ isActive: true })
         .populate('headPositionId')
         .sort({ name: 1 })
         .exec();
+      
+      // Sort so HR department (code 'HR') comes first
+      const departments = allDepartments.sort((a, b) => {
+        if (a.code === 'HR') return -1;
+        if (b.code === 'HR') return 1;
+        return a.name.localeCompare(b.name);
+      });
 
       const simplified = await Promise.all(
         departments.map(async (dept) => {
