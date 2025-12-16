@@ -50,6 +50,7 @@ import { AppraisalCycleStatus } from './enums/performance.enums';
 import { AppraisalDisputeStatus } from './enums/performance.enums';
 import { JwtAuthGuard, RolesGuard, Roles } from '../auth';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { SystemRole } from '../employee-profile/enums/employee-profile.enums';
 
 @Controller('performance')
@@ -63,12 +64,13 @@ export class PerformanceController {
   /**
    * Create a new appraisal template
    * POST /performance/templates
-   * Roles: HR_MANAGER, HR_ADMIN
+   * REQ-PP-01: HR Manager configures standardized appraisal templates and rating scales.
+   * Roles: HR_MANAGER ONLY
    */
   @Post('templates')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_MANAGER)
   async createTemplate(@Body() createDto: CreateAppraisalTemplateDto) {
     return this.performanceService.createTemplate(createDto);
   }
@@ -96,11 +98,12 @@ export class PerformanceController {
   /**
    * Update a template
    * PUT /performance/templates/:id
-   * Roles: HR_MANAGER, HR_ADMIN
+   * REQ-PP-01: HR Manager configures standardized appraisal templates and rating scales.
+   * Roles: HR_MANAGER ONLY
    */
   @Put('templates/:id')
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_MANAGER)
   async updateTemplate(
     @Param('id') id: string,
     @Body() updateDto: UpdateAppraisalTemplateDto,
@@ -111,12 +114,14 @@ export class PerformanceController {
   /**
    * Delete a template
    * DELETE /performance/templates/:id
-   * Roles: HR_ADMIN, SYSTEM_ADMIN
+   * REQ-PP-01: HR Manager configures standardized appraisal templates and rating scales.
+   * Since "configures" implies full CRUD, HR Manager should be able to delete templates.
+   * Roles: HR_MANAGER ONLY
    */
   @Delete('templates/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_MANAGER)
   async deleteTemplate(@Param('id') id: string) {
     await this.performanceService.deleteTemplate(id);
   }
@@ -126,12 +131,13 @@ export class PerformanceController {
   /**
    * Create a new appraisal cycle
    * POST /performance/cycles
-   * Roles: HR_MANAGER, HR_ADMIN
+   * REQ-PP-02: HR Manager defines and schedules appraisal cycles (Annual, Probationary).
+   * Roles: HR_MANAGER ONLY
    */
   @Post('cycles')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_MANAGER)
   async createCycle(@Body() createDto: CreateAppraisalCycleDto) {
     return this.performanceService.createCycle(createDto);
   }
@@ -157,11 +163,12 @@ export class PerformanceController {
   /**
    * Update a cycle
    * PUT /performance/cycles/:id
-   * Roles: HR_MANAGER, HR_ADMIN
+   * REQ-PP-02: HR Manager defines and schedules appraisal cycles.
+   * Roles: HR_MANAGER ONLY
    */
   @Put('cycles/:id')
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_MANAGER)
   async updateCycle(
     @Param('id') id: string,
     @Body() updateDto: UpdateAppraisalCycleDto,
@@ -172,11 +179,12 @@ export class PerformanceController {
   /**
    * Activate a cycle (starts the appraisal process)
    * POST /performance/cycles/:id/activate
-   * Roles: HR_MANAGER, HR_ADMIN
+   * REQ-PP-02: HR Manager defines and schedules appraisal cycles.
+   * Roles: HR_MANAGER ONLY
    */
   @Post('cycles/:id/activate')
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_MANAGER)
   async activateCycle(@Param('id') id: string) {
     return this.performanceService.activateCycle(id);
   }
@@ -184,11 +192,12 @@ export class PerformanceController {
   /**
    * Publish cycle results to employees
    * POST /performance/cycles/:id/publish
-   * Roles: HR_MANAGER, HR_ADMIN
+   * REQ-PP-02: HR Manager defines and schedules appraisal cycles.
+   * Roles: HR_MANAGER ONLY
    */
   @Post('cycles/:id/publish')
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_MANAGER)
   async publishCycle(@Param('id') id: string) {
     return this.performanceService.publishCycle(id);
   }
@@ -196,20 +205,40 @@ export class PerformanceController {
   /**
    * Close a cycle
    * POST /performance/cycles/:id/close
-   * Roles: HR_MANAGER, HR_ADMIN
+   * REQ-PP-02: HR Manager defines and schedules appraisal cycles.
+   * Roles: HR_MANAGER ONLY
    */
   @Post('cycles/:id/close')
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_MANAGER)
   async closeCycle(@Param('id') id: string) {
     return this.performanceService.closeCycle(id);
   }
 
   /**
+   * Delete a cycle
+   * DELETE /performance/cycles/:id
+   * REQ-PP-02: HR Manager defines and schedules appraisal cycles.
+   * Roles: HR_MANAGER ONLY
+   */
+  @Delete('cycles/:id')
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.HR_MANAGER)
+  async deleteCycle(@Param('id') id: string) {
+    await this.performanceService.deleteCycle(id);
+    return { message: 'Cycle deleted successfully' };
+  }
+
+  /**
    * Get cycle progress dashboard
    * GET /performance/cycles/:id/progress
+   * REQ-AE-06: HR Employee monitors appraisal progress
+   * REQ-AE-10: HR Manager tracks appraisal completion via consolidated dashboard
+   * Roles: HR_EMPLOYEE, HR_MANAGER
    */
   @Get('cycles/:id/progress')
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER)
   async getCycleProgress(@Param('id') id: string) {
     return this.performanceService.getCycleProgress(id);
   }
@@ -217,11 +246,12 @@ export class PerformanceController {
   /**
    * Export appraisal summaries
    * GET /performance/export/summaries
-   * REQ-AE-11: HR Employee exports ad-hoc appraisal summaries
+   * REQ-AE-11: HR Employee exports ad-hoc appraisal summaries.
+   * Roles: HR_EMPLOYEE ONLY
    */
   @Get('export/summaries')
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.HR_EMPLOYEE, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_EMPLOYEE)
   async exportAppraisalSummaries(
     @Query() query: ExportAppraisalSummaryDto,
     @Res() res: Response,
@@ -243,11 +273,12 @@ export class PerformanceController {
   /**
    * Generate outcome report
    * GET /performance/export/outcome-report
-   * REQ-OD-06: HR Employee generates outcome reports
+   * REQ-OD-06: HR Employee generates outcome reports.
+   * Roles: HR_EMPLOYEE ONLY
    */
   @Get('export/outcome-report')
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.HR_EMPLOYEE, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_EMPLOYEE)
   async generateOutcomeReport(
     @Query() query: ExportOutcomeReportDto,
     @Res() res: Response,
@@ -281,8 +312,12 @@ export class PerformanceController {
   /**
    * Get assignments for a manager
    * GET /performance/managers/:managerId/assignments?cycleId=xxx
+   * REQ-PP-13: Line Manager views assigned appraisal forms.
+   * Roles: DEPARTMENT_HEAD (Line Manager) ONLY
    */
   @Get('managers/:managerId/assignments')
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.DEPARTMENT_HEAD)
   async findAssignmentsByManager(
     @Param('managerId') managerId: string,
     @Query('cycleId') cycleId?: string,
@@ -323,12 +358,12 @@ export class PerformanceController {
   /**
    * Get all assignments with optional filters
    * GET /performance/assignments?cycleId=xxx&templateId=xxx&employeeProfileId=xxx&managerProfileId=xxx&departmentId=xxx&status=xxx
-   * REQ-PP-05: HR Employee assigns appraisal forms/templates
-   * Roles: HR_EMPLOYEE, HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   * REQ-PP-05: HR Employee assigns appraisal forms/templates.
+   * Roles: HR_EMPLOYEE ONLY
    */
   @Get('assignments')
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER)
   async findAllAssignments(
     @Query('cycleId') cycleId?: string,
     @Query('templateId') templateId?: string,
@@ -359,13 +394,13 @@ export class PerformanceController {
   /**
    * Manually assign template to employee(s)
    * POST /performance/assignments
-   * REQ-PP-05: HR Employee assigns appraisal forms/templates to employees and managers
-   * Roles: HR_EMPLOYEE, HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   * REQ-PP-05: HR Employee assigns appraisal forms/templates to employees and managers.
+   * Roles: HR_EMPLOYEE ONLY
    */
   @Post('assignments')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_EMPLOYEE)
   async assignTemplateToEmployees(@Body() createDto: CreateAppraisalAssignmentDto) {
     return this.performanceService.assignTemplateToEmployees(createDto);
   }
@@ -373,13 +408,13 @@ export class PerformanceController {
   /**
    * Bulk assign template to departments, positions, or employees
    * POST /performance/assignments/bulk
-   * REQ-PP-05: HR Employee assigns appraisal forms/templates to employees and managers
-   * Roles: HR_EMPLOYEE, HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   * REQ-PP-05: HR Employee assigns appraisal forms/templates to employees and managers.
+   * Roles: HR_EMPLOYEE ONLY
    */
   @Post('assignments/bulk')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_EMPLOYEE)
   async bulkAssignTemplate(@Body() bulkDto: BulkAssignTemplateDto) {
     return this.performanceService.bulkAssignTemplate(bulkDto);
   }
@@ -387,12 +422,12 @@ export class PerformanceController {
   /**
    * Update an assignment
    * PUT /performance/assignments/:id
-   * REQ-PP-05: HR Employee assigns appraisal forms/templates
-   * Roles: HR_EMPLOYEE, HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   * REQ-PP-05: HR Employee assigns appraisal forms/templates.
+   * Roles: HR_EMPLOYEE ONLY
    */
   @Put('assignments/:id')
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_EMPLOYEE)
   async updateAssignment(
     @Param('id') id: string,
     @Body() updateDto: UpdateAppraisalAssignmentDto,
@@ -401,15 +436,36 @@ export class PerformanceController {
   }
 
   /**
+   * Employee acknowledges assignment
+   * POST /performance/assignments/:id/acknowledge
+   * REQ-PP-07: Employee receives notification of assigned objectives and acknowledges them.
+   * Roles: DEPARTMENT_EMPLOYEE (any authenticated employee can acknowledge their own assignment)
+   */
+  /**
+   * Employee acknowledges assignment
+   * POST /performance/assignments/:id/acknowledge
+   * REQ-PP-07: Employee receives notification of assigned objectives and acknowledges them.
+   * Roles: Any authenticated employee (validates ownership)
+   */
+  @Post('assignments/:id/acknowledge')
+  @HttpCode(HttpStatus.OK)
+  async acknowledgeAssignment(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.performanceService.acknowledgeAssignment(id, user.userid.toString());
+  }
+
+  /**
    * Remove an assignment
    * DELETE /performance/assignments/:id
-   * REQ-PP-05: HR Employee assigns appraisal forms/templates
-   * Roles: HR_EMPLOYEE, HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   * REQ-PP-05: HR Employee assigns appraisal forms/templates.
+   * Roles: HR_EMPLOYEE ONLY
    */
   @Delete('assignments/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_EMPLOYEE)
   async removeAssignment(@Param('id') id: string) {
     await this.performanceService.removeAssignment(id);
   }
@@ -419,10 +475,14 @@ export class PerformanceController {
   /**
    * Create or update an appraisal evaluation
    * POST /performance/cycles/:cycleId/employees/:employeeId/evaluation
-   * Any employee assigned as a manager can review their direct reports
+   * REQ-AE-03: Line Manager completes structured appraisal ratings for direct reports.
+   * REQ-AE-04: Line Manager adds comments, examples, and development recommendations.
+   * Roles: DEPARTMENT_HEAD (Line Manager) - Service will verify they're the assigned manager
    */
   @Post('cycles/:cycleId/employees/:employeeId/evaluation')
   @HttpCode(HttpStatus.CREATED)
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.DEPARTMENT_HEAD)
   async createOrUpdateEvaluation(
     @Param('cycleId') cycleId: string,
     @Param('employeeId') employeeId: string,
@@ -455,10 +515,20 @@ export class PerformanceController {
   /**
    * Get evaluation by ID
    * GET /performance/evaluations/:id
+   * Applies visibility rules based on current user's role
    */
   @Get('evaluations/:id')
-  async findEvaluationById(@Param('id') id: string) {
-    return this.performanceService.findEvaluationById(id);
+  async findEvaluationById(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    // Pass all user roles - user may have multiple roles (e.g., HR_EMPLOYEE and DEPARTMENT_EMPLOYEE)
+    // Visibility rules will check if ANY of the user's roles can view the field
+    const userRoles = user.roles && user.roles.length > 0 
+      ? (user.roles as SystemRole[])
+      : undefined;
+    
+    return this.performanceService.findEvaluationById(id, userRoles);
   }
 
   /**
@@ -476,16 +546,13 @@ export class PerformanceController {
   /**
    * Update evaluation
    * PUT /performance/evaluations/:id
-   * Roles: DEPARTMENT_MANAGER, HR_MANAGER, HR_ADMIN
+   * REQ-AE-03: Line Manager completes structured appraisal ratings for direct reports.
+   * REQ-AE-04: Line Manager adds comments, examples, and development recommendations.
+   * Roles: DEPARTMENT_HEAD (Line Manager) ONLY
    */
   @Put('evaluations/:id')
   @UseGuards(RolesGuard)
-  @Roles(
-    SystemRole.DEPARTMENT_HEAD,
-    SystemRole.HR_MANAGER,
-    SystemRole.HR_ADMIN,
-    SystemRole.SYSTEM_ADMIN,
-  )
+  @Roles(SystemRole.DEPARTMENT_HEAD)
   async updateEvaluation(
     @Param('id') id: string,
     @Body() updateDto: UpdateAppraisalEvaluationDto,
@@ -503,19 +570,15 @@ export class PerformanceController {
   /**
    * Create a dispute for an appraisal evaluation
    * POST /performance/disputes
-   * Roles: EMPLOYEE, DEPARTMENT_MANAGER, HR_MANAGER, HR_ADMIN, HR_EMPLOYEE
-   * REQ-AE-07: Employee or HR Employee flags or raises a concern about a rating
+   * REQ-AE-07: Employee or HR Employee flags or raises a concern about a rating.
+   * Roles: DEPARTMENT_EMPLOYEE, HR_EMPLOYEE ONLY
    */
   @Post('disputes')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
   @Roles(
     SystemRole.DEPARTMENT_EMPLOYEE,
-    SystemRole.DEPARTMENT_HEAD,
-    SystemRole.HR_MANAGER,
-    SystemRole.HR_ADMIN,
     SystemRole.HR_EMPLOYEE,
-    SystemRole.SYSTEM_ADMIN,
   )
   async createDispute(
     @Body('employeeId') employeeId: string,
@@ -554,11 +617,12 @@ export class PerformanceController {
   /**
    * Resolve a dispute (HR Manager action)
    * POST /performance/disputes/:id/resolve
-   * Roles: HR_MANAGER, HR_ADMIN
+   * REQ-OD-07: HR Manager resolves disputes between employees and managers.
+   * Roles: HR_MANAGER ONLY
    */
   @Post('disputes/:id/resolve')
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_MANAGER)
   async resolveDispute(
     @Param('id') id: string,
     @Body('reviewerId') reviewerId: string,
@@ -592,11 +656,12 @@ export class PerformanceController {
   /**
    * Add HR review to an evaluation
    * POST /performance/evaluations/:id/hr-review
-   * Roles: HR_MANAGER, HR_ADMIN
+   * Note: Not explicitly in user stories, but HR Manager should be able to add reviews.
+   * Roles: HR_MANAGER ONLY (keeping HR_MANAGER as it's HR review functionality)
    */
   @Post('evaluations/:id/hr-review')
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_MANAGER)
   async addHrReview(
     @Param('id') id: string,
     @Body() hrReviewDto: AddHrReviewDto,
@@ -609,10 +674,19 @@ export class PerformanceController {
   /**
    * Create a performance goal
    * POST /performance/goals
+   * REQ-PP-12: Line Manager sets and reviews employee objectives.
+   * Roles: DEPARTMENT_HEAD (Line Manager) ONLY
    */
   @Post('goals')
   @HttpCode(HttpStatus.CREATED)
-  async createGoal(@Body() createDto: CreatePerformanceGoalDto) {
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.DEPARTMENT_HEAD)
+  async createGoal(
+    @Body() createDto: CreatePerformanceGoalDto,
+    @CurrentUser() user: any,
+  ) {
+    // Set setBy to current user ID
+    createDto.setBy = user.userid.toString();
     return this.performanceService.createGoal(createDto);
   }
 
@@ -643,23 +717,35 @@ export class PerformanceController {
   /**
    * Update a performance goal
    * PUT /performance/goals/:id
+   * REQ-PP-12: Line Manager sets and reviews employee objectives.
+   * Roles: DEPARTMENT_HEAD (Line Manager) ONLY
    */
   @Put('goals/:id')
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.DEPARTMENT_HEAD)
   async updateGoal(
     @Param('id') id: string,
     @Body() updateDto: UpdatePerformanceGoalDto,
+    @CurrentUser() user: any,
   ) {
-    return this.performanceService.updateGoal(id, updateDto);
+    return this.performanceService.updateGoal(id, updateDto, user.userid.toString());
   }
 
   /**
    * Delete a performance goal
    * DELETE /performance/goals/:id
+   * REQ-PP-12: Line Manager sets and reviews employee objectives.
+   * Roles: DEPARTMENT_HEAD (Line Manager) ONLY
    */
   @Delete('goals/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteGoal(@Param('id') id: string) {
-    await this.performanceService.deleteGoal(id);
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.DEPARTMENT_HEAD)
+  async deleteGoal(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+  ) {
+    await this.performanceService.deleteGoal(id, user.userid.toString());
   }
 
   // ==================== PERFORMANCE FEEDBACK ENDPOINTS ====================
@@ -747,16 +833,13 @@ export class PerformanceController {
   /**
    * Flag an employee as a high-performer
    * POST /performance/high-performers/flag
+   * REQ-OD-03: Line Manager flags high-performers for promotion consideration.
+   * Roles: DEPARTMENT_HEAD (Line Manager) ONLY
    */
   @Post('high-performers/flag')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
-  @Roles(
-    SystemRole.DEPARTMENT_HEAD,
-    SystemRole.HR_MANAGER,
-    SystemRole.HR_ADMIN,
-    SystemRole.SYSTEM_ADMIN,
-  )
+  @Roles(SystemRole.DEPARTMENT_HEAD)
   async flagHighPerformer(
     @CurrentUser() user: any,
     @Body() flagDto: FlagHighPerformerDto,
@@ -776,16 +859,13 @@ export class PerformanceController {
   /**
    * Unflag a high-performer
    * POST /performance/high-performers/unflag/:appraisalRecordId
+   * REQ-OD-03: Line Manager flags high-performers for promotion consideration.
+   * Roles: DEPARTMENT_HEAD (Line Manager) ONLY
    */
   @Post('high-performers/unflag/:appraisalRecordId')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles(
-    SystemRole.DEPARTMENT_HEAD,
-    SystemRole.HR_MANAGER,
-    SystemRole.HR_ADMIN,
-    SystemRole.SYSTEM_ADMIN,
-  )
+  @Roles(SystemRole.DEPARTMENT_HEAD)
   async unflagHighPerformer(
     @CurrentUser() user: any,
     @Param('appraisalRecordId') appraisalRecordId: string,
@@ -815,27 +895,20 @@ export class PerformanceController {
    */
   @Get('high-performers/manager/:managerId')
   @UseGuards(RolesGuard)
-  @Roles(
-    SystemRole.DEPARTMENT_HEAD,
-    SystemRole.HR_MANAGER,
-    SystemRole.HR_ADMIN,
-    SystemRole.SYSTEM_ADMIN,
-  )
+  @Roles(SystemRole.DEPARTMENT_HEAD)
   async getHighPerformersByManager(@Param('managerId') managerId: string) {
     return this.performanceService.getHighPerformersByManager(managerId);
   }
 
   /**
-   * Get all high-performers (HR/Admin view)
+   * Get all high-performers (HR view)
    * GET /performance/high-performers
+   * REQ-OD-06: HR Employee generates outcome reports (includes high performers)
+   * Also needed for HR Employee to display high performer status in assignments table
    */
   @Get('high-performers')
   @UseGuards(RolesGuard)
-  @Roles(
-    SystemRole.HR_MANAGER,
-    SystemRole.HR_ADMIN,
-    SystemRole.SYSTEM_ADMIN,
-  )
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_EMPLOYEE)
   async getAllHighPerformers() {
     return this.performanceService.getAllHighPerformers();
   }
@@ -847,18 +920,13 @@ export class PerformanceController {
   /**
    * Create a Performance Improvement Plan
    * POST /performance/improvement-plans
-   * REQ-OD-05: Line Manager initiates PIPs
-   * Roles: DEPARTMENT_HEAD, HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   * REQ-OD-05: Line Manager initiates Performance Improvement Plans (PIPs).
+   * Roles: DEPARTMENT_HEAD (Line Manager) ONLY
    */
   @Post('improvement-plans')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
-  @Roles(
-    SystemRole.DEPARTMENT_HEAD,
-    SystemRole.HR_MANAGER,
-    SystemRole.HR_ADMIN,
-    SystemRole.SYSTEM_ADMIN,
-  )
+  @Roles(SystemRole.DEPARTMENT_HEAD)
   async createPerformanceImprovementPlan(
     @CurrentUser() user: any,
     @Body() createDto: CreatePerformanceImprovementPlanDto,
@@ -879,17 +947,12 @@ export class PerformanceController {
   /**
    * Get all PIPs created by a manager
    * GET /performance/managers/:managerId/improvement-plans
-   * REQ-OD-05: Line Manager initiates PIPs
-   * Roles: DEPARTMENT_HEAD, HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   * REQ-OD-05: Line Manager initiates Performance Improvement Plans (PIPs).
+   * Roles: DEPARTMENT_HEAD (Line Manager) ONLY
    */
   @Get('managers/:managerId/improvement-plans')
   @UseGuards(RolesGuard)
-  @Roles(
-    SystemRole.DEPARTMENT_HEAD,
-    SystemRole.HR_MANAGER,
-    SystemRole.HR_ADMIN,
-    SystemRole.SYSTEM_ADMIN,
-  )
+  @Roles(SystemRole.DEPARTMENT_HEAD)
   async getPIPsByManager(@Param('managerId') managerId: string) {
     return this.performanceService.getPIPsByManager(managerId);
   }
@@ -897,15 +960,12 @@ export class PerformanceController {
   /**
    * Get all PIPs (HR/Admin view)
    * GET /performance/improvement-plans?status=ACTIVE
-   * Roles: HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   * REQ-AE-10: HR Manager tracks appraisal completion via consolidated dashboard.
+   * Roles: HR_MANAGER ONLY
    */
   @Get('improvement-plans')
   @UseGuards(RolesGuard)
-  @Roles(
-    SystemRole.HR_MANAGER,
-    SystemRole.HR_ADMIN,
-    SystemRole.SYSTEM_ADMIN,
-  )
+  @Roles(SystemRole.HR_MANAGER)
   async getAllPIPs(@Query('status') status?: string) {
     return this.performanceService.getAllPIPs(status);
   }
@@ -922,17 +982,12 @@ export class PerformanceController {
   /**
    * Update a PIP
    * PUT /performance/improvement-plans/appraisal/:appraisalRecordId
-   * REQ-OD-05: Line Manager initiates PIPs
-   * Roles: DEPARTMENT_HEAD, HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   * REQ-OD-05: Line Manager initiates Performance Improvement Plans (PIPs).
+   * Roles: DEPARTMENT_HEAD (Line Manager) ONLY
    */
   @Put('improvement-plans/appraisal/:appraisalRecordId')
   @UseGuards(RolesGuard)
-  @Roles(
-    SystemRole.DEPARTMENT_HEAD,
-    SystemRole.HR_MANAGER,
-    SystemRole.HR_ADMIN,
-    SystemRole.SYSTEM_ADMIN,
-  )
+  @Roles(SystemRole.DEPARTMENT_HEAD)
   async updatePIP(
     @CurrentUser() user: any,
     @Param('appraisalRecordId') appraisalRecordId: string,
@@ -945,18 +1000,13 @@ export class PerformanceController {
   /**
    * Delete a PIP
    * DELETE /performance/improvement-plans/appraisal/:appraisalRecordId
-   * REQ-OD-05: Line Manager initiates PIPs
-   * Roles: DEPARTMENT_HEAD, HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN
+   * REQ-OD-05: Line Manager initiates Performance Improvement Plans (PIPs).
+   * Roles: DEPARTMENT_HEAD (Line Manager) ONLY
    */
   @Delete('improvement-plans/appraisal/:appraisalRecordId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(RolesGuard)
-  @Roles(
-    SystemRole.DEPARTMENT_HEAD,
-    SystemRole.HR_MANAGER,
-    SystemRole.HR_ADMIN,
-    SystemRole.SYSTEM_ADMIN,
-  )
+  @Roles(SystemRole.DEPARTMENT_HEAD)
   async deletePIP(
     @CurrentUser() user: any,
     @Param('appraisalRecordId') appraisalRecordId: string,
@@ -1045,7 +1095,6 @@ export class PerformanceController {
     SystemRole.DEPARTMENT_EMPLOYEE,
     SystemRole.DEPARTMENT_HEAD,
     SystemRole.HR_MANAGER,
-    SystemRole.HR_ADMIN,
     SystemRole.SYSTEM_ADMIN,
   )
   async getMeetingsByEmployee(@Param('employeeId') employeeId: string) {
@@ -1058,7 +1107,6 @@ export class PerformanceController {
     SystemRole.DEPARTMENT_HEAD,
     SystemRole.DEPARTMENT_EMPLOYEE,
     SystemRole.HR_MANAGER,
-    SystemRole.HR_ADMIN,
     SystemRole.SYSTEM_ADMIN,
   )
   async getMeetingById(@Param('id') id: string) {

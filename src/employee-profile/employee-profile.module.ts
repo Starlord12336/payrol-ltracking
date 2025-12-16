@@ -39,5 +39,6 @@ import {
   ],
   controllers: [EmployeeProfileController],
   providers: [EmployeeProfileService],
+  exports: [EmployeeProfileService],
 })
 export class EmployeeProfileModule {}

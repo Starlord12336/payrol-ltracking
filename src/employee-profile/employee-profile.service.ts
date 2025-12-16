@@ -40,6 +40,8 @@ import { OrganizationStructureService } from '../organization-structure/organiza
 @Injectable()
 export class EmployeeProfileService {
   private profilePictureBucket: GridFSBucket;
+  private meetingsBucket: GridFSBucket;
+  private readonly MEETINGS_FILENAME = 'one-on-one-meetings.json';
 
   constructor(
     @InjectModel(EmployeeProfile.name)
@@ -63,6 +65,10 @@ export class EmployeeProfileService {
     this.profilePictureBucket = new GridFSBucket(this.connection.db, {
       bucketName: 'profile_pictures',
     });
+    // Initialize GridFS bucket for meetings (to check if employee has meeting with manager)
+    this.meetingsBucket = new GridFSBucket(this.connection.db, {
+      bucketName: 'one_on_one_meetings',
+    });
   }
 
   // =====================================
@@ -80,6 +86,108 @@ export class EmployeeProfileService {
     if (!Types.ObjectId.isValid(requestingProfileId)) {
       throw new ForbiddenException('Invalid employee profile ID');
     }
+  }
+
+  /**
+   * Verify that an employee is viewing their manager's profile
+   * Used for allowing employees to view their manager's info (e.g., for meetings)
+   * Allows viewing:
+   * 1. Direct supervisor (supervisorPositionId matches manager's primaryPositionId)
+   * 2. Department head (manager's primaryPositionId matches department's headPositionId)
+   * 3. Manager who has scheduled a meeting with the employee
+   */
+  async verifyManagerAccess(employeeId: string, managerProfileId: string): Promise<void> {
+    if (!Types.ObjectId.isValid(employeeId) || !Types.ObjectId.isValid(managerProfileId)) {
+      throw new ForbiddenException('Invalid employee or manager profile ID');
+    }
+
+    // Get the employee's profile
+    const employee = await this.profileModel.findById(employeeId).lean().exec();
+    if (!employee) {
+      throw new NotFoundException('Employee profile not found');
+    }
+
+    // Get the manager's profile
+    const manager = await this.profileModel.findById(managerProfileId).lean().exec();
+    if (!manager) {
+      throw new NotFoundException('Manager profile not found');
+    }
+
+    if (!manager.primaryPositionId) {
+      throw new ForbiddenException(
+        'You can only view your manager\'s profile. This profile does not have a position assigned.',
+      );
+    }
+
+    // Check 1: Is this the direct supervisor?
+    if (employee.supervisorPositionId) {
+      if (
+        employee.supervisorPositionId.toString() === manager.primaryPositionId.toString()
+      ) {
+        return; // Allowed - this is the direct supervisor
+      }
+    }
+
+    // Check 2: Is this the department head?
+    if (employee.primaryDepartmentId) {
+      try {
+        const department = await this.orgStructureService.findDepartmentById(
+          employee.primaryDepartmentId.toString(),
+        );
+        if (department?.headPositionId) {
+          if (
+            department.headPositionId.toString() === manager.primaryPositionId.toString()
+          ) {
+            return; // Allowed - this is the department head
+          }
+        }
+      } catch (error) {
+        // Department not found, continue to next check
+      }
+    }
+
+    // Check 3: Does this manager have a meeting scheduled with the employee?
+    // Check directly via GridFS to avoid circular dependency
+    try {
+      const files = await this.meetingsBucket
+        .find({ filename: this.MEETINGS_FILENAME })
+        .sort({ uploadDate: -1 })
+        .limit(1)
+        .toArray();
+
+      if (files.length > 0) {
+        const file = files[0];
+        const downloadStream = this.meetingsBucket.openDownloadStream(file._id);
+        
+        const chunks: Buffer[] = [];
+        for await (const chunk of downloadStream) {
+          chunks.push(chunk);
+        }
+        
+        const data = Buffer.concat(chunks).toString('utf-8');
+        const meetings = JSON.parse(data);
+        
+        const hasMeetingWithManager = meetings.some((m: any) => {
+          const meetingEmployeeId = m.employeeId?.toString() || m.employeeId;
+          const meetingManagerId = m.managerId?.toString() || m.managerId;
+          const requestedEmployeeId = employeeId.toString();
+          const requestedManagerId = managerProfileId.toString();
+          return meetingEmployeeId === requestedEmployeeId && meetingManagerId === requestedManagerId;
+        });
+        
+        if (hasMeetingWithManager) {
+          return; // Allowed - manager has scheduled a meeting with employee
+        }
+      }
+    } catch (error) {
+      // If we can't check meetings, continue (don't fail)
+      // This is not critical - other checks will handle authorization
+    }
+
+    // If none of the checks passed, deny access
+    throw new ForbiddenException(
+      'You can only view your direct manager\'s, department head\'s, or meeting manager\'s profile. This profile does not match your manager.',
+    );
   }
 
   // =====================================
@@ -151,8 +259,56 @@ export class EmployeeProfileService {
 
   async getAllProfiles(requestingProfileId: string) {
     // Role authorization is handled by @Roles() decorator in the controller
-    const profiles = await this.profileModel.find({}).lean().exec();
-    return profiles;
+    const profiles = await this.profileModel
+      .find({})
+      .populate('primaryDepartmentId', 'name code')
+      .populate('primaryPositionId', 'title code')
+      .lean()
+      .exec();
+    
+    // Fetch roles for all employees
+    const employeeIds = profiles.map((p: any) => new Types.ObjectId(p._id));
+    const systemRoles = await this.roleModel
+      .find({ employeeProfileId: { $in: employeeIds }, isActive: true })
+      .lean()
+      .exec();
+    
+    // Map roles to employees
+    const rolesMap = new Map();
+    systemRoles.forEach((sr: any) => {
+      // Handle both ObjectId and string formats
+      let empId: string;
+      if (sr.employeeProfileId) {
+        if (typeof sr.employeeProfileId === 'object' && sr.employeeProfileId._id) {
+          empId = sr.employeeProfileId._id.toString();
+        } else if (typeof sr.employeeProfileId === 'object') {
+          empId = sr.employeeProfileId.toString();
+        } else {
+          empId = sr.employeeProfileId.toString();
+        }
+        if (empId) {
+          rolesMap.set(empId, sr.roles || []);
+        }
+      }
+    });
+    
+    // Attach roles to profiles and ensure proper formatting
+    const profilesWithRoles = profiles.map((profile: any) => {
+      const profileId = profile._id?.toString() || profile._id;
+      const roles = rolesMap.get(profileId) || [];
+      
+      // Ensure primaryDepartmentId and primaryPositionId are properly formatted
+      // When populated with .lean(), they should be objects, but if null they stay null
+      return {
+        ...profile,
+        roles,
+        // Keep the populated fields as-is (they should be objects if populated, null if not)
+        primaryDepartmentId: profile.primaryDepartmentId || null,
+        primaryPositionId: profile.primaryPositionId || null,
+      };
+    });
+    
+    return profilesWithRoles;
   }
 
   async getTeamProfiles(managerProfileId: string) {

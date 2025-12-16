@@ -361,6 +361,13 @@
     ): Promise<Department> {
       const department = await this.findDepartmentById(id);
 
+      // Prevent changing HR department code
+      if (department.code === 'HR' && updateDepartmentDto.code && updateDepartmentDto.code !== 'HR') {
+        throw new BadRequestException(
+          'Cannot change the code of HR department. HR department code must remain "HR".',
+        );
+      }
+
       if (
         updateDepartmentDto.code &&
         updateDepartmentDto.code !== department.code
@@ -435,6 +442,13 @@
 
     async removeDepartment(id: string, userId: string): Promise<Department> {
       const department = await this.findDepartmentById(id);
+
+      // Prevent deleting HR department - it's a required system department
+      if (department.code === 'HR') {
+        throw new BadRequestException(
+          'Cannot delete the HR department. HR department is a required system department.',
+        );
+      }
 
       // Deactivate all positions in this department first
       // Since positions are department-specific, they should be deactivated when department is deleted
@@ -2248,9 +2262,10 @@
       const rolesToAdd: SystemRole[] = [];
       const rolesToRemove: SystemRole[] = [];
 
-      // Check if employee is a department head
+      // Check if employee is a department head (check once and reuse)
+      let isDepartmentHead = false;
       if (employee.primaryPositionId) {
-        const isDepartmentHead = await this.isPositionDepartmentHead(
+        isDepartmentHead = await this.isPositionDepartmentHead(
           employee.primaryPositionId.toString(),
         );
         if (isDepartmentHead) {
@@ -2271,14 +2286,20 @@
       }
 
       // Check if employee is assigned to a department (has primaryDepartmentId or primaryPositionId)
-      // DEPARTMENT_EMPLOYEE role should be kept if they have ANY department/position assignment
-      // This role is NOT mutually exclusive with DEPARTMENT_HEAD - someone can be both
-      // (e.g., head in one department, employee in another, or just associated with departments)
+      // DEPARTMENT_EMPLOYEE role should be assigned if they have a department/position assignment
+      // BUT: If they're a department head, they should NOT have DEPARTMENT_EMPLOYEE (redundant)
       if (employee.primaryDepartmentId || employee.primaryPositionId) {
-        if (!systemRole.roles.includes(SystemRole.DEPARTMENT_EMPLOYEE)) {
-          rolesToAdd.push(SystemRole.DEPARTMENT_EMPLOYEE);
+        // Only add DEPARTMENT_EMPLOYEE if they're NOT a department head
+        if (!isDepartmentHead) {
+          if (!systemRole.roles.includes(SystemRole.DEPARTMENT_EMPLOYEE)) {
+            rolesToAdd.push(SystemRole.DEPARTMENT_EMPLOYEE);
+          }
+        } else {
+          // If they're a department head, remove DEPARTMENT_EMPLOYEE if it exists (redundant)
+          if (systemRole.roles.includes(SystemRole.DEPARTMENT_EMPLOYEE)) {
+            rolesToRemove.push(SystemRole.DEPARTMENT_EMPLOYEE);
+          }
         }
-        // Don't remove DEPARTMENT_EMPLOYEE even if they become a head - they're still an employee
       } else {
         // Only remove DEPARTMENT_EMPLOYEE if they have NO department or position assignment
         if (systemRole.roles.includes(SystemRole.DEPARTMENT_EMPLOYEE)) {

@@ -316,7 +316,7 @@ export class EmployeeProfileController {
   @Get()
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.HR_EMPLOYEE, SystemRole.SYSTEM_ADMIN)
   async getAllProfiles(@CurrentUser() user: JwtPayload) {
     const employees = await this.employeeProfileService.getAllProfiles(
       user.employeeId?.toString() || user.userid.toString(),
@@ -469,14 +469,29 @@ export class EmployeeProfileController {
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  @Roles(
+    SystemRole.HR_MANAGER,
+    SystemRole.HR_ADMIN,
+    SystemRole.SYSTEM_ADMIN,
+    SystemRole.DEPARTMENT_EMPLOYEE,
+  )
   async getProfileById(
     @Param('id') id: string,
     @CurrentUser() user: JwtPayload,
   ) {
-    await this.employeeProfileService.ensureHrAccess(
-      user.employeeId?.toString() || user.userid.toString(),
-    );
+    const requestingUserId = user.employeeId?.toString() || user.userid.toString();
+    
+    // If requesting user is DEPARTMENT_EMPLOYEE, verify they're viewing their manager
+    if (user.roles?.includes(SystemRole.DEPARTMENT_EMPLOYEE) && 
+        !user.roles?.includes(SystemRole.HR_MANAGER) && 
+        !user.roles?.includes(SystemRole.HR_ADMIN) && 
+        !user.roles?.includes(SystemRole.SYSTEM_ADMIN)) {
+      // Verify the requested profile is the employee's manager
+      await this.employeeProfileService.verifyManagerAccess(requestingUserId, id);
+    } else {
+      // For HR roles, use existing HR access check
+      await this.employeeProfileService.ensureHrAccess(requestingUserId);
+    }
 
     const profile = await this.employeeProfileService.getProfileById(id);
 

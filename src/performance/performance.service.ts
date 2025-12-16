@@ -88,6 +88,7 @@ import {
   VisibilityRuleDto,
   FeedbackFieldType,
 } from './dto/visibility-rule.dto';
+import { PerformanceGoalDto, GoalStatus } from './dto/performance-goal.dto';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
 import { GridFSBucket } from 'mongodb';
@@ -98,8 +99,10 @@ export class PerformanceService implements OnModuleInit {
   private readonly logger = new Logger(PerformanceService.name);
   private visibilityRulesBucket: GridFSBucket;
   private meetingsBucket: GridFSBucket;
+  private goalsBucket: GridFSBucket;
   private readonly VISIBILITY_RULES_FILENAME = 'visibility-rules.json';
   private readonly MEETINGS_FILENAME = 'one-on-one-meetings.json';
+  private readonly GOALS_FILENAME = 'performance-goals.json';
 
   constructor(
     @InjectModel(AppraisalTemplate.name)
@@ -130,6 +133,9 @@ export class PerformanceService implements OnModuleInit {
     this.meetingsBucket = new GridFSBucket(this.connection.db, {
       bucketName: 'one_on_one_meetings',
     });
+    this.goalsBucket = new GridFSBucket(this.connection.db, {
+      bucketName: 'performance_goals',
+    });
   }
 
   /**
@@ -137,11 +143,12 @@ export class PerformanceService implements OnModuleInit {
    * This ensures the cycleCode index is sparse (allows multiple nulls)
    */
   async onModuleInit() {
+    // Fix cycleCode index
     try {
-      const collection = this.cycleModel.collection;
+      const cycleCollection = this.cycleModel.collection;
       
       // Get all indexes
-      const indexes = await collection.indexes();
+      const indexes = await cycleCollection.indexes();
       const cycleCodeIndex = indexes.find(idx => idx.key?.cycleCode !== undefined);
       
       if (cycleCodeIndex) {
@@ -151,7 +158,7 @@ export class PerformanceService implements OnModuleInit {
           
           // Drop the existing non-sparse index
           try {
-            await collection.dropIndex(cycleCodeIndex.name);
+            await cycleCollection.dropIndex(cycleCodeIndex.name);
           } catch (err: any) {
             // Index might not exist or have different name
             if (!err.message?.includes('index not found')) {
@@ -160,7 +167,7 @@ export class PerformanceService implements OnModuleInit {
           }
           
           // Create sparse unique index (allows multiple nulls)
-          await collection.createIndex(
+          await cycleCollection.createIndex(
             { cycleCode: 1 },
             { unique: true, sparse: true, name: 'cycleCode_1' }
           );
@@ -170,6 +177,61 @@ export class PerformanceService implements OnModuleInit {
       }
     } catch (error: any) {
       this.logger.warn(`Could not fix cycleCode index: ${error.message}`);
+      // Don't throw - allow app to start even if index fix fails
+    }
+
+    // Fix templateCode index (legacy index that should be removed)
+    try {
+      const templateCollection = this.templateModel.collection;
+      
+      // Get all indexes
+      const indexes = await templateCollection.indexes();
+      const templateCodeIndex = indexes.find(idx => idx.key?.templateCode !== undefined);
+      
+      if (templateCodeIndex) {
+        this.logger.log('Found legacy templateCode index, removing it...');
+        
+        // Drop the legacy templateCode index (it's not needed anymore)
+        try {
+          await templateCollection.dropIndex(templateCodeIndex.name);
+          this.logger.log(`Successfully removed legacy templateCode index: ${templateCodeIndex.name}`);
+        } catch (err: any) {
+          // Index might not exist or have different name
+          if (!err.message?.includes('index not found')) {
+            this.logger.warn(`Could not drop templateCode index: ${err.message}`);
+          }
+        }
+      }
+    } catch (error: any) {
+      this.logger.warn(`Could not fix templateCode index: ${error.message}`);
+      // Don't throw - allow app to start even if index fix fails
+    }
+
+    // Fix evaluationId index (legacy index in disputes collection that should be removed)
+    // The schema uses 'appraisalId' not 'evaluationId'
+    try {
+      const disputeCollection = this.disputeModel.collection;
+      
+      // Get all indexes
+      const indexes = await disputeCollection.indexes();
+      const evaluationIdIndex = indexes.find(idx => idx.key?.evaluationId !== undefined);
+      
+      if (evaluationIdIndex) {
+        this.logger.log('Found legacy evaluationId index in disputes collection, removing it...');
+        
+        // Drop the legacy evaluationId index (it's not needed anymore)
+        try {
+          await disputeCollection.dropIndex(evaluationIdIndex.name);
+          this.logger.log(`Successfully removed legacy evaluationId index: ${evaluationIdIndex.name}`);
+        } catch (err: any) {
+          // Index might not exist or have different name
+          if (!err.message?.includes('index not found')) {
+            this.logger.warn(`Could not drop evaluationId index: ${err.message}`);
+          }
+        }
+      }
+    } catch (error: any) {
+      this.logger.warn(`Could not fix evaluationId index: ${error.message}`);
       // Don't throw - allow app to start even if index fix fails
     }
   }
@@ -230,8 +292,41 @@ export class PerformanceService implements OnModuleInit {
       isActive: createDto.isActive !== undefined ? createDto.isActive : true,
     };
 
-    const template = new this.templateModel(templateData);
-    return template.save();
+    try {
+      const template = new this.templateModel(templateData);
+      return await template.save();
+    } catch (error: unknown) {
+      // Handle duplicate key errors with better messages
+      if (error && typeof error === 'object' && 'code' in error) {
+        const mongoError = error as { 
+          code: number; 
+          keyPattern?: Record<string, number>;
+          keyValue?: Record<string, any>;
+        };
+        if (mongoError.code === 11000) {
+          // Handle duplicate name error
+          if (mongoError.keyPattern?.name) {
+            throw new ConflictException(
+              `Template with name "${createDto.name}" already exists. Please use a different name.`
+            );
+          }
+          // Handle legacy templateCode index error
+          if (mongoError.keyPattern?.templateCode) {
+            throw new BadRequestException(
+              'Database configuration error: A legacy index on "templateCode" is causing conflicts. ' +
+              'Please contact the system administrator to remove the legacy index. ' +
+              'The index should be dropped from MongoDB: db.appraisal_templates.dropIndex("templateCode_1")'
+            );
+          }
+          // Generic duplicate key error
+          throw new ConflictException(
+            'A template with this information already exists. Please check for duplicates.'
+          );
+        }
+      }
+      // Re-throw other errors
+      throw error;
+    }
   }
 
   /**
@@ -565,8 +660,9 @@ export class PerformanceService implements OnModuleInit {
   }
 
   /**
-   * Activate a cycle and auto-assign appraisals
-   * This creates assignments for all eligible employees
+   * Activate a cycle
+   * REQ-PP-02: HR Manager defines and schedules appraisal cycles.
+   * Activation only changes status - assignments are done separately by HR Employee (REQ-PP-05)
    */
   async activateCycle(id: string): Promise<AppraisalCycleDocument> {
     const cycle = await this.findCycleById(id);
@@ -577,9 +673,8 @@ export class PerformanceService implements OnModuleInit {
       );
     }
 
-    // Auto-assign appraisals based on cycle scope
-    await this.autoAssignAppraisals(cycle);
-
+    // Only change status to ACTIVE
+    // Assignments are done separately by HR Employee using the Assignments tab (REQ-PP-05)
     cycle.status = AppraisalCycleStatus.ACTIVE;
     return cycle.save();
   }
@@ -687,36 +782,54 @@ export class PerformanceService implements OnModuleInit {
 
     if (cycle.status !== AppraisalCycleStatus.ACTIVE) {
       throw new BadRequestException(
-        `Cannot publish cycle. Current status: ${cycle.status}`,
+        `Cannot publish cycle. Current status: ${cycle.status}. Only ACTIVE cycles can be published.`,
       );
     }
 
-    // Update all evaluations to PUBLISHED status
-    await this.evaluationModel
+    // Allow republishing to include late submissions
+    // Only publish evaluations that are ready (MANAGER_SUBMITTED) and not already published
+    const publishDate = new Date();
+    
+    // Update evaluations that are ready for publishing (MANAGER_SUBMITTED) but not yet published
+    const evaluationsResult = await this.evaluationModel
       .updateMany(
-        { cycleId: new Types.ObjectId(id) },
+        {
+          cycleId: new Types.ObjectId(id),
+          status: AppraisalRecordStatus.MANAGER_SUBMITTED,
+          hrPublishedAt: { $exists: false }, // Only update if not already published
+        },
         {
           status: AppraisalRecordStatus.HR_PUBLISHED,
-          hrPublishedAt: new Date(),
+          hrPublishedAt: publishDate,
         },
       )
       .exec();
 
-    // Update cycle assignments status
-    await this.assignmentModel
+    // Update assignments that are SUBMITTED but not yet PUBLISHED
+    // This includes late submissions after initial publish
+    const assignmentsResult = await this.assignmentModel
       .updateMany(
         {
           cycleId: new Types.ObjectId(id),
           status: AppraisalAssignmentStatus.SUBMITTED,
+          publishedAt: { $exists: false }, // Only update if not already published
         },
         {
           status: AppraisalAssignmentStatus.PUBLISHED,
-          publishedAt: new Date(),
+          publishedAt: publishDate,
         },
       )
       .exec();
 
-    cycle.publishedAt = new Date();
+    // Set publishedAt on cycle if this is the first publish
+    if (!cycle.publishedAt) {
+      cycle.publishedAt = publishDate;
+    }
+
+    this.logger.log(
+      `Published cycle ${id}: ${evaluationsResult.modifiedCount} evaluations, ${assignmentsResult.modifiedCount} assignments`,
+    );
+
     return cycle.save();
   }
 
@@ -734,6 +847,47 @@ export class PerformanceService implements OnModuleInit {
 
     cycle.status = AppraisalCycleStatus.CLOSED;
     return cycle.save();
+  }
+
+  /**
+   * Delete a cycle
+   * Only allows deletion of PLANNED cycles with no assignments
+   * REQ-PP-02: HR Manager defines and schedules appraisal cycles.
+   */
+  async deleteCycle(id: string): Promise<void> {
+    const cycle = await this.findCycleById(id);
+
+    // Only allow deletion of PLANNED cycles
+    if (cycle.status !== AppraisalCycleStatus.PLANNED) {
+      throw new BadRequestException(
+        `Cannot delete cycle. Only PLANNED cycles can be deleted. Current status: ${cycle.status}`,
+      );
+    }
+
+    // Check if there are any assignments for this cycle
+    const assignmentCount = await this.assignmentModel
+      .countDocuments({ cycleId: new Types.ObjectId(id) })
+      .exec();
+
+    if (assignmentCount > 0) {
+      throw new BadRequestException(
+        `Cannot delete cycle. There are ${assignmentCount} assignment(s) associated with this cycle. Please remove assignments first.`,
+      );
+    }
+
+    // Check if there are any evaluations for this cycle
+    const evaluationCount = await this.evaluationModel
+      .countDocuments({ cycleId: new Types.ObjectId(id) })
+      .exec();
+
+    if (evaluationCount > 0) {
+      throw new BadRequestException(
+        `Cannot delete cycle. There are ${evaluationCount} evaluation(s) associated with this cycle.`,
+      );
+    }
+
+    // Safe to delete
+    await this.cycleModel.findByIdAndDelete(id).exec();
   }
 
   // ==================== APPRAISAL ASSIGNMENT METHODS ====================
@@ -862,12 +1016,13 @@ export class PerformanceService implements OnModuleInit {
 
     return this.assignmentModel
       .find(query)
-      .populate('employeeProfileId')
-      .populate('managerProfileId')
-      .populate('templateId')
-      .populate('cycleId')
-      .populate('departmentId')
-      .populate('positionId')
+      .populate('employeeProfileId', 'firstName lastName fullName employeeNumber')
+      .populate('managerProfileId', 'firstName lastName fullName employeeNumber')
+      .populate('templateId', 'name')
+      .populate('cycleId', 'name status')
+      .populate('departmentId', 'name code')
+      .populate('positionId', 'title code')
+      .sort({ assignedAt: -1 })
       .exec();
   }
 
@@ -1282,13 +1437,15 @@ export class PerformanceService implements OnModuleInit {
       );
     }
 
-    // Verify that the reviewer is authorized (Line Manager/DEPARTMENT_HEAD, assigned manager, or HR)
+    // Verify that the reviewer is authorized (Line Manager/DEPARTMENT_HEAD only)
+    // REQ-AE-03: Line Manager completes structured appraisal ratings for direct reports.
     if (reviewerId) {
       const reviewerObjectId = new Types.ObjectId(reviewerId);
       const isAssignedManager = assignment.managerProfileId.equals(reviewerObjectId);
       
       if (!isAssignedManager) {
-        // Check if reviewer has appropriate role (DEPARTMENT_HEAD, HR_MANAGER, HR_ADMIN, SYSTEM_ADMIN)
+        // Only allow DEPARTMENT_HEAD (Line Manager) to review appraisals
+        // HR roles are not allowed for regular evaluations (only for dispute resolution - REQ-OD-07)
         const reviewer = await this.employeeModel
           .findById(reviewerId)
           .populate('accessProfileId')
@@ -1299,7 +1456,7 @@ export class PerformanceService implements OnModuleInit {
         }
 
         // Get reviewer's roles from EmployeeSystemRole
-        let hasAuthorizedRole = false;
+        let isDepartmentHead = false;
         if (reviewer.accessProfileId) {
           const systemRole = await this.employeeModel.db
             .collection('employee_system_roles')
@@ -1307,18 +1464,14 @@ export class PerformanceService implements OnModuleInit {
           
           if (systemRole && systemRole.roles) {
             const reviewerRoles = systemRole.roles as string[];
-            hasAuthorizedRole = [
-              'department head', // SystemRole.DEPARTMENT_HEAD
-              'HR Manager',      // SystemRole.HR_MANAGER
-              'HR Admin',        // SystemRole.HR_ADMIN
-              'System Admin',    // SystemRole.SYSTEM_ADMIN
-            ].some(role => reviewerRoles.includes(role));
+            // Only allow DEPARTMENT_HEAD (Line Manager) - REQ-AE-03 specifies Line Manager only
+            isDepartmentHead = reviewerRoles.includes('department head'); // SystemRole.DEPARTMENT_HEAD
           }
         }
 
-        if (!hasAuthorizedRole) {
+        if (!isDepartmentHead) {
           throw new BadRequestException(
-            'You are not authorized to review this employee. Only Line Managers (Department Heads), assigned managers, or HR staff can review appraisals.',
+            'You are not authorized to review this employee. Only Line Managers (Department Heads) who are assigned as the manager can review appraisals. REQ-AE-03: Line Manager completes structured appraisal ratings for direct reports.',
           );
         }
       }
@@ -1412,8 +1565,12 @@ export class PerformanceService implements OnModuleInit {
 
   /**
    * Get evaluation by ID
+   * Applies visibility rules based on user role
    */
-  async findEvaluationById(id: string): Promise<AppraisalRecordDocument> {
+  async findEvaluationById(
+    id: string,
+    userRoles?: SystemRole | SystemRole[],
+  ): Promise<AppraisalRecordDocument> {
     const evaluation = await this.evaluationModel
       .findById(id)
       .populate('employeeProfileId')
@@ -1427,11 +1584,132 @@ export class PerformanceService implements OnModuleInit {
         `Appraisal evaluation with ID ${id} not found`,
       );
     }
+
+    // Apply visibility rules if user roles are provided
+    if (userRoles) {
+      const rolesArray = Array.isArray(userRoles) ? userRoles : [userRoles];
+      this.logger.debug(`Applying visibility rules for evaluation ${id} with user roles: [${rolesArray.join(', ')}]`);
+      await this.applyVisibilityRules(evaluation, userRoles);
+    } else {
+      this.logger.warn(`No user roles provided for evaluation ${id}, visibility rules not applied`);
+    }
+
     return evaluation;
   }
 
   /**
-   * Employee acknowledges appraisal
+   * Apply visibility rules to an appraisal record
+   * Removes fields that the user's role is not allowed to see
+   * @param evaluation The appraisal record to filter
+   * @param userRoles Array of user roles (check all roles, user may have multiple)
+   */
+  private async applyVisibilityRules(
+    evaluation: AppraisalRecordDocument,
+    userRoles: SystemRole | SystemRole[],
+  ): Promise<void> {
+    // Normalize to array
+    const roles = Array.isArray(userRoles) ? userRoles : [userRoles];
+    // Helper to check if any of the user's roles can view the field
+    const canViewFieldWithAnyRole = async (fieldType: FeedbackFieldType): Promise<boolean> => {
+      for (const role of roles) {
+        const canView = await this.canViewField(fieldType, role);
+        if (canView) {
+          this.logger.debug(`User with role ${role} can view ${fieldType}`);
+          return true;
+        }
+      }
+      this.logger.debug(`User with roles [${roles.join(', ')}] cannot view ${fieldType}`);
+      return false;
+    };
+
+    // Check each field type and remove if not allowed
+    const canSeeManagerSummary = await canViewFieldWithAnyRole(FeedbackFieldType.MANAGER_SUMMARY);
+    if (!canSeeManagerSummary) {
+      evaluation.managerSummary = undefined;
+    }
+
+    const canSeeStrengths = await canViewFieldWithAnyRole(FeedbackFieldType.STRENGTHS);
+    if (!canSeeStrengths) {
+      evaluation.strengths = undefined;
+    }
+
+    const canSeeImprovementAreas = await canViewFieldWithAnyRole(FeedbackFieldType.IMPROVEMENT_AREAS);
+    if (!canSeeImprovementAreas) {
+      evaluation.improvementAreas = undefined;
+    }
+
+    const canSeeRatings = await canViewFieldWithAnyRole(FeedbackFieldType.RATINGS);
+    if (!canSeeRatings) {
+      evaluation.ratings = [];
+    }
+
+    const canSeeOverallScore = await canViewFieldWithAnyRole(FeedbackFieldType.OVERALL_SCORE);
+    if (!canSeeOverallScore) {
+      evaluation.totalScore = undefined;
+      evaluation.overallRatingLabel = undefined;
+    }
+
+    const canSeeFinalRating = await canViewFieldWithAnyRole(FeedbackFieldType.FINAL_RATING);
+    if (!canSeeFinalRating) {
+      // Hide final rating (totalScore and overallRatingLabel) if restricted
+      evaluation.totalScore = undefined;
+      evaluation.overallRatingLabel = undefined;
+    }
+
+    const canSeeSelfAssessment = await canViewFieldWithAnyRole(FeedbackFieldType.SELF_ASSESSMENT);
+    // Note: Self-assessment is typically stored in the assignment, not the evaluation
+    // This would need to be handled separately if needed
+
+    // Filter rating comments based on visibility
+    if (evaluation.ratings && evaluation.ratings.length > 0) {
+      const canSeeComments = await canViewFieldWithAnyRole(FeedbackFieldType.COMMENTS);
+      if (!canSeeComments) {
+        // Remove comments from each rating entry
+        evaluation.ratings = evaluation.ratings.map((rating) => ({
+          ...rating,
+          comments: undefined,
+        }));
+      }
+    }
+  }
+
+  /**
+   * Employee acknowledges assignment (REQ-PP-07)
+   * Changes status from NOT_STARTED to ACKNOWLEDGED
+   */
+  async acknowledgeAssignment(
+    assignmentId: string,
+    employeeId: string,
+  ): Promise<AppraisalAssignmentDocument> {
+    // Fetch assignment without populating to get raw ObjectId for comparison
+    const assignment = await this.assignmentModel.findById(assignmentId).exec();
+    
+    if (!assignment) {
+      throw new NotFoundException(`Assignment with ID ${assignmentId} not found`);
+    }
+
+    // Verify the employee is acknowledging their own assignment
+    // Compare ObjectIds directly (more reliable than string comparison)
+    const assignmentEmployeeId = assignment.employeeProfileId.toString();
+    const userEmployeeId = new Types.ObjectId(employeeId).toString();
+    
+    if (assignmentEmployeeId !== userEmployeeId) {
+      throw new ForbiddenException('You can only acknowledge your own assignments');
+    }
+
+    // Only allow acknowledgment if status is NOT_STARTED
+    if (assignment.status !== AppraisalAssignmentStatus.NOT_STARTED) {
+      throw new BadRequestException(
+        `Cannot acknowledge assignment. Current status: ${assignment.status}. Only NOT_STARTED assignments can be acknowledged.`,
+      );
+    }
+
+    assignment.status = AppraisalAssignmentStatus.ACKNOWLEDGED;
+    return assignment.save();
+  }
+
+  /**
+   * Employee acknowledges final published appraisal evaluation
    */
   async acknowledgeEvaluation(
     evaluationId: string,
@@ -1883,6 +2161,29 @@ export class PerformanceService implements OnModuleInit {
       const template = assignment.templateId || {};
       const department = assignment.departmentId || {};
 
+      // Extract high performer flag from managerSummary
+      let isHighPerformer = false;
+      let highPerformerNotes = '';
+      let promotionRecommendation = '';
+      let managerSummaryClean = evaluation?.managerSummary || '';
+      
+      if (evaluation?.managerSummary) {
+        const highPerformerMatch = evaluation.managerSummary.match(/\[HIGH_PERFORMER\](.*?)\[END_FLAG\]/s);
+        if (highPerformerMatch) {
+          try {
+            const flagData = JSON.parse(highPerformerMatch[1]);
+            isHighPerformer = flagData.flagged || false;
+            highPerformerNotes = flagData.notes || '';
+            promotionRecommendation = flagData.promotionRecommendation || '';
+            // Remove the flag marker from summary for cleaner display
+            managerSummaryClean = evaluation.managerSummary.replace(/\[HIGH_PERFORMER\].*?\[END_FLAG\]\s*/s, '').trim();
+          } catch (e) {
+            // If parsing fails, keep original summary
+            managerSummaryClean = evaluation.managerSummary;
+          }
+        }
+      }
+
       return {
         'Employee Number': employee.employeeNumber || '',
         'Employee Name': `${employee.firstName || ''} ${employee.middleName || ''} ${employee.lastName || ''}`.trim(),
@@ -1902,7 +2203,10 @@ export class PerformanceService implements OnModuleInit {
         'Manager Email': manager.workEmail || '',
         'Total Score': evaluation?.totalScore || '',
         'Overall Rating': evaluation?.overallRatingLabel || '',
-        'Manager Summary': evaluation?.managerSummary || '',
+        'High Performer': isHighPerformer ? 'Yes' : 'No',
+        'High Performer Notes': highPerformerNotes,
+        'Promotion Recommendation': promotionRecommendation,
+        'Manager Summary': managerSummaryClean,
         'Strengths': evaluation?.strengths || '',
         'Improvement Areas': evaluation?.improvementAreas || '',
         'Acknowledged': evaluation?.employeeAcknowledgedAt ? 'Yes' : 'No',
@@ -1921,7 +2225,8 @@ export class PerformanceService implements OnModuleInit {
           'Department Code', 'Cycle Name', 'Cycle Start', 'Cycle End',
           'Template', 'Status', 'Assigned Date', 'Due Date', 'Submitted Date',
           'Published Date', 'Manager Name', 'Manager Email', 'Total Score',
-          'Overall Rating', 'Manager Summary', 'Strengths', 'Improvement Areas',
+          'Overall Rating', 'High Performer', 'High Performer Notes', 'Promotion Recommendation',
+          'Manager Summary', 'Strengths', 'Improvement Areas',
           'Acknowledged', 'Acknowledged Date'
         ];
         const csvContent = headers.join(',');
@@ -2085,13 +2390,43 @@ export class PerformanceService implements OnModuleInit {
       );
     }
 
+    // Prevent submission if assignment is already PUBLISHED
+    // Once published, the appraisal is final and cannot be modified
+    if (assignment.status === AppraisalAssignmentStatus.PUBLISHED) {
+      throw new BadRequestException(
+        `Cannot submit self-assessment. This assignment has already been published and finalized. You cannot modify a published appraisal.`,
+      );
+    }
+
+    // Allow submission when status is NOT_STARTED, ACKNOWLEDGED, or IN_PROGRESS
+    // ACKNOWLEDGED is the status after employee acknowledges the assignment (REQ-PP-07)
+    // SUBMITTED status allows viewing but not re-submission (unless manager hasn't reviewed yet)
     if (
       assignment.status !== AppraisalAssignmentStatus.IN_PROGRESS &&
-      assignment.status !== AppraisalAssignmentStatus.NOT_STARTED
+      assignment.status !== AppraisalAssignmentStatus.NOT_STARTED &&
+      assignment.status !== AppraisalAssignmentStatus.ACKNOWLEDGED &&
+      assignment.status !== AppraisalAssignmentStatus.SUBMITTED
     ) {
       throw new BadRequestException(
-        `Cannot submit self-assessment. Current status: ${assignment.status}`,
+        `Cannot submit self-assessment. Current status: ${assignment.status}. You can only submit when status is NOT_STARTED, ACKNOWLEDGED, IN_PROGRESS, or SUBMITTED (before manager review).`,
       );
+    }
+
+    // If status is SUBMITTED, check if manager has already reviewed
+    // If manager has reviewed, don't allow re-submission
+    if (assignment.status === AppraisalAssignmentStatus.SUBMITTED) {
+      const existingEvaluation = await this.evaluationModel
+        .findOne({
+          assignmentId: assignment._id,
+          status: { $in: [AppraisalRecordStatus.MANAGER_SUBMITTED, AppraisalRecordStatus.HR_PUBLISHED] },
+        })
+        .exec();
+      
+      if (existingEvaluation) {
+        throw new BadRequestException(
+          `Cannot submit self-assessment. Your manager has already reviewed this appraisal. Once reviewed, you cannot modify your self-assessment.`,
+        );
+      }
     }
 
     // Get template from assignment
@@ -2128,8 +2463,10 @@ export class PerformanceService implements OnModuleInit {
       });
     }
 
-    // Update assignment status
-    assignment.status = AppraisalAssignmentStatus.IN_PROGRESS;
+    // Update assignment status to SUBMITTED (REQ-AE-02: Employee submits self-assessment)
+    // Expected: Assignment status changes to SUBMITTED
+    assignment.status = AppraisalAssignmentStatus.SUBMITTED;
+    assignment.submittedAt = new Date();
     await assignment.save();
 
     return evaluation.save();
@@ -2171,46 +2508,271 @@ export class PerformanceService implements OnModuleInit {
   }
 
   // ==================== PERFORMANCE GOAL METHODS ====================
+  // REQ-PP-12: Line Manager sets and reviews employee objectives
+  // Stored in GridFS since we cannot create new schemas
+
+  /**
+   * Load all performance goals from GridFS
+   */
+  private async loadGoals(): Promise<PerformanceGoalDto[]> {
+    try {
+      const files = await this.goalsBucket
+        .find({ filename: this.GOALS_FILENAME })
+        .sort({ uploadDate: -1 })
+        .limit(1)
+        .toArray();
+
+      if (files.length > 0) {
+        const file = files[0];
+        const downloadStream = this.goalsBucket.openDownloadStream(file._id);
+        
+        const chunks: Buffer[] = [];
+        for await (const chunk of downloadStream) {
+          chunks.push(chunk);
+        }
+        
+        const data = Buffer.concat(chunks).toString('utf-8');
+        const goals = JSON.parse(data);
+        // Convert date strings back to Date objects
+        return goals.map((goal: any) => ({
+          ...goal,
+          startDate: goal.startDate ? new Date(goal.startDate) : undefined,
+          dueDate: goal.dueDate ? new Date(goal.dueDate) : undefined,
+          createdAt: goal.createdAt ? new Date(goal.createdAt) : undefined,
+          updatedAt: goal.updatedAt ? new Date(goal.updatedAt) : undefined,
+          completedAt: goal.completedAt ? new Date(goal.completedAt) : undefined,
+        }));
+      }
+      
+      return [];
+    } catch (error) {
+      this.logger.error('Error loading goals:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Save all performance goals to GridFS
+   */
+  private async saveGoals(goals: PerformanceGoalDto[]): Promise<void> {
+    try {
+      // Delete existing file if it exists
+      const existingFiles = await this.goalsBucket
+        .find({ filename: this.GOALS_FILENAME })
+        .toArray();
+      
+      for (const file of existingFiles) {
+        await this.goalsBucket.delete(file._id);
+      }
+
+      // Upload new file
+      const jsonData = JSON.stringify(goals, null, 2);
+      const readableStream = new Readable();
+      readableStream.push(jsonData);
+      readableStream.push(null);
+
+      const uploadStream = this.goalsBucket.openUploadStream(
+        this.GOALS_FILENAME,
+        {
+          contentType: 'application/json',
+          metadata: {
+            updatedAt: new Date(),
+          },
+        },
+      );
+
+      await new Promise<void>((resolve, reject) => {
+        readableStream
+          .pipe(uploadStream)
+          .on('finish', () => resolve())
+          .on('error', (error) => reject(error));
+      });
+    } catch (error) {
+      this.logger.error('Error saving goals:', error);
+      throw new BadRequestException('Failed to save goal');
+    }
+  }
 
   /**
    * Create a performance goal
+   * REQ-PP-12: Line Manager sets and reviews employee objectives
    */
-  async createGoal(createDto: CreatePerformanceGoalDto): Promise<any> {
-    // Note: PerformanceGoal schema doesn't exist
-    throw new BadRequestException(
-      'Performance goals feature not yet implemented',
-    );
+  async createGoal(createDto: CreatePerformanceGoalDto): Promise<PerformanceGoalDto> {
+    // Verify employee exists
+    const employee = await this.employeeModel.findById(createDto.employeeId).exec();
+    if (!employee) {
+      throw new NotFoundException(`Employee with ID ${createDto.employeeId} not found`);
+    }
+
+    // Verify setBy (manager) exists
+    const manager = await this.employeeModel.findById(createDto.setBy).exec();
+    if (!manager) {
+      throw new NotFoundException(`Manager with ID ${createDto.setBy} not found`);
+    }
+
+    // Verify manager is authorized (is direct manager or department head of employee's department)
+    const isDirectManager = employee.supervisorPositionId?.toString() === manager.primaryPositionId?.toString();
+    
+    // Check if manager is department head of employee's department
+    let isDepartmentHead = false;
+    if (employee.primaryDepartmentId) {
+      const department = await this.departmentModel.findById(employee.primaryDepartmentId).exec();
+      if (department?.headPositionId?.toString() === manager.primaryPositionId?.toString()) {
+        isDepartmentHead = true;
+      }
+    }
+
+    if (!isDirectManager && !isDepartmentHead) {
+      throw new ForbiddenException(
+        'You can only set goals for your direct reports or employees in your department',
+      );
+    }
+
+    // Load existing goals
+    const goals = await this.loadGoals();
+
+    // Create new goal
+    const newGoal: PerformanceGoalDto = {
+      id: new Types.ObjectId().toString(),
+      goalTitle: createDto.goalTitle,
+      description: createDto.description,
+      employeeId: createDto.employeeId,
+      setBy: createDto.setBy,
+      cycleId: createDto.cycleId,
+      category: createDto.category,
+      type: createDto.type,
+      priority: createDto.priority,
+      targetMetric: createDto.targetMetric,
+      targetValue: createDto.targetValue,
+      targetUnit: createDto.targetUnit,
+      startDate: new Date(createDto.startDate),
+      dueDate: new Date(createDto.dueDate),
+      status: GoalStatus.NOT_STARTED,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    goals.push(newGoal);
+    await this.saveGoals(goals);
+
+    return newGoal;
   }
 
-  async findGoalsByEmployee(employeeId: string, status?: any): Promise<any[]> {
-    // Note: PerformanceGoal schema doesn't exist
-    throw new BadRequestException(
-      'Performance goals feature not yet implemented',
-    );
+  /**
+   * Get goals for an employee
+   */
+  async findGoalsByEmployee(employeeId: string, status?: string): Promise<PerformanceGoalDto[]> {
+    const goals = await this.loadGoals();
+    
+    let filteredGoals = goals.filter(goal => goal.employeeId === employeeId);
+    
+    if (status) {
+      filteredGoals = filteredGoals.filter(goal => goal.status === status);
+    }
+
+    return filteredGoals.sort((a, b) => {
+      // Sort by due date (earliest first), then by created date
+      if (a.dueDate && b.dueDate) {
+        return a.dueDate.getTime() - b.dueDate.getTime();
+      }
+      if (a.createdAt && b.createdAt) {
+        return b.createdAt.getTime() - a.createdAt.getTime();
+      }
+      return 0;
+    });
   }
 
-  async findGoalById(id: string): Promise<any> {
-    // Note: PerformanceGoal schema doesn't exist
-    throw new BadRequestException(
-      'Performance goals feature not yet implemented',
-    );
+  /**
+   * Get a goal by ID
+   */
+  async findGoalById(id: string): Promise<PerformanceGoalDto> {
+    const goals = await this.loadGoals();
+    const goal = goals.find(g => g.id === id);
+    
+    if (!goal) {
+      throw new NotFoundException(`Goal with ID ${id} not found`);
+    }
+
+    return goal;
   }
 
+  /**
+   * Update a performance goal
+   * REQ-PP-12: Line Manager sets and reviews employee objectives
+   */
   async updateGoal(
     id: string,
     updateDto: UpdatePerformanceGoalDto,
-  ): Promise<any> {
-    // Note: PerformanceGoal schema doesn't exist
-    throw new BadRequestException(
-      'Performance goals feature not yet implemented',
-    );
+    managerId?: string,
+  ): Promise<PerformanceGoalDto> {
+    const goals = await this.loadGoals();
+    const goalIndex = goals.findIndex(g => g.id === id);
+    
+    if (goalIndex === -1) {
+      throw new NotFoundException(`Goal with ID ${id} not found`);
+    }
+
+    const goal = goals[goalIndex];
+
+    // If managerId is provided, verify they're authorized to update this goal
+    if (managerId) {
+      if (goal.setBy !== managerId) {
+        throw new ForbiddenException('You can only update goals that you set');
+      }
+    }
+
+    // Update goal fields
+    if (updateDto.goalTitle !== undefined) goal.goalTitle = updateDto.goalTitle;
+    if (updateDto.description !== undefined) goal.description = updateDto.description;
+    if (updateDto.category !== undefined) goal.category = updateDto.category;
+    if (updateDto.type !== undefined) goal.type = updateDto.type;
+    if (updateDto.priority !== undefined) goal.priority = updateDto.priority;
+    if (updateDto.targetMetric !== undefined) goal.targetMetric = updateDto.targetMetric;
+    if (updateDto.targetValue !== undefined) goal.targetValue = updateDto.targetValue;
+    if (updateDto.targetUnit !== undefined) goal.targetUnit = updateDto.targetUnit;
+    if (updateDto.currentValue !== undefined) goal.currentValue = updateDto.currentValue;
+    if (updateDto.startDate !== undefined) goal.startDate = new Date(updateDto.startDate);
+    if (updateDto.dueDate !== undefined) goal.dueDate = new Date(updateDto.dueDate);
+    if (updateDto.status !== undefined) {
+      goal.status = updateDto.status as GoalStatus;
+      // Set completedAt if status is COMPLETED
+      if (updateDto.status === GoalStatus.COMPLETED && !goal.completedAt) {
+        goal.completedAt = new Date();
+      }
+    }
+    if (updateDto.finalComments !== undefined) goal.finalComments = updateDto.finalComments;
+
+    goal.updatedAt = new Date();
+
+    goals[goalIndex] = goal;
+    await this.saveGoals(goals);
+
+    return goal;
   }
 
-  async deleteGoal(id: string): Promise<void> {
-    // Note: PerformanceGoal schema doesn't exist
-    throw new BadRequestException(
-      'Performance goals feature not yet implemented',
-    );
+  /**
+   * Delete a performance goal
+   * REQ-PP-12: Line Manager sets and reviews employee objectives
+   */
+  async deleteGoal(id: string, managerId?: string): Promise<void> {
+    const goals = await this.loadGoals();
+    const goalIndex = goals.findIndex(g => g.id === id);
+    
+    if (goalIndex === -1) {
+      throw new NotFoundException(`Goal with ID ${id} not found`);
+    }
+
+    const goal = goals[goalIndex];
+
+    // If managerId is provided, verify they're authorized to delete this goal
+    if (managerId) {
+      if (goal.setBy !== managerId) {
+        throw new ForbiddenException('You can only delete goals that you set');
+      }
+    }
+
+    goals.splice(goalIndex, 1);
+    await this.saveGoals(goals);
   }
 
   async createFeedback(createDto: CreatePerformanceFeedbackDto): Promise<any> {
@@ -3238,25 +3800,40 @@ export class PerformanceService implements OnModuleInit {
 
       if (files.length > 0) {
         const file = files[0];
-        const downloadStream = this.visibilityRulesBucket.openDownloadStream(
-          file._id,
-        );
-        
-        const chunks: Buffer[] = [];
-        for await (const chunk of downloadStream) {
-          chunks.push(chunk);
+        try {
+          const downloadStream = this.visibilityRulesBucket.openDownloadStream(
+            file._id,
+          );
+          
+          const chunks: Buffer[] = [];
+          for await (const chunk of downloadStream) {
+            chunks.push(chunk);
+          }
+          
+          const data = Buffer.concat(chunks).toString('utf-8');
+          const rules = JSON.parse(data);
+          this.logger.log(`Loaded ${rules.length} visibility rules from GridFS`);
+          return rules;
+        } catch (downloadError: any) {
+          // File reference exists but file is missing - delete the reference and recreate
+          this.logger.warn(`Visibility rules file not found, recreating: ${downloadError.message}`);
+          try {
+            await this.visibilityRulesBucket.delete(file._id);
+          } catch (deleteError) {
+            this.logger.warn(`Could not delete missing file reference: ${deleteError}`);
+          }
+          // Fall through to create default rules
         }
-        
-        const data = Buffer.concat(chunks).toString('utf-8');
-        return JSON.parse(data);
       }
       
       // If no file exists, return defaults and initialize
+      this.logger.log('No visibility rules file found, creating default rules');
       const defaultRules = this.getDefaultVisibilityRules();
       await this.saveVisibilityRules(defaultRules);
       return defaultRules;
     } catch (error) {
       this.logger.error('Error loading visibility rules:', error);
+      // Return default rules as fallback
       return this.getDefaultVisibilityRules();
     }
   }
@@ -3389,7 +3966,9 @@ export class PerformanceService implements OnModuleInit {
       updatedAt: new Date(),
     };
     rules.push(newRule);
+    this.logger.log(`Creating visibility rule: ${newRule.name} for field ${newRule.fieldType} with allowed roles: [${newRule.allowedRoles.join(', ')}]`);
     await this.saveVisibilityRules(rules);
+    this.logger.log(`Successfully saved ${rules.length} visibility rules to GridFS`);
     return newRule;
   }
 
@@ -3438,13 +4017,15 @@ export class PerformanceService implements OnModuleInit {
   async getActiveVisibilityRules(): Promise<VisibilityRuleDto[]> {
     const rules = await this.loadVisibilityRules();
     const now = new Date();
-    return rules.filter((rule) => {
+    const activeRules = rules.filter((rule) => {
       if (!rule.isActive) return false;
       if (rule.effectiveFrom && new Date(rule.effectiveFrom) > now)
         return false;
       if (rule.effectiveTo && new Date(rule.effectiveTo) < now) return false;
       return true;
     });
+    this.logger.debug(`Found ${activeRules.length} active visibility rules out of ${rules.length} total rules`);
+    return activeRules;
   }
 
   /**
@@ -3454,13 +4035,28 @@ export class PerformanceService implements OnModuleInit {
     fieldType: FeedbackFieldType,
     userRole: SystemRole,
   ): Promise<boolean> {
-    const activeRules = await this.getActiveVisibilityRules();
-    const rule = activeRules.find((r) => r.fieldType === fieldType);
-    if (!rule) {
-      // Default: allow if no rule exists
+    try {
+      const activeRules = await this.getActiveVisibilityRules();
+      
+      // Log all active rules for debugging
+      if (activeRules.length > 0) {
+        this.logger.debug(`Active visibility rules: ${activeRules.map(r => `${r.fieldType}(${r.name})`).join(', ')}`);
+      }
+      
+      const rule = activeRules.find((r) => r.fieldType === fieldType);
+      if (!rule) {
+        // Default: allow if no rule exists
+        this.logger.debug(`No visibility rule found for ${fieldType}, allowing access by default. Available rules: ${activeRules.map(r => r.fieldType).join(', ') || 'none'}`);
+        return true;
+      }
+      const canView = rule.allowedRoles.includes(userRole);
+      this.logger.debug(`Visibility check for ${fieldType}: role ${userRole} canView=${canView}, allowedRoles=[${rule.allowedRoles.join(', ')}]`);
+      return canView;
+    } catch (error) {
+      this.logger.error(`Error checking visibility for ${fieldType}:`, error);
+      // Default to allowing access if there's an error
       return true;
     }
-    return rule.allowedRoles.includes(userRole);
   }
 
   /**
