@@ -23,29 +23,14 @@ export class employeeSigningBonus {
   })
   signingBonusId: mongoose.Types.ObjectId;
 
-  @Prop({ type: Number, required: true })
-  bonusAmount: number;
+  @Prop({ required: true })
+  givenAmount: number; // for sake of editing signingBonus amount manually given to this employee
 
   @Prop({ type: Date })
   paymentDate?: Date;
 
   @Prop({ default: BonusStatus.PENDING, type: String, enum: BonusStatus })
   status: BonusStatus; // pending, paid, approved ,rejected
-
-  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: Employee.name })
-  approvedBy?: mongoose.Types.ObjectId;
-
-  @Prop({ type: Date })
-  approvedAt?: Date;
-
-  @Prop({ type: String })
-  rejectionReason?: string;
-
-  @Prop({ type: Boolean, default: false })
-  disbursed: boolean;
-
-  @Prop({ type: Date })
-  disbursedAt?: Date;
 }
 
 export const employeeSigningBonusSchema =
