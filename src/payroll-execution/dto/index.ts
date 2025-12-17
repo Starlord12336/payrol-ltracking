@@ -5,3 +5,6 @@ export * from './unfreeze-payroll.dto';
 export * from './review-bonus.dto';
 export * from './review-benefit.dto';
 export * from './edit-payroll-period.dto';
+export * from './process-termination-benefits.dto';
+export * from './process-signing-bonus.dto';
+export * from './edit-employee-payroll-detail.dto';
