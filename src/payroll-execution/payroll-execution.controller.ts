@@ -37,6 +37,7 @@ import {
   ReviewBonusDto,
   ReviewBenefitDto,
   EditPayrollPeriodDto,
+  EditEmployeePayrollDetailDto,
 } from './dto';
 
 /**
@@ -390,6 +391,21 @@ export class PayrollExecutionController {
   // TERMINATION/RESIGNATION BENEFITS
   // ==========================================
 
+  @Get('termination-benefits')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER)
+  @ApiOperation({
+    summary: 'Get all termination/resignation benefits',
+    description:
+      'Retrieves all termination/resignation benefit records for all employees',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Termination benefits retrieved successfully',
+  })
+  async getAllTerminationBenefits() {
+    return this.payrollExecutionService.getAllTerminationBenefits();
+  }
+
   @Post('termination-benefits/:id/review')
   @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER)
   @ApiOperation({
@@ -444,5 +460,120 @@ export class PayrollExecutionController {
       terminationType,
     );
     return { message: 'Termination benefits processing completed' };
+  }
+
+  @Get('signing-bonuses')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER)
+  @ApiOperation({
+    summary: 'Get all signing bonuses',
+    description: 'Retrieves all signing bonus records for all employees',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Signing bonuses retrieved successfully',
+  })
+  async getAllSigningBonuses() {
+    return this.payrollExecutionService.getAllSigningBonuses();
+  }
+  @Patch('signing-bonuses/:bonusId/given-amount')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER)
+  @ApiOperation({
+    summary: 'Edit the givenAmount of a signing bonus record',
+    description:
+      'Updates the givenAmount field for a specific signing bonus record by its ID',
+  })
+  @ApiParam({
+    name: 'bonusId',
+    description: 'The ID of the signing bonus record',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        newAmount: { type: 'number', description: 'The new givenAmount value' },
+      },
+      required: ['newAmount'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Updated signing bonus record',
+  })
+  async editSigningBonusAmount(
+    @Param('bonusId') bonusId: string,
+    @Body('newAmount') newAmount: number,
+  ) {
+    return this.payrollExecutionService.editSigningBonusAmount(
+      bonusId,
+      newAmount,
+    );
+  }
+
+  @Patch('termination-benefits/:benefitId/given-amount')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER)
+  @ApiOperation({
+    summary: 'Edit the givenAmount of a termination/resignation benefit record',
+    description:
+      'Updates the givenAmount field for a specific termination/resignation benefit record by its ID',
+  })
+  @ApiParam({
+    name: 'benefitId',
+    description: 'The ID of the termination/resignation benefit record',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        newAmount: { type: 'number', description: 'The new givenAmount value' },
+      },
+      required: ['newAmount'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Updated termination/resignation benefit record',
+  })
+  async editTerminationResignationBenefitAmount(
+    @Param('benefitId') benefitId: string,
+    @Body('newAmount') newAmount: number,
+  ) {
+    return this.payrollExecutionService.editTerminationResignationBenefitAmount(
+      benefitId,
+      newAmount,
+    );
+  }
+
+  @Patch('employee-payroll-details/:id/resolve-exceptions')
+  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.PAYROLL_MANAGER)
+  @ApiOperation({
+    summary: 'Edit employee payroll detail to resolve exceptions',
+    description:
+      'Fixes exceptions in employee payroll details: updates bank account number if missing, or updates net pay if below minimum wage or negative. Recalculates exception count for the payroll run.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'The ID of the employee payroll detail record',
+  })
+  @ApiBody({ type: EditEmployeePayrollDetailDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Employee payroll detail updated and exceptions resolved',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid input or new net pay below minimum wage',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Employee payroll detail not found',
+  })
+  async editEmployeePayrollDetail(
+    @Param('id') detailId: string,
+    @Body() editDto: EditEmployeePayrollDetailDto,
+  ) {
+    return this.payrollExecutionService.editEmployeePayrollDetail(
+      detailId,
+      editDto,
+    );
   }
 }

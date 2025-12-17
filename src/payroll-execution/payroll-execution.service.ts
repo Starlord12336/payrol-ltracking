@@ -1,3 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-base-to-string */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   Injectable,
   NotFoundException,
@@ -24,6 +29,10 @@ import {
 } from './models/EmployeeTerminationResignation.schema';
 import { employeePenalties } from './models/employeePenalties.schema';
 import { EmployeeProfile } from '../employee-profile/models/employee-profile.schema';
+import {
+  TerminationRequest,
+  TerminationRequestDocument,
+} from '../recruitment/models/termination-request.schema';
 
 // DTOs
 import {
@@ -34,6 +43,9 @@ import {
   ReviewBonusDto,
   ReviewBenefitDto,
   EditPayrollPeriodDto,
+  ProcessTerminationBenefitsDto,
+  ProcessSigningBonusDto,
+  EditEmployeePayrollDetailDto,
   BonusReviewAction,
   BenefitReviewAction,
 } from './dto';
@@ -49,6 +61,7 @@ import {
 } from './enums/payroll-execution-enum';
 import { EmployeeStatus } from '../employee-profile/enums/employee-profile.enums';
 import { ConfigStatus } from '../payroll-configuration/enums/payroll-configuration-enums';
+import { TerminationStatus } from '../recruitment/enums/termination-status.enum';
 
 // External Services
 import { PayrollConfigurationService } from '../payroll-configuration/payroll-configuration.service';
@@ -92,6 +105,8 @@ export class PayrollExecutionService {
     private penaltiesModel: Model<employeePenalties>,
     @InjectModel(EmployeeProfile.name)
     private employeeModel: Model<EmployeeProfile>,
+    @InjectModel(TerminationRequest.name)
+    private terminationRequestModel: Model<TerminationRequestDocument>,
     private payrollConfigService: PayrollConfigurationService,
     private leavesService: LeavesService,
     private timeManagementService: TimeManagementService,
@@ -113,7 +128,9 @@ export class PayrollExecutionService {
     // Validate payroll period format
     const payrollPeriodDate = new Date(createDto.payrollPeriod);
     if (isNaN(payrollPeriodDate.getTime())) {
-      throw new BadRequestException('Invalid payroll period date');
+      throw new BadRequestException(
+        `Invalid payroll period date format. Expected ISO date string (YYYY-MM-DD), received: ${createDto.payrollPeriod}`,
+      );
     }
 
     // Check for duplicate payroll run for same period and entity
@@ -128,6 +145,13 @@ export class PayrollExecutionService {
     if (existingRun) {
       throw new BadRequestException(
         `Payroll run already exists for entity "${createDto.entity}" for period ${createDto.payrollPeriod}`,
+      );
+    }
+
+    // Validate payroll specialist ID
+    if (!Types.ObjectId.isValid(createDto.payrollSpecialistId)) {
+      throw new BadRequestException(
+        `Invalid payroll specialist ID format: ${createDto.payrollSpecialistId}`,
       );
     }
 
@@ -147,7 +171,21 @@ export class PayrollExecutionService {
       paymentStatus: PayRollPaymentStatus.PENDING,
     });
 
-    return payrollRun.save();
+    try {
+      return await payrollRun.save();
+    } catch (error: any) {
+      if (error.name === 'ValidationError') {
+        throw new BadRequestException(
+          `Validation error: ${error.message || 'Invalid payroll run data'}`,
+        );
+      }
+      if (error.code === 11000) {
+        throw new BadRequestException(
+          `Duplicate payroll run ID: ${runId}. Please try again.`,
+        );
+      }
+      throw error;
+    }
   }
 
   /**
@@ -205,7 +243,14 @@ export class PayrollExecutionService {
     // Get all active employees (BR 66)
     const activeEmployees = await this.employeeModel
       .find({
-        status: { $in: [EmployeeStatus.ACTIVE, EmployeeStatus.ON_LEAVE] },
+        status: {
+          $in: [
+            EmployeeStatus.ACTIVE,
+            EmployeeStatus.ON_LEAVE,
+            EmployeeStatus.TERMINATED,
+            EmployeeStatus.PROBATION,
+          ],
+        },
       })
       .populate('payGradeId')
       .exec();
@@ -291,12 +336,23 @@ export class PayrollExecutionService {
       .findOne({
         employeeId: employee._id,
         status: BonusStatus.APPROVED,
-        disbursed: false,
       })
       .exec();
 
     if (signingBonus) {
-      bonusAmount = signingBonus.bonusAmount;
+      // Retrieve the signing bonus config using findSigningBonusById from payrollConfigService
+      const signingBonusConfig =
+        await this.payrollConfigService.findSigningBonusById(
+          signingBonus.signingBonusId?.toString() ??
+            String(signingBonus.signingBonusId),
+        );
+      let eligibleAmount = 0;
+      if (signingBonusConfig && typeof signingBonus.givenAmount === 'number') {
+        eligibleAmount = signingBonusConfig.amount - signingBonus.givenAmount;
+        bonusAmount = eligibleAmount > 0 ? eligibleAmount : 0;
+      } else if (typeof signingBonus.givenAmount === 'number') {
+        bonusAmount = signingBonus.givenAmount;
+      }
     }
 
     // Check for termination/resignation benefits (BR 56, 59)
@@ -305,12 +361,27 @@ export class PayrollExecutionService {
       .findOne({
         employeeId: employee._id,
         status: BenefitStatus.APPROVED,
-        disbursed: false,
       })
       .exec();
 
     if (terminationBenefit) {
-      benefitAmount = terminationBenefit.totalAmount;
+      // Retrieve the termination benefit config using findTerminationBenefitById from payrollConfigService
+      const terminationBenefitConfig =
+        await this.payrollConfigService.findTerminationBenefitById(
+          terminationBenefit.benefitId?.toString() ??
+            String(terminationBenefit.benefitId),
+        );
+      let eligibleAmount = 0;
+      if (
+        terminationBenefitConfig &&
+        typeof terminationBenefit.givenAmount === 'number'
+      ) {
+        eligibleAmount =
+          terminationBenefitConfig.amount - terminationBenefit.givenAmount;
+        benefitAmount = eligibleAmount > 0 ? eligibleAmount : 0;
+      } else if (typeof terminationBenefit.givenAmount === 'number') {
+        benefitAmount = terminationBenefit.givenAmount;
+      }
     }
 
     // Get unpaid leave days (BR 11)
@@ -388,8 +459,8 @@ export class PayrollExecutionService {
       benefit: benefitAmount > 0 ? benefitAmount : undefined,
       payrollRunId: payrollRun._id,
     });
-
-    return payrollDetails.save();
+    await payrollDetails.save();
+    return payrollDetails;
   }
 
   // ==========================================
@@ -422,8 +493,6 @@ export class PayrollExecutionService {
 
     if (reviewDto.action === BonusReviewAction.APPROVE) {
       bonus.status = BonusStatus.APPROVED;
-      bonus.approvedBy = new Types.ObjectId(reviewDto.reviewerId);
-      bonus.approvedAt = new Date();
     } else {
       if (!reviewDto.rejectionReason) {
         throw new BadRequestException(
@@ -431,10 +500,9 @@ export class PayrollExecutionService {
         );
       }
       bonus.status = BonusStatus.REJECTED;
-      bonus.rejectionReason = reviewDto.rejectionReason;
     }
-
-    return bonus.save();
+    bonus.save();
+    return;
   }
 
   /**
@@ -443,55 +511,66 @@ export class PayrollExecutionService {
    * BR 24: Only eligible employees receive signing bonus
    * BR 28: Bonus disbursed only once
    */
-  async processSigningBonusForNewHire(employeeId: string): Promise<void> {
-    // Check if employee already has a signing bonus record
-    const existingBonus = await this.employeeSigningBonusModel
-      .findOne({ employeeId: new Types.ObjectId(employeeId) })
-      .exec();
+  async processSigningBonusForNewHire(
+    processDto: ProcessSigningBonusDto,
+  ): Promise<employeeSigningBonusDocument> {
+    // Validate employee ID
+    if (!Types.ObjectId.isValid(processDto.employeeId)) {
+      throw new BadRequestException('Invalid employee ID');
+    }
 
-    if (existingBonus) {
-      console.log(`Signing bonus already exists for employee ${employeeId}`);
-      return;
+    // Validate signing bonus ID
+    if (!Types.ObjectId.isValid(processDto.signingBonusId)) {
+      throw new BadRequestException('Invalid signing bonus ID');
     }
 
     // Get employee details
     const employee = await this.employeeModel
-      .findById(employeeId)
-      .populate('payGradeId')
+      .findById(processDto.employeeId)
       .exec();
 
     if (!employee) {
       throw new NotFoundException('Employee not found');
     }
 
-    // Check if employee is eligible for signing bonus from configuration
+    // Get signing bonus configuration
     const signingBonusConfig =
-      await this.payrollConfigService.getSigningBonusConfig(
-        employee.payGradeId?._id?.toString() || '',
+      await this.payrollConfigService.findSigningBonusById(
+        processDto.signingBonusId,
       );
 
-    if (
-      !signingBonusConfig ||
-      signingBonusConfig.status !== ConfigStatus.APPROVED
-    ) {
-      console.log(
-        `No approved signing bonus config for employee ${employeeId}`,
+    if (!signingBonusConfig) {
+      throw new NotFoundException('Signing bonus configuration not found');
+    }
+
+    // Check if signing bonus already exists for this employee and signing bonus
+    const existingBonus = await this.employeeSigningBonusModel
+      .findOne({
+        employeeId: new Types.ObjectId(processDto.employeeId),
+        signingBonusId: new Types.ObjectId(processDto.signingBonusId),
+      })
+      .exec();
+
+    if (existingBonus) {
+      throw new BadRequestException(
+        'Signing bonus already exists for this employee and signing bonus combination',
       );
-      return;
     }
 
     // Create signing bonus record
     const bonus = new this.employeeSigningBonusModel({
-      employeeId: employee._id,
-      bonusAmount: signingBonusConfig.amount,
-      bonusType: signingBonusConfig.bonusType,
-      eligibilityCriteria: signingBonusConfig.eligibilityCriteria,
+      employeeId: new Types.ObjectId(processDto.employeeId),
+      signingBonusId: new Types.ObjectId(processDto.signingBonusId),
+      givenAmount: processDto.givenAmount ?? 0,
       status: BonusStatus.PENDING,
-      disbursed: false,
     });
 
     await bonus.save();
-    console.log(`Signing bonus created for employee ${employeeId}`);
+    console.log(
+      `Signing bonus created for employee ${processDto.employeeId}: ${processDto.givenAmount} EGP`,
+    );
+
+    return bonus;
   }
 
   // ==========================================
@@ -526,8 +605,6 @@ export class PayrollExecutionService {
 
     if (reviewDto.action === BenefitReviewAction.APPROVE) {
       benefit.status = BenefitStatus.APPROVED;
-      benefit.approvedBy = new Types.ObjectId(reviewDto.reviewerId);
-      benefit.approvedAt = new Date();
     } else {
       if (!reviewDto.rejectionReason) {
         throw new BadRequestException(
@@ -535,10 +612,10 @@ export class PayrollExecutionService {
         );
       }
       benefit.status = BenefitStatus.REJECTED;
-      benefit.rejectionReason = reviewDto.rejectionReason;
     }
 
-    return benefit.save();
+    await benefit.save();
+    return benefit;
   }
 
   /**
@@ -547,76 +624,77 @@ export class PayrollExecutionService {
    * BR 29, 56: Calculate termination-related entitlements
    */
   async processTerminationBenefits(
-    employeeId: string,
-    terminationType: 'resignation' | 'termination',
-  ): Promise<void> {
-    const employee = await this.employeeModel
-      .findById(employeeId)
-      .populate('payGradeId')
-      .exec();
-
-    if (!employee) {
-      throw new NotFoundException('Employee not found');
+    processDto: ProcessTerminationBenefitsDto,
+  ): Promise<EmployeeTerminationResignationDocument> {
+    // Validate termination request ID
+    if (!Types.ObjectId.isValid(processDto.terminationId)) {
+      throw new BadRequestException('Invalid termination request ID');
     }
 
-    // Check if benefit already exists
+    // Validate benefit ID
+    if (!Types.ObjectId.isValid(processDto.benefitId)) {
+      throw new BadRequestException('Invalid benefit ID');
+    }
+
+    // Get termination request and extract employeeId
+    const terminationRequest = await this.terminationRequestModel
+      .findById(processDto.terminationId)
+      .exec();
+
+    if (!terminationRequest) {
+      throw new NotFoundException('Termination request not found');
+    }
+
+    // Check if termination request is approved
+    if (terminationRequest.status !== TerminationStatus.APPROVED) {
+      throw new BadRequestException(
+        `Cannot process termination benefits. Termination request status must be APPROVED. Current status: ${terminationRequest.status}`,
+      );
+    }
+
+    const employeeId = terminationRequest.employeeId;
+
+    // Get benefit configuration
+    const benefitConfig =
+      await this.payrollConfigService.findTerminationBenefitById(
+        processDto.benefitId,
+      );
+
+    if (!benefitConfig) {
+      throw new NotFoundException(
+        'Termination benefit configuration not found',
+      );
+    }
+
+    // Check if benefit already exists for this termination request and benefit
     const existingBenefit = await this.terminationBenefitModel
-      .findOne({ employeeId: new Types.ObjectId(employeeId) })
+      .findOne({
+        terminationId: new Types.ObjectId(processDto.terminationId),
+        benefitId: new Types.ObjectId(processDto.benefitId),
+      })
       .exec();
 
     if (existingBenefit) {
-      console.log(
-        `Termination benefit already exists for employee ${employeeId}`,
+      throw new BadRequestException(
+        'Termination benefit already exists for this termination request and benefit combination',
       );
-      return;
     }
-
-    // Get unused leave balance for encashment
-    const leaveBalance =
-      await this.leavesService.getEmployeeLeaveBalance(employeeId);
-    const unusedLeaveDays = leaveBalance?.available || 0;
-
-    // Calculate leave encashment
-    const payGrade = employee.payGradeId as any;
-    const baseSalary = payGrade?.baseSalary || 0;
-    const dailyRate = baseSalary / 30;
-    const leaveEncashment = unusedLeaveDays * dailyRate;
-
-    // Calculate severance pay based on years of service
-    const yearsOfService = this.calculateYearsOfService(
-      employee.dateOfHire,
-      new Date(),
-    );
-    const severancePay = this.calculateSeverancePay(
-      baseSalary,
-      yearsOfService,
-      terminationType,
-    );
-
-    // Calculate end-of-service gratuity
-    const endOfServiceGratuity = this.calculateEndOfServiceGratuity(
-      baseSalary,
-      yearsOfService,
-    );
-
-    const totalAmount = leaveEncashment + severancePay + endOfServiceGratuity;
 
     // Create termination benefit record
     const benefit = new this.terminationBenefitModel({
-      employeeId: employee._id,
-      terminationType,
-      leaveEncashment,
-      severancePay,
-      endOfServiceGratuity,
-      totalAmount,
+      employeeId: employeeId,
+      terminationId: new Types.ObjectId(processDto.terminationId),
+      benefitId: new Types.ObjectId(processDto.benefitId),
+      givenAmount: processDto.givenAmount,
       status: BenefitStatus.PENDING,
-      disbursed: false,
     });
 
     await benefit.save();
     console.log(
-      `Termination benefit created for employee ${employeeId}: ${totalAmount} EGP`,
+      `Termination benefit created for employee ${employeeId.toString()}: ${processDto.givenAmount} EGP`,
     );
+
+    return benefit;
   }
 
   // ==========================================
@@ -640,13 +718,6 @@ export class PayrollExecutionService {
       );
     }
 
-    // Verify specialist ID matches
-    if (payrollRun.payrollSpecialistId.toString() !== specialistId) {
-      throw new ForbiddenException(
-        'Only the payroll specialist who created this run can submit it',
-      );
-    }
-
     payrollRun.status = PayRollStatus.UNDER_REVIEW;
     return payrollRun.save();
   }
@@ -664,6 +735,12 @@ export class PayrollExecutionService {
     if (payrollRun.status !== PayRollStatus.UNDER_REVIEW) {
       throw new BadRequestException(
         `Cannot approve at this stage. Current status: ${payrollRun.status}`,
+      );
+    }
+
+    if (payrollRun.exceptions !== 0) {
+      throw new BadRequestException(
+        `Cannot approve payroll with exceptions. Current exceptions count: ${payrollRun.exceptions}`,
       );
     }
 
@@ -700,16 +777,14 @@ export class PayrollExecutionService {
     payrollRun.status = PayRollStatus.APPROVED;
     payrollRun.paymentStatus = PayRollPaymentStatus.PAID;
 
-    await payrollRun.save();
-
-    // Trigger payslip generation
+    // Generate payslips
     await this.generatePayslips(runId);
 
     // Mark bonuses and benefits as disbursed
     await this.markBonusesAsDisbursed(payrollRun._id);
     await this.markBenefitsAsDisbursed(payrollRun._id);
 
-    return payrollRun;
+    return payrollRun.save();
   }
 
   /**
@@ -751,7 +826,6 @@ export class PayrollExecutionService {
     // Get all employee payroll details for this run
     const employeeDetails = await this.employeePayrollDetailsModel
       .find({ payrollRunId: payrollRun._id })
-      .populate('employeeId')
       .exec();
 
     for (const detail of employeeDetails) {
@@ -766,7 +840,6 @@ export class PayrollExecutionService {
         .findOne({
           employeeId: employee._id,
           status: BonusStatus.APPROVED,
-          disbursed: false,
         })
         .exec();
 
@@ -775,7 +848,6 @@ export class PayrollExecutionService {
         .findOne({
           employeeId: employee._id,
           status: BenefitStatus.APPROVED,
-          disbursed: false,
         })
         .exec();
 
@@ -838,15 +910,28 @@ export class PayrollExecutionService {
   ): Promise<payrollRunsDocument> {
     const payrollRun = await this.findPayrollRunById(runId);
 
-    if (payrollRun.status !== PayRollStatus.APPROVED) {
-      throw new BadRequestException('Can only freeze approved payroll runs');
+    // Allow freezing from any status except already locked
+    if (payrollRun.status === PayRollStatus.LOCKED) {
+      throw new BadRequestException('Payroll is already frozen');
     }
 
-    // Verify manager has permission
-    if (payrollRun.payrollManagerId?.toString() !== managerId) {
-      throw new ForbiddenException(
-        'Only the approving manager can freeze this payroll',
+    // Allow freezing from: UNDER_REVIEW, APPROVED, UNLOCKED, PENDING_FINANCE_APPROVAL
+    const allowedStatuses = [
+      PayRollStatus.UNDER_REVIEW,
+      PayRollStatus.APPROVED,
+      PayRollStatus.UNLOCKED,
+      PayRollStatus.PENDING_FINANCE_APPROVAL,
+    ];
+
+    if (!allowedStatuses.includes(payrollRun.status)) {
+      throw new BadRequestException(
+        `Cannot freeze payroll with status: ${payrollRun.status}`,
       );
+    }
+
+    // Set manager ID if not already set (for cases where freezing happens before approval)
+    if (!payrollRun.payrollManagerId) {
+      payrollRun.payrollManagerId = new Types.ObjectId(managerId) as any;
     }
 
     payrollRun.status = PayRollStatus.LOCKED;
@@ -896,8 +981,7 @@ export class PayrollExecutionService {
     if (!payrollRun) {
       throw new NotFoundException('Payroll run not found');
     }
-
-    return payrollRun;
+    return payrollRun as payrollRunsDocument;
   }
 
   private async generateRunId(periodDate: Date): Promise<string> {
@@ -1092,10 +1176,9 @@ export class PayrollExecutionService {
           {
             employeeId: detail.employeeId,
             status: BonusStatus.APPROVED,
-            disbursed: false,
           },
           {
-            $set: { disbursed: true, disbursedAt: new Date() },
+            $set: { status: BonusStatus.PAID },
           },
         )
         .exec();
@@ -1115,10 +1198,9 @@ export class PayrollExecutionService {
           {
             employeeId: detail.employeeId,
             status: BenefitStatus.APPROVED,
-            disbursed: false,
           },
           {
-            $set: { disbursed: true, disbursedAt: new Date() },
+            $set: { status: BenefitStatus.PAID },
           },
         )
         .exec();
@@ -1151,5 +1233,209 @@ export class PayrollExecutionService {
       .find(query)
       .populate('employeeId')
       .exec();
+  }
+  /**
+   * Get all signing bonuses
+   * Retrieves all signing bonus records (not filtered by employee).
+   */
+  async getAllSigningBonuses(): Promise<any[]> {
+    return this.employeeSigningBonusModel.find().exec();
+  }
+
+  /**
+   * Get all termination/resignation benefits
+   * Retrieves all termination benefit records (not filtered by employee).
+   */
+  async getAllTerminationBenefits(): Promise<any[]> {
+    return this.terminationBenefitModel.find().exec();
+  }
+
+  /**
+   * Edit the amount of a signing bonus for a given signing bonus record.
+   * @param bonusId The ID of the signing bonus record to edit.
+   * @param newAmount The new signing bonus amount.
+   * @returns The updated signing bonus record.
+   * @throws NotFoundException if the signing bonus is not found.
+   */
+  async editSigningBonusAmount(
+    bonusId: string,
+    newAmount: number,
+  ): Promise<any> {
+    const bonus = await this.employeeSigningBonusModel.findById(bonusId).exec();
+    if (!bonus) {
+      throw new NotFoundException(
+        `Signing bonus record not found (id: ${bonusId})`,
+      );
+    }
+    bonus.givenAmount = newAmount;
+    await bonus.save();
+    return bonus;
+  }
+
+  /**
+   * Edit the givenAmount of a termination or resignation benefit record.
+   * @param benefitId The ID of the termination/resignation benefit record to edit.
+   * @param newAmount The new givenAmount value.
+   * @returns The updated termination/resignation benefit record.
+   * @throws NotFoundException if the benefit record is not found.
+   */
+  async editTerminationResignationBenefitAmount(
+    benefitId: string,
+    newAmount: number,
+  ): Promise<any> {
+    const benefit = await this.terminationBenefitModel
+      .findById(benefitId)
+      .exec();
+    if (!benefit) {
+      throw new NotFoundException(
+        `Termination/resignation benefit record not found (id: ${benefitId})`,
+      );
+    }
+    benefit.givenAmount = newAmount;
+    await benefit.save();
+    return benefit;
+  }
+
+  /**
+   * Edit employee payroll detail to resolve exceptions
+   * - If bank status is missing, updates employee's bankAccountNumber
+   * - If net pay is below minimum wage or negative, updates net pay
+   * - Recalculates exceptions and updates payroll run exception count
+   * @param detailId The ID of the employee payroll detail to edit
+   * @param editDto The data to update (bankAccountNumber and/or netPay)
+   * @returns The updated employee payroll detail
+   * @throws NotFoundException if the payroll detail is not found
+   */
+  async editEmployeePayrollDetail(
+    detailId: string,
+    editDto: EditEmployeePayrollDetailDto,
+  ): Promise<employeePayrollDetailsDocument> {
+    if (!Types.ObjectId.isValid(detailId)) {
+      throw new BadRequestException('Invalid employee payroll detail ID');
+    }
+
+    const payrollDetail = await this.employeePayrollDetailsModel
+      .findById(detailId)
+      .exec();
+
+    if (!payrollDetail) {
+      throw new NotFoundException(
+        `Employee payroll detail not found (id: ${detailId})`,
+      );
+    }
+
+    const employee: any = payrollDetail.employeeId;
+    if (!employee || !employee._id) {
+      throw new NotFoundException(
+        `Employee not found for payroll detail ${detailId}`,
+      );
+    }
+
+    // Get the employee document to update
+    const employeeDoc = await this.employeeModel.findById(employee._id).exec();
+    if (!employeeDoc) {
+      throw new NotFoundException(
+        `Employee document not found for payroll detail ${detailId}`,
+      );
+    }
+
+    let exceptionsUpdated = false;
+    const exceptions: string[] = [];
+
+    // Fix bank status if missing
+    if (
+      payrollDetail.bankStatus === BankStatus.MISSING &&
+      editDto.bankAccountNumber
+    ) {
+      employeeDoc.bankAccountNumber = editDto.bankAccountNumber;
+      await employeeDoc.save();
+
+      // Update bank status in payroll detail
+      payrollDetail.bankStatus = BankStatus.VALID;
+      exceptionsUpdated = true;
+    }
+
+    // Fix net pay if below minimum wage or negative
+    const minimumWage = 6000; // EGP as per Egyptian Labor Law 2025
+    const needsNetPayFix =
+      payrollDetail.netPay < minimumWage || payrollDetail.netPay < 0;
+
+    if (needsNetPayFix && editDto.netPay !== undefined) {
+      if (editDto.netPay < minimumWage) {
+        throw new BadRequestException(
+          `New net pay (${editDto.netPay} EGP) must be at least minimum wage (${minimumWage} EGP)`,
+        );
+      }
+
+      if (editDto.netPay < 0) {
+        throw new BadRequestException('Net pay cannot be negative');
+      }
+
+      payrollDetail.netPay = editDto.netPay;
+      exceptionsUpdated = true;
+    }
+
+    // Recalculate exceptions after fixes
+    if (exceptionsUpdated) {
+      // Check if bank status is still missing
+      if (payrollDetail.bankStatus === BankStatus.MISSING) {
+        exceptions.push('Missing bank account details');
+      }
+
+      // Check if net pay is still below minimum wage or negative
+      if (
+        payrollDetail.netPay < minimumWage &&
+        employeeDoc.status === EmployeeStatus.ACTIVE
+      ) {
+        exceptions.push(
+          `Net pay (${payrollDetail.netPay} EGP) is below minimum wage (${minimumWage} EGP)`,
+        );
+      }
+
+      if (payrollDetail.netPay < 0) {
+        exceptions.push(`Net pay (${payrollDetail.netPay} EGP) is negative`);
+      }
+
+      // Update exceptions field
+      payrollDetail.exceptions =
+        exceptions.length > 0 ? exceptions.join('; ') : undefined;
+    }
+
+    await payrollDetail.save();
+
+    // Recalculate exception count for the payroll run
+    await this.recalculatePayrollRunExceptions(payrollDetail.payrollRunId);
+
+    return payrollDetail;
+  }
+
+  /**
+   * Recalculates the exception count for a payroll run
+   * @param payrollRunId The ID of the payroll run
+   */
+  private async recalculatePayrollRunExceptions(
+    payrollRunId: Types.ObjectId,
+  ): Promise<void> {
+    const payrollRun = await this.payrollRunsModel
+      .findById(payrollRunId)
+      .exec();
+    if (!payrollRun) {
+      throw new NotFoundException('Payroll run not found');
+    }
+
+    // Count employee payroll details with exceptions
+    const detailsWithExceptions = await this.employeePayrollDetailsModel
+      .countDocuments({
+        payrollRunId: payrollRunId,
+        $and: [
+          { exceptions: { $exists: true } },
+          { exceptions: { $ne: null } },
+          { exceptions: { $ne: '' } },
+        ],
+      })
+      .exec();
+
+    payrollRun.exceptions = detailsWithExceptions;
+    await payrollRun.save();
   }
 }
