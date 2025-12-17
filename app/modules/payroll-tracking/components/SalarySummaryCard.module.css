@@ -1,0 +1,39 @@
+.card {
+  padding: 1.5rem;
+  background-color: #fef9f3;
+  border: 1px solid #e2dcd0;
+  border-radius: 12px;
+}
+
+.title {
+  margin: 0 0 1rem 0;
+  color: #2c3e50;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.25rem;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.item strong {
+  color: #666;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.item span {
+  color: #2c3e50;
+  font-size: 1rem;
+  font-weight: 500;
+}
