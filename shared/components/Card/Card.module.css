@@ -1,0 +1,48 @@
+.card {
+  background: var(--bg-card);
+  border-radius: 1rem; /* Cozy rounded corners */
+  border: 1px solid var(--border-light);
+  transition: all 250ms ease-in-out;
+}
+
+/* Padding Variants */
+.card--padding-none {
+  padding: 0;
+}
+
+.card--padding-sm {
+  padding: 1rem;
+}
+
+.card--padding-md {
+  padding: 1.5rem; /* Generous padding */
+}
+
+.card--padding-lg {
+  padding: 2rem;
+}
+
+/* Shadow Variants */
+.card--shadow-sm {
+  box-shadow: var(--shadow-sm);
+}
+
+.card--shadow-md {
+  box-shadow: var(--shadow-md);
+}
+
+.card--shadow-lg {
+  box-shadow: var(--shadow-lg);
+}
+
+.card--shadow-warm {
+  box-shadow: var(--shadow-warm);
+}
+
+/* Hover Effect */
+.card--hover:hover {
+  box-shadow: var(--shadow-warm);
+  transform: translateY(-2px);
+  border-color: var(--primary-main);
+}
+

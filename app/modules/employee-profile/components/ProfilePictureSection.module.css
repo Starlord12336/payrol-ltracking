@@ -1,0 +1,70 @@
+.profilePictureSection {
+  margin-bottom: 2.5rem;
+  text-align: center;
+}
+
+.profilePictureSection h2 {
+  margin: 0 0 1.5rem 0;
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.pictureContainer {
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: center;
+}
+
+.profilePicture {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--border-main);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.placeholderPicture {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  border: 3px solid var(--border-main);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+}
+
+.fileInput {
+  display: none;
+}
+
+.labelButton {
+  display: inline-block;
+  cursor: pointer;
+}
+
+.labelButton:has(button:disabled) {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.errorMessage {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(230, 57, 70, 0.1);
+  border: 1px solid var(--error-main);
+  border-radius: var(--radius-md);
+  color: var(--error-main);
+  font-size: 0.875rem;
+}
+
+.helperText {
+  margin-top: 0.75rem;
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+}
+

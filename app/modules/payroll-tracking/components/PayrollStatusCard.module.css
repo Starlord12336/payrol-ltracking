@@ -1,0 +1,21 @@
+.card {
+  padding: 1.5rem;
+  background-color: #fef9f3;
+  border: 1px solid #e2dcd0;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+}
+
+.title {
+  margin: 0 0 0.5rem 0;
+  color: #2c3e50;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.status {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #666;
+}

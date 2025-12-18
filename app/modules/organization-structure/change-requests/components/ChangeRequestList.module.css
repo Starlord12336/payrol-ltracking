@@ -1,0 +1,178 @@
+.container {
+  width: 100%;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.filters {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.filterGroup label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #666;
+}
+
+.filterSelect,
+.searchInput {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  min-width: 150px;
+}
+
+.searchInput {
+  min-width: 200px;
+}
+
+.error {
+  padding: 1rem;
+  background-color: #fee;
+  color: #c33;
+  border-radius: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 3rem;
+}
+
+.emptyStateContent h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
+}
+
+.emptyStateContent p {
+  margin: 0 0 1.5rem 0;
+  color: #666;
+}
+
+.tableContainer {
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.table thead {
+  background-color: #f8f9fa;
+}
+
+.table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #333;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.table td {
+  padding: 1rem;
+  border-bottom: 1px solid #e9ecef;
+  font-size: 0.875rem;
+}
+
+.table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.requestNumber {
+  font-weight: 600;
+  color: #0066cc;
+}
+
+.statusBadge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.statusDraft {
+  background-color: #e9ecef;
+  color: #495057;
+}
+
+.statusSubmitted {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.statusApproved {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.statusRejected {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.statusCanceled {
+  background-color: #e9ecef;
+  color: #6c757d;
+}
+
+.statusImplemented {
+  background-color: #cfe2ff;
+  color: #084298;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.pageInfo {
+  font-size: 0.875rem;
+  color: #666;
+}
+

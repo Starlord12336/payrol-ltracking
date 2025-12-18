@@ -1,0 +1,38 @@
+.contactInfoSection {
+  margin-bottom: 2.5rem;
+}
+
+.contactInfoSection h2 {
+  margin: 0 0 1.5rem 0;
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.errorMessage {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(230, 57, 70, 0.1);
+  border: 1px solid var(--error-main);
+  border-radius: var(--radius-md);
+  color: var(--error-main);
+  font-size: 0.875rem;
+}
+
+.successMessage {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(46, 213, 115, 0.1);
+  border: 1px solid var(--success-main);
+  border-radius: var(--radius-md);
+  color: var(--success-main);
+  font-size: 0.875rem;
+}
+
