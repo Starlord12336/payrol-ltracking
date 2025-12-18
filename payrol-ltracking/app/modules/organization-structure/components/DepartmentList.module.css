@@ -1,0 +1,288 @@
+.departmentList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.departmentCard {
+  transition: box-shadow 0.2s;
+}
+
+.departmentCard:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.departmentHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.departmentInfo {
+  flex: 1;
+}
+
+.departmentTitle {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.departmentTitle h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.departmentCode {
+  padding: 0.25rem 0.75rem;
+  background-color: #e9ecef;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #495057;
+  font-family: 'Courier New', monospace;
+}
+
+.departmentDescription {
+  margin: 0.5rem 0;
+  color: #666;
+  font-size: 0.875rem;
+}
+
+.costCenter {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  background-color: #f8f9fa;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  color: #495057;
+  font-family: 'Courier New', monospace;
+}
+
+.headPosition {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background-color: #e7f3ff;
+  border-radius: 0.25rem;
+  border: 1px solid #b3d9ff;
+}
+
+.headPositionLabel {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0066cc;
+}
+
+.headPositionValue {
+  font-size: 0.875rem;
+  color: #004499;
+  font-weight: 500;
+}
+
+.departmentActions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.positionsSection {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.positionsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.positionsHeader h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.positionsList {
+  min-height: 100px;
+}
+
+.positionsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.positionCard {
+  padding: 1.25rem;
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 0.5rem;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+
+.positionCard:hover {
+  border-color: #4a90e2;
+  box-shadow: 0 2px 8px rgba(74, 144, 226, 0.1);
+  transform: translateY(-2px);
+}
+
+.headPositionCard {
+  background-color: #e7f3ff;
+  border-color: #b3d9ff;
+  border-width: 2px;
+}
+
+.headPositionCard:hover {
+  border-color: #0066cc;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.2);
+}
+
+.positionHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.positionCode {
+  padding: 0.25rem 0.5rem;
+  background-color: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #495057;
+  font-family: 'Courier New', monospace;
+}
+
+.positionHeader h5 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  flex: 1;
+}
+
+.positionDescription {
+  margin: 0;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: #666;
+  line-height: 1.4;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.emptyPositions {
+  padding: 2rem;
+  text-align: center;
+  color: #999;
+  font-style: italic;
+  background-color: #f8f9fa;
+  border-radius: 0.5rem;
+  border: 1px dashed #dee2e6;
+}
+
+@media (max-width: 768px) {
+  .departmentHeader {
+    flex-direction: column;
+  }
+
+  .departmentActions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .departmentTitle {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+}
+
+.positionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.positionInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0; /* Allow text truncation */
+}
+
+.headBadge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  background-color: #0066cc;
+  color: #fff;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 0.25rem;
+  width: fit-content;
+}
+
+.positionActions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  align-items: flex-end;
+}
+
+.positionActions button {
+  min-width: 100px;
+  white-space: nowrap;
+}
+
+.deleteButton {
+  color: #dc3545;
+  border-color: #dc3545;
+}
+
+.deleteButton:hover {
+  background-color: #dc3545;
+  color: white;
+}
+
+.deleteConfirmation {
+  padding: 1rem 0;
+}
+
+.deleteConfirmation p {
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+.warningText {
+  color: #dc3545;
+  font-weight: 500;
+  margin-top: 1rem;
+}
+
+.deleteActions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+

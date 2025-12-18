@@ -1,0 +1,11 @@
+.resumeSection {
+  margin-bottom: 2.5rem;
+}
+
+.resumeSection h2 {
+  margin: 0 0 1.5rem 0;
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
