@@ -1,31 +1,43 @@
-/**
- * HR Recruitment View
- * Allows HR users to manage job postings, applications, and candidates
- */
-
-'use client';
 
 import { useState } from 'react';
 import { Card, Button } from '@/shared/components';
+import RecruitmentPostings from './RecruitmentPostings';
+import HRApplicationList from './HRApplicationList';
+import HRConfigurationView from './HRConfigurationView';
 import styles from './HRRecruitmentView.module.css';
 
 export default function HRRecruitmentView() {
-  const [activeTab, setActiveTab] = useState<'postings' | 'applications' | 'candidates'>('postings');
+  const [activeTab, setActiveTab] = useState<'jobs' | 'applications' | 'config'>('jobs');
 
   return (
     <div className={styles.container}>
       <Card padding="lg" shadow="warm">
         <div className={styles.header}>
-          <h1>Recruitment Management</h1>
-          <p>Manage job postings, applications, and candidates</p>
+          <h1>HR Management Console</h1>
+          <p>Comprehensive management for Recruitment, Onboarding, and Offboarding</p>
+        </div>
+
+        <div style={{ marginBottom: '1rem', display: 'flex', gap: '1rem' }}>
+          <Button
+            variant="primary"
+            onClick={() => window.location.href = '/modules/recruitment/onboarding'}
+          >
+            📋 Go to Onboarding Management
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => window.location.href = '/modules/recruitment/offboarding'}
+          >
+            🚪 Go to Offboarding Management
+          </Button>
         </div>
 
         <div className={styles.tabs}>
           <button
-            className={`${styles.tab} ${activeTab === 'postings' ? styles.active : ''}`}
-            onClick={() => setActiveTab('postings')}
+            className={`${styles.tab} ${activeTab === 'jobs' ? styles.active : ''}`}
+            onClick={() => setActiveTab('jobs')}
           >
-            Job Postings
+            Jobs
           </button>
           <button
             className={`${styles.tab} ${activeTab === 'applications' ? styles.active : ''}`}
@@ -34,45 +46,23 @@ export default function HRRecruitmentView() {
             Applications
           </button>
           <button
-            className={`${styles.tab} ${activeTab === 'candidates' ? styles.active : ''}`}
-            onClick={() => setActiveTab('candidates')}
+            className={`${styles.tab} ${activeTab === 'config' ? styles.active : ''}`}
+            onClick={() => setActiveTab('config')}
           >
-            Candidates
+            Configuration
           </button>
         </div>
 
         <div className={styles.content}>
-          {activeTab === 'postings' && (
-            <div className={styles.tabContent}>
-              <div className={styles.actions}>
-                <Button variant="primary" onClick={() => {}}>
-                  Create Job Posting
-                </Button>
-              </div>
-              <p className={styles.placeholder}>
-                Job postings will appear here. This feature is under development.
-              </p>
-            </div>
-          )}
+          {activeTab === 'jobs' && <RecruitmentPostings />}
 
-          {activeTab === 'applications' && (
-            <div className={styles.tabContent}>
-              <p className={styles.placeholder}>
-                Applications will appear here. This feature is under development.
-              </p>
-            </div>
-          )}
+          {activeTab === 'applications' && <HRApplicationList />}
 
-          {activeTab === 'candidates' && (
-            <div className={styles.tabContent}>
-              <p className={styles.placeholder}>
-                Candidate list will appear here. This feature is under development.
-              </p>
-            </div>
-          )}
+          {activeTab === 'config' && <HRConfigurationView />}
         </div>
       </Card>
     </div>
   );
 }
+
 
