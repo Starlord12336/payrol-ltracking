@@ -820,7 +820,7 @@ export class PayrollExecutionService {
    * REQ-PY-8: System automatically generate and distribute employee payslips
    * BR 17: Auto-generated payslip with clear breakdown
    */
-  async generatePayslips(runId: string): Promise<void> {
+   async generatePayslips(runId: string): Promise<void> {
     const payrollRun = await this.findPayrollRunById(runId);
 
     // Get all employee payroll details for this run
@@ -835,21 +835,52 @@ export class PayrollExecutionService {
       // Get allowances
       const allowances = await this.getEmployeeAllowances(employee._id);
 
-      // Get signing bonus
-      const bonus = await this.employeeSigningBonusModel
+      // Get signing bonus (employee document)
+      const employeeBonus = await this.employeeSigningBonusModel
         .findOne({
           employeeId: employee._id,
           status: BonusStatus.APPROVED,
         })
         .exec();
 
-      // Get termination benefit
-      const benefit = await this.terminationBenefitModel
+      // Get the signing bonus configuration if employee bonus exists
+      let bonusConfig = null;
+      if (employeeBonus?.signingBonusId) {
+        try {
+          bonusConfig = await this.payrollConfigService.findSigningBonusById(
+            employeeBonus.signingBonusId.toString(),
+          );
+        } catch (error) {
+          console.warn(
+            `Failed to fetch signing bonus config for employee ${employee._id}:`,
+            error,
+          );
+        }
+      }
+
+      // Get termination benefit (employee document)
+      const employeeBenefit = await this.terminationBenefitModel
         .findOne({
           employeeId: employee._id,
           status: BenefitStatus.APPROVED,
         })
         .exec();
+
+      // Get the termination benefit configuration if employee benefit exists
+      let benefitConfig = null;
+      if (employeeBenefit?.benefitId) {
+        try {
+          benefitConfig =
+            await this.payrollConfigService.findTerminationBenefitById(
+              employeeBenefit.benefitId.toString(),
+            );
+        } catch (error) {
+          console.warn(
+            `Failed to fetch termination benefit config for employee ${employee._id}:`,
+            error,
+          );
+        }
+      }
 
       // Get taxes
       const taxes = await this.getTaxBreakdown(
@@ -875,8 +906,8 @@ export class PayrollExecutionService {
         earningsDetails: {
           baseSalary: detail.baseSalary,
           allowances,
-          bonuses: bonus ? [bonus] : [],
-          benefits: benefit ? [benefit] : [],
+          bonuses: bonusConfig ? [bonusConfig] : [],
+          benefits: benefitConfig ? [benefitConfig] : [],
         },
         deductionsDetails: {
           taxes,
@@ -1439,3 +1470,4 @@ export class PayrollExecutionService {
     await payrollRun.save();
   }
 }
+
