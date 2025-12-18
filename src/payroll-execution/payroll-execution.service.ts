@@ -105,8 +105,6 @@ export class PayrollExecutionService {
     private penaltiesModel: Model<employeePenalties>,
     @InjectModel(EmployeeProfile.name)
     private employeeModel: Model<EmployeeProfile>,
-    @InjectModel(TerminationRequest.name)
-    private terminationRequestModel: Model<TerminationRequestDocument>,
     private payrollConfigService: PayrollConfigurationService,
     private leavesService: LeavesService,
     private timeManagementService: TimeManagementService,
@@ -511,67 +509,6 @@ export class PayrollExecutionService {
    * BR 24: Only eligible employees receive signing bonus
    * BR 28: Bonus disbursed only once
    */
-  async processSigningBonusForNewHire(
-    processDto: ProcessSigningBonusDto,
-  ): Promise<employeeSigningBonusDocument> {
-    // Validate employee ID
-    if (!Types.ObjectId.isValid(processDto.employeeId)) {
-      throw new BadRequestException('Invalid employee ID');
-    }
-
-    // Validate signing bonus ID
-    if (!Types.ObjectId.isValid(processDto.signingBonusId)) {
-      throw new BadRequestException('Invalid signing bonus ID');
-    }
-
-    // Get employee details
-    const employee = await this.employeeModel
-      .findById(processDto.employeeId)
-      .exec();
-
-    if (!employee) {
-      throw new NotFoundException('Employee not found');
-    }
-
-    // Get signing bonus configuration
-    const signingBonusConfig =
-      await this.payrollConfigService.findSigningBonusById(
-        processDto.signingBonusId,
-      );
-
-    if (!signingBonusConfig) {
-      throw new NotFoundException('Signing bonus configuration not found');
-    }
-
-    // Check if signing bonus already exists for this employee and signing bonus
-    const existingBonus = await this.employeeSigningBonusModel
-      .findOne({
-        employeeId: new Types.ObjectId(processDto.employeeId),
-        signingBonusId: new Types.ObjectId(processDto.signingBonusId),
-      })
-      .exec();
-
-    if (existingBonus) {
-      throw new BadRequestException(
-        'Signing bonus already exists for this employee and signing bonus combination',
-      );
-    }
-
-    // Create signing bonus record
-    const bonus = new this.employeeSigningBonusModel({
-      employeeId: new Types.ObjectId(processDto.employeeId),
-      signingBonusId: new Types.ObjectId(processDto.signingBonusId),
-      givenAmount: processDto.givenAmount ?? 0,
-      status: BonusStatus.PENDING,
-    });
-
-    await bonus.save();
-    console.log(
-      `Signing bonus created for employee ${processDto.employeeId}: ${processDto.givenAmount} EGP`,
-    );
-
-    return bonus;
-  }
 
   // ==========================================
   // TERMINATION/RESIGNATION BENEFITS
@@ -623,79 +560,6 @@ export class PayrollExecutionService {
    * REQ-PY-33: Automatically process benefits upon termination
    * BR 29, 56: Calculate termination-related entitlements
    */
-  async processTerminationBenefits(
-    processDto: ProcessTerminationBenefitsDto,
-  ): Promise<EmployeeTerminationResignationDocument> {
-    // Validate termination request ID
-    if (!Types.ObjectId.isValid(processDto.terminationId)) {
-      throw new BadRequestException('Invalid termination request ID');
-    }
-
-    // Validate benefit ID
-    if (!Types.ObjectId.isValid(processDto.benefitId)) {
-      throw new BadRequestException('Invalid benefit ID');
-    }
-
-    // Get termination request and extract employeeId
-    const terminationRequest = await this.terminationRequestModel
-      .findById(processDto.terminationId)
-      .exec();
-
-    if (!terminationRequest) {
-      throw new NotFoundException('Termination request not found');
-    }
-
-    // Check if termination request is approved
-    if (terminationRequest.status !== TerminationStatus.APPROVED) {
-      throw new BadRequestException(
-        `Cannot process termination benefits. Termination request status must be APPROVED. Current status: ${terminationRequest.status}`,
-      );
-    }
-
-    const employeeId = terminationRequest.employeeId;
-
-    // Get benefit configuration
-    const benefitConfig =
-      await this.payrollConfigService.findTerminationBenefitById(
-        processDto.benefitId,
-      );
-
-    if (!benefitConfig) {
-      throw new NotFoundException(
-        'Termination benefit configuration not found',
-      );
-    }
-
-    // Check if benefit already exists for this termination request and benefit
-    const existingBenefit = await this.terminationBenefitModel
-      .findOne({
-        terminationId: new Types.ObjectId(processDto.terminationId),
-        benefitId: new Types.ObjectId(processDto.benefitId),
-      })
-      .exec();
-
-    if (existingBenefit) {
-      throw new BadRequestException(
-        'Termination benefit already exists for this termination request and benefit combination',
-      );
-    }
-
-    // Create termination benefit record
-    const benefit = new this.terminationBenefitModel({
-      employeeId: employeeId,
-      terminationId: new Types.ObjectId(processDto.terminationId),
-      benefitId: new Types.ObjectId(processDto.benefitId),
-      givenAmount: processDto.givenAmount,
-      status: BenefitStatus.PENDING,
-    });
-
-    await benefit.save();
-    console.log(
-      `Termination benefit created for employee ${employeeId.toString()}: ${processDto.givenAmount} EGP`,
-    );
-
-    return benefit;
-  }
 
   // ==========================================
   // APPROVAL WORKFLOW
@@ -820,7 +684,7 @@ export class PayrollExecutionService {
    * REQ-PY-8: System automatically generate and distribute employee payslips
    * BR 17: Auto-generated payslip with clear breakdown
    */
-   async generatePayslips(runId: string): Promise<void> {
+  async generatePayslips(runId: string): Promise<void> {
     const payrollRun = await this.findPayrollRunById(runId);
 
     // Get all employee payroll details for this run
@@ -1470,4 +1334,3 @@ export class PayrollExecutionService {
     await payrollRun.save();
   }
 }
-

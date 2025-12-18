@@ -368,25 +368,6 @@ export class PayrollExecutionController {
     return this.payrollExecutionService.reviewSigningBonus(id, reviewDto);
   }
 
-  @Post('signing-bonuses/process-new-hire/:employeeId')
-  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.HR_ADMIN)
-  @ApiOperation({
-    summary: 'REQ-PY-27: Auto-process signing bonus for new hire',
-    description:
-      'Automatically creates signing bonus record for newly hired employee if eligible',
-  })
-  @ApiParam({ name: 'employeeId', description: 'Employee ID' })
-  @ApiResponse({
-    status: 200,
-    description: 'Signing bonus processed successfully',
-  })
-  async processSigningBonusForNewHire(@Param('employeeId') employeeId: string) {
-    await this.payrollExecutionService.processSigningBonusForNewHire(
-      employeeId,
-    );
-    return { message: 'Signing bonus processing completed' };
-  }
-
   // ==========================================
   // TERMINATION/RESIGNATION BENEFITS
   // ==========================================
@@ -428,38 +409,6 @@ export class PayrollExecutionController {
     @Body() reviewDto: ReviewBenefitDto,
   ) {
     return this.payrollExecutionService.reviewTerminationBenefit(id, reviewDto);
-  }
-
-  @Post('termination-benefits/process/:employeeId')
-  @Roles(SystemRole.PAYROLL_SPECIALIST, SystemRole.HR_ADMIN)
-  @ApiOperation({
-    summary: 'REQ-PY-30, REQ-PY-33: Process termination/resignation benefits',
-    description:
-      'Automatically calculates and creates termination/resignation benefits record',
-  })
-  @ApiParam({ name: 'employeeId', description: 'Employee ID' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        terminationType: {
-          type: 'string',
-          enum: ['resignation', 'termination'],
-          description: 'Type of employment end',
-        },
-      },
-    },
-  })
-  @ApiResponse({ status: 200, description: 'Benefits processed successfully' })
-  async processTerminationBenefits(
-    @Param('employeeId') employeeId: string,
-    @Body('terminationType') terminationType: 'resignation' | 'termination',
-  ) {
-    await this.payrollExecutionService.processTerminationBenefits(
-      employeeId,
-      terminationType,
-    );
-    return { message: 'Termination benefits processing completed' };
   }
 
   @Get('signing-bonuses')
