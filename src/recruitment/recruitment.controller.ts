@@ -36,6 +36,7 @@ import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { JwtPayload } from "../auth/interfaces/jwt-payload.interface";
 import { SystemRole } from "../employee-profile/enums/employee-profile.enums";
 import { CreateChecklistDto } from "./dto/create-checklist.dto";
+import { CreateOnboardingDto } from "./dto/create-onboarding.dto";
 import { UploadOnboardingDocumentDto } from "./dto/upload-onboarding-document.dto";
 import {
   CreateOnboardingTaskDto,
@@ -54,6 +55,7 @@ import { CreatePayrollDto } from "./dto/create-payroll.dto";
 import { TriggerPayrollDto } from "./dto/trigger-payroll.dto";
 import { CreateBenefitsDto } from "./dto/create-benefits.dto";
 import { ApproveBenefitsDto } from "./dto/approve-benefits.dto";
+import { ProcessSigningBonusDto } from "./dto/process-signing-bonus.dto";
 import {
   InitiateTerminationReviewDto,
   TerminationReviewResponseDto,
@@ -75,12 +77,14 @@ class AdvanceApplicationDto {
 @Controller("recruitment")
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class RecruitmentController {
-  constructor(private readonly recruitmentService: RecruitmentService) {}
+  constructor(private readonly recruitmentService: RecruitmentService) { }
 
   // REC-003: Job Design & Posting
   @Post("templates")
-  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_EMPLOYEE)
-  async createTemplate(@Body() dto: CreateJobTemplateDto) {
+  @Roles(SystemRole.HR_MANAGER)
+  async createTemplate(@Body() dto: CreateJobTemplateDto, @CurrentUser() user: any) {
+    console.log(`[DEBUG] createTemplate called by User: ${user?.userid}, Roles: ${JSON.stringify(user?.roles)}`);
+    console.log('createTemplate dto =', dto);
     return this.recruitmentService.createJobTemplate(dto);
   }
 
@@ -106,12 +110,12 @@ export class RecruitmentController {
     // Get hiringManagerId from JWT token
     const hiringManagerId = user.employeeId?.toString() || user.userid.toString();
     const result = await this.recruitmentService.createJobRequisition(dto, hiringManagerId);
-    
+
     // Ensure requisitionId is always present in the response
     if (!result || !result.requisitionId) {
       throw new Error('Failed to create requisition: requisitionId is missing');
     }
-    
+
     return result;
   }
 
@@ -131,16 +135,23 @@ export class RecruitmentController {
         effectiveStatus = 'OPEN'; // Default to OPEN for candidates
       }
     }
-    
-    const result = await this.recruitmentService.listJobRequisitions(effectiveStatus, department);
-    // Ensure we always return an array, even if empty
-    const requisitions = Array.isArray(result) ? result : [];
-    
-    // Return in the format expected by frontend: { success: boolean, data: JobRequisition[] }
-    return {
-      success: true,
-      data: requisitions,
-    };
+
+    console.log(`[RecruitmentController] listRequisitions processed: effectiveStatus=${effectiveStatus || 'ALL'} (requested=${status || 'ANY'}), department=${department || 'ALL'}, user=${user?.userid}`);
+
+    try {
+      const result = await this.recruitmentService.listJobRequisitions(effectiveStatus, department);
+      // Ensure we always return an array, even if empty
+      const requisitions = Array.isArray(result) ? result : [];
+
+      // Return in the format expected by frontend: { success: boolean, data: JobRequisition[] }
+      return {
+        success: true,
+        data: requisitions,
+      };
+    } catch (error) {
+      console.error('[RecruitmentController] listRequisitions error:', error);
+      throw error;
+    }
   }
 
   // REC-008: Candidate Tracking
@@ -178,7 +189,7 @@ export class RecruitmentController {
         throw new ForbiddenException('This job requisition is not available for viewing');
       }
     }
-    
+
     // Return the formatted preview
     return this.recruitmentService.previewJobRequisition(id);
   }
@@ -206,7 +217,7 @@ export class RecruitmentController {
       throw new ForbiddenException('Only candidates can access this endpoint');
     }
     const applications = await this.recruitmentService.listApplicationsForCandidate(candidateId);
-    
+
     // Return in consistent format with requisitions endpoint
     return {
       success: true,
@@ -223,7 +234,7 @@ export class RecruitmentController {
     @CurrentUser() user: JwtPayload,
   ) {
     const application = await this.recruitmentService.getApplicationDetails(id);
-    
+
     // Candidates can only view their own applications
     if (user?.roles?.includes(SystemRole.JOB_CANDIDATE) && user?.userType === 'candidate') {
       const candidateId = user.userid.toString();
@@ -231,7 +242,7 @@ export class RecruitmentController {
         throw new ForbiddenException('You can only view your own applications');
       }
     }
-    
+
     return {
       success: true,
       data: application,
@@ -260,7 +271,7 @@ export class RecruitmentController {
         throw new ForbiddenException('You can only view your own applications');
       }
     }
-    
+
     return this.recruitmentService.listApplicationsForCandidate(id);
   }
 
@@ -277,7 +288,7 @@ export class RecruitmentController {
       status,
       stage,
     });
-    
+
     // Return in consistent format with requisitions endpoint
     return {
       success: true,
@@ -317,7 +328,7 @@ export class RecruitmentController {
     });
   }
 
-  // REC-008: Manage hiring process templates (file-backed, no schema changes)
+  // REC-004: Manage hiring process templates (file-backed, no schema changes)
 
   @Get("process-templates")
   async listProcessTemplates() {
@@ -330,6 +341,7 @@ export class RecruitmentController {
   }
 
   @Post("process-templates/:key")
+  @Roles(SystemRole.HR_MANAGER)
   async createOrUpdateProcessTemplate(
     @Param("key") key: string,
     @Body() body: { name: string; stages: string[] },
@@ -341,6 +353,7 @@ export class RecruitmentController {
   }
 
   @Delete("process-templates/:key")
+  @Roles(SystemRole.HR_MANAGER)
   async deleteProcessTemplate(@Param("key") key: string) {
     return this.recruitmentService.deleteProcessTemplate(key);
   }
@@ -365,6 +378,11 @@ export class RecruitmentController {
   @Get("interviews/:id")
   async getInterview(@Param("id") id: string) {
     return this.recruitmentService.getInterview(id);
+  }
+
+  @Get("applications/:id/interviews")
+  async listInterviewsByApplication(@Param("id") id: string) {
+    return this.recruitmentService.getInterviewsByApplicationId(id);
   }
 
   @Put("interviews/:id")
@@ -446,6 +464,7 @@ export class RecruitmentController {
   // REC-020: Assessment forms (file-backed) and structured feedback
 
   @Post("assessment-forms/:key")
+  @Roles(SystemRole.HR_MANAGER)
   async createOrUpdateAssessmentForm(
     @Param("key") key: string,
     @Body()
@@ -475,6 +494,7 @@ export class RecruitmentController {
   }
 
   @Delete("assessment-forms/:key")
+  @Roles(SystemRole.HR_MANAGER)
   async deleteAssessmentForm(@Param("key") key: string) {
     return this.recruitmentService.deleteAssessmentForm(key);
   }
@@ -649,9 +669,9 @@ export class RecruitmentController {
         throw new ForbiddenException('You can only view your own profile');
       }
     }
-    
+
     const profile = await this.recruitmentService.getCandidateProfile(candidateId);
-    
+
     return {
       success: true,
       data: profile,
@@ -664,15 +684,19 @@ export class RecruitmentController {
     @Param("id") candidateId: string,
     @CurrentUser() user: JwtPayload,
   ) {
+    console.log(`[RecruitmentController] listCandidateCVs called for candidateId=${candidateId}, user=${user?.userid}`);
+
     // For candidates, ensure they can only access their own CVs
     if (user.userType === 'candidate') {
       const candidateIdFromToken = user.userid?.toString();
       if (candidateId !== candidateIdFromToken) {
+        console.warn(`[RecruitmentController] Forbidden access to CVs: user=${candidateIdFromToken} tried to access candidate=${candidateId}`);
         throw new ForbiddenException('You can only access your own CVs');
       }
     }
 
     const cvs = await this.recruitmentService.getCandidateCVs(candidateId);
+    console.log(`[RecruitmentController] Found ${cvs.length} CVs for candidate ${candidateId}`);
 
     return {
       success: true,
@@ -735,12 +759,12 @@ export class RecruitmentController {
   ) {
     // Get candidateId from JWT token
     const candidateId = user.userid.toString();
-    
+
     // Validate user is a candidate
     if (user.userType !== 'candidate') {
       throw new ForbiddenException('Only candidates can apply to job requisitions');
     }
-    
+
     return this.recruitmentService.applyToRequisition(candidateId, id, {
       documentId: body?.documentId,
     });
@@ -938,9 +962,26 @@ export class RecruitmentController {
 
   // ============ ONBOARDING ENDPOINTS ============
 
+  // ONB-001: Create Onboarding Record for Employee
+  @Post("onboarding/create")
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_EMPLOYEE)
+  async createEmployeeOnboarding(@Body() dto: CreateOnboardingDto) {
+    return this.recruitmentService.createEmployeeOnboarding(dto);
+  }
+
   @Post("onboarding/create-checklist")
   async createChecklist(@Body() dto: CreateChecklistDto) {
     return this.recruitmentService.createChecklist(dto);
+  }
+
+  // ONB-002: Create Employee Profile from Contract
+  @Post("onboarding/contract/:contractId/create-profile")
+  @Roles(SystemRole.HR_MANAGER, SystemRole.HR_EMPLOYEE)
+  async createEmployeeProfileFromContract(
+    @Param("contractId") contractId: string,
+    @Body() dto: { createdBy: string }
+  ) {
+    return this.recruitmentService.createEmployeeProfileFromContract(contractId, dto.createdBy);
   }
 
   @Post("onboarding/upload-document")
@@ -1029,6 +1070,16 @@ export class RecruitmentController {
     return this.recruitmentService.getContractDetails(contractId);
   }
 
+  @Get("onboarding/contracts")
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER)
+  @ApiOperation({
+    summary: "List all contracts for profile creation (HR only).",
+  })
+  async listContracts() {
+    return this.recruitmentService.listContracts();
+  }
+
   @Post("onboarding/contract/:contractId/create-profile")
   @UseGuards(RolesGuard)
   @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER)
@@ -1074,7 +1125,14 @@ export class RecruitmentController {
 
   @Get("onboarding/tracker/:employeeId")
   @UseGuards(RolesGuard)
-  @Roles(SystemRole.DEPARTMENT_EMPLOYEE, SystemRole.HR_EMPLOYEE, SystemRole.DEPARTMENT_HEAD)
+  @Roles(
+    SystemRole.DEPARTMENT_EMPLOYEE,
+    SystemRole.HR_EMPLOYEE,
+    SystemRole.DEPARTMENT_HEAD,
+    SystemRole.HR_MANAGER,
+    SystemRole.SYSTEM_ADMIN,
+    SystemRole.HR_ADMIN,
+  )
   @ApiOperation({
     summary:
       "View onboarding progress tracker. Employee sees next steps; HR/Manager can view team trackers.",
@@ -1093,12 +1151,21 @@ export class RecruitmentController {
     @Request() req: any,
   ): Promise<any> {
     // Authorization: employee can only view own tracker; HR/Manager can view anyone
-    if (
-      (req.user?.id as string) !== employeeId &&
-      !["HR", "Manager", "SYSTEM_ADMIN"].includes(
-        (req.user?.role as string) || "",
-      )
-    ) {
+    const userRoles = (req.user?.roles as string[]) || [];
+    const isSelf = (req.user?.id as string) === employeeId;
+
+    // Check for privileged roles (HR, Manager, Admin)
+    const privilegedRoles = [
+      SystemRole.HR_MANAGER,
+      SystemRole.HR_EMPLOYEE,
+      SystemRole.SYSTEM_ADMIN,
+      SystemRole.HR_ADMIN,
+      SystemRole.DEPARTMENT_HEAD
+    ];
+
+    const isPrivileged = userRoles.some(role => privilegedRoles.includes(role as SystemRole));
+
+    if (!isSelf && !isPrivileged) {
       throw new ForbiddenException(
         `Cannot view tracker for employee ${employeeId}. Only your own or HR/Manager can access.`,
       );
@@ -1265,9 +1332,10 @@ export class RecruitmentController {
       dto,
     );
   }
-
-  // Payroll & Benefits initiation
+  // ==================== ONB-018: Payroll & Benefits Initiation ====================
   @Post("onboarding/:employeeId/payroll")
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.HR_MANAGER)
   async createPayroll(
     @Param("employeeId") employeeId: string,
     @Body() dto: CreatePayrollDto,
@@ -1276,6 +1344,8 @@ export class RecruitmentController {
   }
 
   @Put("onboarding/:employeeId/payroll/:taskIndex/trigger")
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.HR_MANAGER, SystemRole.PAYROLL_MANAGER)
   async triggerPayroll(
     @Param("employeeId") employeeId: string,
     @Param("taskIndex") taskIndex: string,
@@ -1289,6 +1359,8 @@ export class RecruitmentController {
   }
 
   @Post("onboarding/:employeeId/benefits")
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.HR_MANAGER)
   async createBenefits(
     @Param("employeeId") employeeId: string,
     @Body() dto: CreateBenefitsDto,
@@ -1386,6 +1458,11 @@ export class RecruitmentController {
     return this.mapToTerminationResponseDto(result);
   }
 
+  @Get("employees")
+  async getEmployees(@Query("status") status?: string) {
+    return this.recruitmentService.listEmployees({ status });
+  }
+
   @Get("employees/:employeeId/performance-data")
   async getEmployeePerformanceData(@Param("employeeId") employeeId: string) {
     return await this.recruitmentService.getEmployeePerformanceData(
@@ -1401,6 +1478,14 @@ export class RecruitmentController {
       await this.recruitmentService.getTerminationReviewsForEmployee(
         new Types.ObjectId(employeeId),
       );
+    return reviews.map((review) => this.mapToTerminationResponseDto(review));
+  }
+
+  @Get("termination-reviews")
+  async getTerminationReviews(@Query("status") status?: string) {
+    const reviews = await this.recruitmentService.listTerminationReviews({
+      status,
+    });
     return reviews.map((review) => this.mapToTerminationResponseDto(review));
   }
 
@@ -1477,8 +1562,10 @@ export class RecruitmentController {
   @Post("terminations/:terminationId/offboarding-checklist")
   async createOffboardingChecklist(
     @Param("terminationId") terminationId: string,
+    @Body() body: Partial<CreateOffboardingChecklistDto>,
   ): Promise<OffboardingChecklistResponseDto> {
     const dto: CreateOffboardingChecklistDto = {
+      ...body,
       terminationId: new Types.ObjectId(terminationId),
     };
     const result =
@@ -1759,6 +1846,56 @@ export class RecruitmentController {
     return result;
   }
 
+  // ==================== ONBOARDING: Contracts List ====================
+  @Get("onboarding/contracts")
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.HR_MANAGER)
+  async getOnboardingContracts() {
+    return this.recruitmentService.listContracts();
+  }
+
+  // ==================== ONB-019: Process Signing Bonus ====================
+  @Post("onboarding/:employeeId/signing-bonus")
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.HR_MANAGER)
+  async processSigningBonus(
+    @Param("employeeId") employeeId: string,
+    @Body() dto: ProcessSigningBonusDto,
+  ) {
+    return this.recruitmentService.processSigningBonus(
+      employeeId,
+      dto.contractId,
+    );
+  }
+
+  // ==================== ONB-013: Schedule Access Revocation ====================
+  @Post("onboarding/:employeeId/access/:taskIndex/schedule-revocation")
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.HR_MANAGER)
+  async scheduleAccessRevocation(
+    @Param("employeeId") employeeId: string,
+    @Param("taskIndex") taskIndex: string,
+    @Body() body: { revocationDate: string; reason?: string },
+  ) {
+    return this.recruitmentService.scheduleAccessRevocation(
+      employeeId,
+      parseInt(taskIndex, 10),
+      new Date(body.revocationDate),
+      body.reason,
+    );
+  }
+
+  // ==================== ONB-013: Cancel No-Show Access ====================
+  @Post("onboarding/:employeeId/cancel-no-show")
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.HR_MANAGER)
+  async cancelNoShowAccess(
+    @Param("employeeId") employeeId: string,
+    @Body() body: { reason?: string },
+  ) {
+    return this.recruitmentService.cancelNoShowAccess(employeeId, body.reason);
+  }
+
   private mapToTerminationResponseDto(
     terminationRequest: any,
   ): TerminationReviewResponseDto {
@@ -1785,5 +1922,18 @@ export class RecruitmentController {
       createdAt: checklist.createdAt as Date,
       updatedAt: checklist.updatedAt as Date,
     };
+  }
+  // OFF-007: Admin Console - List Approved Termination Requests
+  @Get("terminations/approved")
+  @Roles(SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  async listApprovedTerminationRequests() {
+    return this.recruitmentService.getApprovedTerminationRequests();
+  }
+
+  // OFF-007: Admin Console - Remove Employee Profile
+  @Delete("employees/:id/profile")
+  @Roles(SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  async removeEmployeeProfile(@Param("id") id: string) {
+    return this.recruitmentService.removeEmployeeProfile(id);
   }
 }
