@@ -73,6 +73,7 @@ export const useAuthNoCheck = () => {
       const data = await authApi.login(loginDto);
       // Backend sets httpOnly cookie, we just store user data from response
       setUser(data.user);
+      console.log("yes")
       
       // Dispatch custom event to notify other components (like Navbar) that auth state changed
       if (typeof window !== 'undefined') {

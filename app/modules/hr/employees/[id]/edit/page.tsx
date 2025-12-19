@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { Card, Button, Input, ProtectedRoute } from '@/shared/components';
@@ -43,23 +43,7 @@ function EditEmployeeContent() {
     primaryPositionId: '',
   });
 
-  useEffect(() => {
-    if (employeeId) {
-      fetchEmployee();
-      fetchDepartments();
-    }
-  }, [employeeId]);
-
-  useEffect(() => {
-    // When department changes, fetch positions for that department
-    if (formData.primaryDepartmentId) {
-      fetchPositionsForDepartment(formData.primaryDepartmentId);
-    } else {
-      setPositions([]);
-    }
-  }, [formData.primaryDepartmentId]);
-
-  const fetchEmployee = async () => {
+  const fetchEmployee = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -82,9 +66,9 @@ function EditEmployeeContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [employeeId]);
 
-  const fetchDepartments = async () => {
+  const fetchDepartments = useCallback(async () => {
     try {
       const response = await getDepartments({ limit: 100, isActive: true });
       setDepartments(response.data);
@@ -92,7 +76,47 @@ function EditEmployeeContent() {
     } catch (err) {
       console.error('Error fetching departments:', err);
     }
-  };
+  }, []);
+
+  const fetchPositionsForDepartment = useCallback(async (departmentId: string) => {
+    try {
+      const response = await getPositionsByDepartment(departmentId);
+      const positionsList = response.data || [];
+      setPositions(positionsList);
+      
+      // If current position is not in the new department, clear it
+      setFormData(prev => {
+        if (prev.primaryPositionId) {
+          const currentPosition = positionsList.find(
+            (p: Position) => p._id === prev.primaryPositionId
+          );
+          if (!currentPosition) {
+            return { ...prev, primaryPositionId: '' };
+          }
+        }
+        return prev;
+      });
+    } catch (err) {
+      console.error('Error fetching positions:', err);
+      setPositions([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (employeeId) {
+      fetchEmployee();
+      fetchDepartments();
+    }
+  }, [employeeId, fetchEmployee, fetchDepartments]);
+
+  useEffect(() => {
+    // When department changes, fetch positions for that department
+    if (formData.primaryDepartmentId) {
+      fetchPositionsForDepartment(formData.primaryDepartmentId);
+    } else {
+      setPositions([]);
+    }
+  }, [formData.primaryDepartmentId, fetchPositionsForDepartment]);
 
   // Helper function to check if a position is a head position
   const isHeadPosition = (positionId: string): boolean => {
@@ -106,27 +130,6 @@ function EditEmployeeContent() {
             : null;
       return headId === positionId;
     });
-  };
-
-  const fetchPositionsForDepartment = async (departmentId: string) => {
-    try {
-      const response = await getPositionsByDepartment(departmentId);
-      const positionsList = response.data || [];
-      setPositions(positionsList);
-      
-      // If current position is not in the new department, clear it
-      if (formData.primaryPositionId) {
-        const currentPosition = positionsList.find(
-          (p: Position) => p._id === formData.primaryPositionId
-        );
-        if (!currentPosition) {
-          setFormData(prev => ({ ...prev, primaryPositionId: '' }));
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching positions:', err);
-      setPositions([]);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

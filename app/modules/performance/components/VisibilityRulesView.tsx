@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Modal, Input } from '@/shared/components';
 import { useNotification } from '@/shared/hooks/useNotification';
 import { performanceApi } from '../api/performanceApi';
@@ -47,11 +47,7 @@ export default function VisibilityRulesView() {
     { value: SystemRole.SYSTEM_ADMIN, label: 'System Admin' },
   ];
 
-  useEffect(() => {
-    fetchRules();
-  }, []);
-
-  const fetchRules = async () => {
+  const fetchRules = useCallback(async () => {
     try {
       setLoading(true);
       const data = await performanceApi.getAllVisibilityRules();
@@ -61,7 +57,11 @@ export default function VisibilityRulesView() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showError]);
+
+  useEffect(() => {
+    fetchRules();
+  }, [fetchRules]);
 
   const handleOpenModal = (rule?: VisibilityRule) => {
     if (rule) {

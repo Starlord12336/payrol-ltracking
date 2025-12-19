@@ -72,7 +72,7 @@ export function Navbar() {
     const loadProfilePicture = async () => {
       if (profile?.profilePictureUrl) {
         const pictureUrl = profileApi.getProfilePictureUrl(profile.profilePictureUrl);
-        
+
         // Check if it's a GridFS URL (needs authentication)
         if (pictureUrl && pictureUrl.includes('/employee-profile/me/profile-picture')) {
           try {
@@ -80,7 +80,7 @@ export function Navbar() {
             const response = await fetch(pictureUrl, {
               credentials: 'include',
             });
-            
+
             if (response.ok) {
               const blob = await response.blob();
               const blobUrl = URL.createObjectURL(blob);
@@ -117,6 +117,23 @@ export function Navbar() {
     };
   }, [profile?.profilePictureUrl]);
 
+  // Close profile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (isProfileMenuOpen && !target.closest(`.${styles.profileMenuContainer}`)) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+
+    if (isProfileMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [isProfileMenuOpen]);
+
   // Don't show navbar on login/register pages
   if (pathname === ROUTES.LOGIN || pathname === ROUTES.REGISTER) {
     return null;
@@ -148,8 +165,8 @@ export function Navbar() {
 
     // Only show HR Dashboard if user has an HR role AND is not just a regular employee
     // Check if user has ONLY DEPARTMENT_EMPLOYEE role (without any HR role)
-    const isOnlyEmployee = 
-      userRoles.includes(SystemRole.DEPARTMENT_EMPLOYEE) && 
+    const isOnlyEmployee =
+      userRoles.includes(SystemRole.DEPARTMENT_EMPLOYEE) &&
       !userRoles.includes(SystemRole.HR_MANAGER) &&
       !userRoles.includes(SystemRole.HR_EMPLOYEE) &&
       !userRoles.includes(SystemRole.HR_ADMIN) &&
@@ -259,22 +276,7 @@ export function Navbar() {
     setIsProfileMenuOpen(!isProfileMenuOpen);
   };
 
-  // Close profile menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (isProfileMenuOpen && !target.closest(`.${styles.profileMenuContainer}`)) {
-        setIsProfileMenuOpen(false);
-      }
-    };
 
-    if (isProfileMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
-      };
-    }
-  }, [isProfileMenuOpen]);
 
   const getUserDisplayName = () => {
     if (!user) return 'Guest';
@@ -334,9 +336,9 @@ export function Navbar() {
               <div className={styles.profileMenuContainer}>
                 <div className={styles.userInfo} onClick={toggleProfileMenu}>
                   {profilePictureUrl && !imageError ? (
-                    <img 
-                      src={profilePictureUrl} 
-                      alt="Profile" 
+                    <img
+                      src={profilePictureUrl}
+                      alt="Profile"
                       className={styles.profilePicture}
                       onError={() => setImageError(true)}
                       crossOrigin="anonymous"
@@ -351,7 +353,7 @@ export function Navbar() {
                     <span className={styles.userType}>{getUserRole()}</span>
                   </div>
                 </div>
-                
+
                 {isProfileMenuOpen && (
                   <div className={styles.profileMenu}>
                     <div className={styles.profileMenuHeader}>
@@ -380,7 +382,7 @@ export function Navbar() {
                       )}
                     </div>
                     <div className={styles.profileMenuDivider}></div>
-                    <button 
+                    <button
                       className={styles.profileMenuLogout}
                       onClick={handleLogout}
                     >
@@ -428,9 +430,9 @@ export function Navbar() {
             <div className={styles.profileMenuContainer}>
               <div className={styles.userInfo} onClick={toggleProfileMenu}>
                 {profilePictureUrl && !imageError ? (
-                  <img 
-                    src={profilePictureUrl} 
-                    alt="Profile" 
+                  <img
+                    src={profilePictureUrl}
+                    alt="Profile"
                     className={styles.profilePicture}
                     onError={() => setImageError(true)}
                     crossOrigin="anonymous"
@@ -445,7 +447,7 @@ export function Navbar() {
                   <span className={styles.userType}>{getUserRole()}</span>
                 </div>
               </div>
-              
+
               {isProfileMenuOpen && (
                 <div className={styles.profileMenu}>
                   <div className={styles.profileMenuHeader}>
@@ -474,7 +476,7 @@ export function Navbar() {
                     )}
                   </div>
                   <div className={styles.profileMenuDivider}></div>
-                  <button 
+                  <button
                     className={styles.profileMenuLogout}
                     onClick={handleLogout}
                   >

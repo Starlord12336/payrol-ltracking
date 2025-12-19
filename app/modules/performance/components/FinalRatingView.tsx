@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Modal, Button, Card } from '@/shared/components';
 import { performanceApi } from '../api/performanceApi';
 import type { AppraisalAssignment } from '../types';
@@ -56,19 +56,7 @@ export default function FinalRatingView({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isOpen && (assignment || evaluationId)) {
-      fetchEvaluationData();
-    } else {
-      // Reset state when modal closes
-      setEvaluation(null);
-      setTemplate(null);
-      setManager(null);
-      setError(null);
-    }
-  }, [isOpen, assignment, evaluationId]);
-
-  const fetchEvaluationData = async () => {
+  const fetchEvaluationData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -119,7 +107,19 @@ export default function FinalRatingView({
     } finally {
       setLoading(false);
     }
-  };
+  }, [assignment, evaluationId]);
+
+  useEffect(() => {
+    if (isOpen && (assignment || evaluationId)) {
+      fetchEvaluationData();
+    } else {
+      // Reset state when modal closes
+      setEvaluation(null);
+      setTemplate(null);
+      setManager(null);
+      setError(null);
+    }
+  }, [isOpen, assignment, evaluationId, fetchEvaluationData]);
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';

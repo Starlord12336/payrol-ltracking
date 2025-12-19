@@ -1,0 +1,107 @@
+.formContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.formRow {
+  display: flex;
+  gap: 1rem;
+}
+
+.formGroup {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.formGroup label {
+  font-weight: 500;
+  color: #333;
+}
+
+.textarea {
+  padding: 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  min-height: 100px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.listContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.listItem {
+  border: 1px solid #eee;
+  padding: 1rem;
+  border-radius: 8px;
+  background: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.itemInfo h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+}
+
+.itemMeta {
+  display: flex;
+  gap: 1rem;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.badge.open {
+  background-color: #e6f4ea;
+  color: #1e7e34;
+}
+
+.badge.draft {
+  background-color: #f1f3f4;
+  color: #5f6368;
+}
+
+.badge.published {
+  background-color: #e8f0fe;
+  color: #1967d2;
+}
+
+.error {
+  color: #d93025;
+  padding: 0.5rem;
+  background-color: #fce8e6;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+
+.success {
+  color: #137333;
+  padding: 0.5rem;
+  background-color: #e6f4ea;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}

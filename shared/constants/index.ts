@@ -69,6 +69,7 @@ export const ROUTES = {
   PERFORMANCE: '/modules/performance',
   RECRUITMENT: '/modules/recruitment',
   TIME_MANAGEMENT: '/modules/time-management',
+  EMPLOYEE_TIME_MANAGEMENT: '/modules/time-management/EmployeeDashboard',
 } as const;
 
 export const USER_ROLES = {

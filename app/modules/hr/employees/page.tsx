@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { Card, Button, Input, ProtectedRoute } from '@/shared/components';
@@ -27,6 +27,23 @@ function EmployeesListContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
+  const fetchEmployeeRoles = useCallback(async () => {
+    try {
+      const rolesMap: Record<string, string[]> = {};
+      // Roles should now be included in the employee data from backend
+      employees.forEach((employee: any) => {
+        if (employee.roles && Array.isArray(employee.roles)) {
+          rolesMap[employee._id] = employee.roles;
+        } else {
+          rolesMap[employee._id] = [];
+        }
+      });
+      setEmployeeRoles(rolesMap);
+    } catch (err) {
+      console.error('Error processing employee roles:', err);
+    }
+  }, [employees]);
+
   useEffect(() => {
     fetchEmployees();
     fetchDepartments();
@@ -38,7 +55,7 @@ function EmployeesListContent() {
     if (employees.length > 0) {
       fetchEmployeeRoles();
     }
-  }, [employees]);
+  }, [employees, fetchEmployeeRoles]);
 
   // Check if user has HR role
   const userRoles = user?.roles || [];
@@ -78,23 +95,6 @@ function EmployeesListContent() {
     } catch (err) {
       console.error('Error fetching positions:', err);
       // Don't set error state - this is a fallback, not critical
-    }
-  };
-
-  const fetchEmployeeRoles = async () => {
-    try {
-      const rolesMap: Record<string, string[]> = {};
-      // Roles should now be included in the employee data from backend
-      employees.forEach((employee: any) => {
-        if (employee.roles && Array.isArray(employee.roles)) {
-          rolesMap[employee._id] = employee.roles;
-        } else {
-          rolesMap[employee._id] = [];
-        }
-      });
-      setEmployeeRoles(rolesMap);
-    } catch (err) {
-      console.error('Error processing employee roles:', err);
     }
   };
 

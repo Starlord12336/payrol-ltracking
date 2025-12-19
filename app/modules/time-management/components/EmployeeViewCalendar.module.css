@@ -1,0 +1,114 @@
+.calendarContainer {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-bottom: 10px;
+}
+
+.toggleContainer {
+    display: flex;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 4px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.toggleBtn {
+    padding: 8px 24px;
+    border: none;
+    background: transparent;
+    color: #19529499;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 10px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.toggleBtn.active {
+    background: rgba(255, 255, 255, 0.1);
+    color: #169367;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.legendItem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: #5900ffb3;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 6px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.calendarWrapper {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 16px;
+    padding: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.calendarWrapper :global(.fc) {
+    --fc-border-color: rgba(255, 255, 255, 0.1);
+    --fc-button-bg-color: rgba(255, 255, 255, 0.05);
+    --fc-button-border-color: rgba(255, 255, 255, 0.1);
+    --fc-button-hover-bg-color: rgba(255, 255, 255, 0.1);
+    --fc-button-active-bg-color: rgba(109, 101, 255, 0.2);
+    --fc-event-bg-color: #6d65ff;
+    --fc-event-border-color: #6d65ff;
+    --fc-page-bg-color: transparent;
+    color: #fff;
+}
+
+.calendarWrapper :global(.fc-theme-standard td),
+.calendarWrapper :global(.fc-theme-standard th) {
+    border-color: rgba(255, 255, 255, 0.497);
+}
+
+.calendarWrapper :global(.fc-col-header-cell-cushion) {
+    color: #000000;
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    padding: 12px 0;
+}
+
+.calendarWrapper :global(.fc-daygrid-day-number) {
+    color: #000000;
+    font-size: 0.9rem;
+    padding: 0.8rem;
+}
+
+.calendarWrapper :global(.fc-day-today) {
+    background: rgba(109, 101, 255, 0.05) !important;
+}
+
+.calendarWrapper :global(.fc-button-primary) {
+    border-radius: 10px !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    text-transform: capitalize !important;
+}

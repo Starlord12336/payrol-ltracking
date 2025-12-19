@@ -1,10 +1,15 @@
 .navbar {
   background-color: #fff;
   border-bottom: 1px solid #e0e0e0;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 0.5rem #0000000d;
   position: sticky;
   top: 0;
   z-index: 1000;
+  height: var(--navbar-height);
+}
+
+.appContent {
+  padding-top: var(--navbar-height);
 }
 
 .container {

@@ -89,7 +89,7 @@ export default function EmployeeAssignmentsView({ employeeId }: EmployeeAssignme
     } finally {
       setLoading(false);
     }
-  }, [employeeId]); // Removed showInfo from dependencies to prevent unnecessary re-renders
+  }, [employeeId, showInfo]);
 
   const fetchAssignments = useCallback(async (cycleId?: string) => {
     try {

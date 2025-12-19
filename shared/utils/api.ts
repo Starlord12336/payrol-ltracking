@@ -6,10 +6,10 @@ import { ENV } from '../constants';
  * Centralized axios instance for all API calls
  * Uses cookie-based authentication (httpOnly cookies set by backend)
  */
-
 const API_BASE_URL = ENV.API_URL;
 const API_TIMEOUT = parseInt(process.env.NEXT_PUBLIC_API_TIMEOUT || '30000', 10);
 
+// Define a custom Axios instance class
 class ApiClient {
   private client: AxiosInstance;
 
@@ -37,22 +37,17 @@ class ApiClient {
 
     // Response interceptor for error handling
     this.client.interceptors.response.use(
-      (response) => {
+      (response: AxiosResponse) => {
         // Debug: Log successful responses in development
         if (process.env.NODE_ENV === 'development') {
           console.log('API Response:', response.status, response.config.url);
         }
         return response;
       },
-      (error) => {
+      (error: any) => {
         // Debug: Log errors in development
         if (process.env.NODE_ENV === 'development') {
-          console.error(
-            'API Error:',
-            error.response?.status,
-            error.config?.url,
-            error.message
-          );
+          console.error('API Error:', error.response?.status, error.config?.url, error.message);
         }
 
         const status = error.response?.status;
@@ -65,13 +60,9 @@ class ApiClient {
             url.includes('/auth/me') ||
             url.includes('/auth/change-password');
 
-          // ⛔️ Do NOT redirect on auth routes
-          // This allows login/register pages to show proper error messages
-          // and prevents redirect loops on /auth/me
+          // Do NOT redirect on auth routes
           if (!isAuthEndpoint) {
-            // Handle unauthorized - redirect to login
-            // This is the safety net for all subteams who don't protect their routes
-            this.handleUnauthorized();
+            this.handleUnauthorized(); // Handle unauthorized - redirect to login
           }
         }
 
@@ -82,12 +73,13 @@ class ApiClient {
 
   private handleUnauthorized(): void {
     if (typeof window !== 'undefined') {
-      // Clear any client-side auth state
+      // Clear any client-side auth state and redirect to login
       window.location.href = '/login';
     }
   }
 
   // Generic request methods
+  // Using T for the response type allows the methods to be more flexible with types
   async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.get<T>(url, config);
   }
@@ -110,4 +102,3 @@ class ApiClient {
 }
 
 export const apiClient = new ApiClient();
-
