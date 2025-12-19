@@ -80,7 +80,7 @@ function EmployeesListContent() {
 
   const fetchDepartments = async () => {
     try {
-      const response = await getDepartments({ limit: 1000, isActive: true });
+      const response = await getDepartments({ limit: 100, isActive: true });
       setDepartments(response.data || []);
     } catch (err) {
       console.error('Error fetching departments:', err);
@@ -90,7 +90,7 @@ function EmployeesListContent() {
 
   const fetchPositions = async () => {
     try {
-      const response = await getPositions({ limit: 1000, isActive: true });
+      const response = await getPositions({ limit: 100, isActive: true });
       setPositions(response.data || []);
     } catch (err) {
       console.error('Error fetching positions:', err);

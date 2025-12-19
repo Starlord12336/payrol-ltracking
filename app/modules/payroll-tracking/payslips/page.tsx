@@ -1,22 +1,29 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getPayslipList } from '@/shared/utils/payslipService';
-import { Payslip } from '@/shared/types/payslip';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getEmployeePayslips } from '../utils/payslipService';
+import { Payslip } from '../utils/payslip';
 import { PayslipTable } from '../components/PayslipTable';
-import styles from './Payslips.module.css';
+import styles from './payslips.module.css';
 
 export default function PayslipListingPage() {
+  const { user } = useAuth();
   const [payslips, setPayslips] = useState<Payslip[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getPayslipList()
-      .then(setPayslips)
-      .catch(() => setError('Failed to load payslips'))
-      .finally(() => setLoading(false));
-  }, []);
+    if (user?.userid) {
+      getEmployeePayslips(user.userid)
+        .then(setPayslips)
+        .catch((err) => {
+          console.error('Error fetching payslips:', err);
+          setError('Failed to load payslips');
+        })
+        .finally(() => setLoading(false));
+    }
+  }, [user]);
 
   if (loading) return <div className={styles.loading}>Loading...</div>;
   if (error) return <div className={styles.errorMessage}>{error}</div>;
@@ -27,7 +34,7 @@ export default function PayslipListingPage() {
         <h1>Payslip Listing</h1>
         <p>View all your monthly payslips</p>
       </div>
-      <PayslipTable payslips={payslips} />
+      {user?.userid && <PayslipTable payslips={payslips} employeeId={user.userid} />}
     </div>
   );
 }

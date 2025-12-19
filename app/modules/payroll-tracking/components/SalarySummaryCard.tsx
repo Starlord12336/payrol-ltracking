@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Payslip } from '../../../../shared/types/payslip';
+import { Payslip } from '../utils/payslip';
 import styles from './SalarySummaryCard.module.css';
 
 interface Props {
@@ -8,29 +7,45 @@ interface Props {
 }
 
 export const SalarySummaryCard: React.FC<Props> = ({ payslip }) => {
+  const totalAllowances = payslip.earningsDetails?.allowances?.reduce(
+    (sum, allowance) => sum + (allowance.amount || 0),
+    0
+  ) || 0;
+
+  const totalBonuses = payslip.earningsDetails?.bonuses?.reduce(
+    (sum, bonus) => sum + (bonus.amount || 0),
+    0
+  ) || 0;
+
+  const totalDeductions = payslip.totaDeductions || 0;
+
   return (
     <div className={styles.card}>
       <h2 className={styles.title}>Salary Summary</h2>
       <div className={styles.grid}>
         <div className={styles.item}>
+          <strong>Gross Salary</strong>
+          <span>{payslip.totalGrossSalary?.toLocaleString() || 'N/A'}</span>
+        </div>
+        <div className={styles.item}>
           <strong>Net Pay</strong>
-          <span>{payslip.netPay}</span>
+          <span>{payslip.netPay?.toLocaleString() || 'N/A'}</span>
+        </div>
+        <div className={styles.item}>
+          <strong>Base Salary</strong>
+          <span>{payslip.earningsDetails?.baseSalary?.toLocaleString() || 'N/A'}</span>
         </div>
         <div className={styles.item}>
           <strong>Allowances</strong>
-          <span>{payslip.allowances}</span>
+          <span>{totalAllowances.toLocaleString()}</span>
         </div>
         <div className={styles.item}>
-          <strong>Deductions</strong>
-          <span>{payslip.deductions}</span>
+          <strong>Bonuses</strong>
+          <span>{totalBonuses.toLocaleString()}</span>
         </div>
         <div className={styles.item}>
-          <strong>Overtime</strong>
-          <span>{payslip.overtime}</span>
-        </div>
-        <div className={styles.item}>
-          <strong>Unpaid Leave</strong>
-          <span>{payslip.unpaidLeave}</span>
+          <strong>Total Deductions</strong>
+          <span>{totalDeductions.toLocaleString()}</span>
         </div>
       </div>
     </div>

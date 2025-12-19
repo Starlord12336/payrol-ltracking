@@ -280,6 +280,16 @@ export default function Home() {
       });
     }
 
+    // Payroll Tracking (for employees to view their payslips)
+    if (userType === 'employee') {
+      actions.push({
+        label: 'Payroll Tracking',
+        route: ROUTES.PAYROLL_TRACKING,
+        icon: '💰',
+        userTypes: ['employee'],
+      });
+    }
+
     // Leaves
     if (userType === 'employee') {
       actions.push({
@@ -303,11 +313,33 @@ export default function Home() {
     // Time Management
     if (userType === 'employee') {
       actions.push({
-        label: 'Time Management',
+        label: 'Work',
         route: ROUTES.EMPLOYEE_TIME_MANAGEMENT,
         icon: '🕐',
         userTypes: ['employee'],
       });
+    }
+
+    // Management view for Admins/Managers (even if not an employee userType)
+    if (
+      userRoles.includes(SystemRole.HR_ADMIN) ||
+      userRoles.includes(SystemRole.SYSTEM_ADMIN) ||
+      userRoles.includes(SystemRole.HR_MANAGER) ||
+      userRoles.includes(SystemRole.DEPARTMENT_HEAD)
+    ) {
+      if (!actions.some(a => a.route === ROUTES.TIME_MANAGEMENT)) {
+        actions.push({
+          label: 'Time Management',
+          route: ROUTES.TIME_MANAGEMENT,
+          icon: '🕐',
+          roles: [
+            SystemRole.HR_ADMIN,
+            SystemRole.SYSTEM_ADMIN,
+            SystemRole.HR_MANAGER,
+            SystemRole.DEPARTMENT_HEAD,
+          ],
+        });
+      }
     }
 
     return actions;

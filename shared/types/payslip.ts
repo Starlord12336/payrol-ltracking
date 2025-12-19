@@ -1,3 +1,5 @@
+import { ReactNode } from 'react';
+
 export interface Payslip {
   deductions: ReactNode;
   _id: string;

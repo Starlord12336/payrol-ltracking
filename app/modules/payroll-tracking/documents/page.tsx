@@ -1,22 +1,29 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getDocuments } from '../../../shared/utils/documentService';
-import { Document } from '../../../shared/types/document';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getTaxDocuments } from '../utils/documentService';
+import { TaxDocument } from '../utils/document';
 import { DocumentList } from '../components/DocumentList';
-import styles from './Documents.module.css';
+import styles from './documents.module.css';
 
 export default function DocumentsPage() {
-  const [documents, setDocuments] = useState<Document[]>([]);
+  const { user } = useAuth();
+  const [documents, setDocuments] = useState<TaxDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getDocuments()
-      .then(setDocuments)
-      .catch(() => setError('Failed to load documents'))
-      .finally(() => setLoading(false));
-  }, []);
+    if (user?.userid) {
+      getTaxDocuments(user.userid)
+        .then(setDocuments)
+        .catch((err) => {
+          console.error('Error fetching documents:', err);
+          setError('Failed to load documents');
+        })
+        .finally(() => setLoading(false));
+    }
+  }, [user]);
 
   if (loading) return <div className={styles.loading}>Loading...</div>;
   if (error) return <div className={styles.errorMessage}>{error}</div>;
@@ -24,8 +31,8 @@ export default function DocumentsPage() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1>Certificates</h1>
-        <p>Download your official payroll documents</p>
+        <h1>Tax Documents</h1>
+        <p>Download your official payroll tax documents</p>
       </div>
       <DocumentList documents={documents} />
     </div>

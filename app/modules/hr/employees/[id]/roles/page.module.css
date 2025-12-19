@@ -1,0 +1,217 @@
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.header h1 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 2rem;
+}
+
+.employeeCard {
+  margin-bottom: 2rem;
+}
+
+.employeeInfo h2 {
+  margin: 0 0 0.5rem 0;
+  color: #2c3e50;
+  font-size: 1.5rem;
+}
+
+.employeeDetails {
+  display: flex;
+  gap: 2rem;
+  color: #7f8c8d;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.employeeDetails span {
+  display: flex;
+  align-items: center;
+}
+
+.rolesCard {
+  margin-bottom: 2rem;
+}
+
+.rolesHeader {
+  margin-bottom: 1.5rem;
+}
+
+.rolesHeader h2 {
+  margin: 0 0 0.5rem 0;
+  color: #2c3e50;
+  font-size: 1.3rem;
+}
+
+.helperText {
+  color: #7f8c8d;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.rolesList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
+.roleItem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background-color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+}
+
+.roleItem:hover {
+  border-color: #3498db;
+  background-color: #f0f8ff;
+}
+
+.checkbox {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #3498db;
+}
+
+.roleLabel {
+  font-size: 0.95rem;
+  color: #2c3e50;
+  font-weight: 500;
+  user-select: none;
+}
+
+.actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.primaryActions {
+  display: flex;
+  gap: 1rem;
+}
+
+.warningMessage {
+  padding: 1rem;
+  background-color: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 6px;
+  color: #856404;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+
+.errorMessage {
+  padding: 1rem;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 6px;
+  color: #721c24;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+
+.successMessage {
+  padding: 1rem;
+  background-color: #d4edda;
+  border: 1px solid #c3e6cb;
+  border-radius: 6px;
+  color: #155724;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+
+.infoBox {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background-color: #e7f3ff;
+  border-left: 4px solid #3498db;
+  border-radius: 6px;
+}
+
+.infoBox h3 {
+  margin: 0 0 1rem 0;
+  color: #2c3e50;
+  font-size: 1.1rem;
+}
+
+.infoBox ul {
+  margin: 0;
+  padding-left: 1.5rem;
+  color: #555;
+}
+
+.infoBox li {
+  margin-bottom: 0.75rem;
+  line-height: 1.6;
+}
+
+.infoBox li:last-child {
+  margin-bottom: 0;
+}
+
+.infoBox strong {
+  color: #2c3e50;
+}
+
+.loading {
+  text-align: center;
+  padding: 3rem;
+  color: #7f8c8d;
+  font-size: 1.1rem;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 1rem;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .rolesList {
+    grid-template-columns: 1fr;
+  }
+
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .primaryActions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .primaryActions button {
+    width: 100%;
+  }
+}
+

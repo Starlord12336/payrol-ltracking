@@ -45,3 +45,9 @@
 .downloadBtn:hover {
   color: #059669;
 }
+
+.noData {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}

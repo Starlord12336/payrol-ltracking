@@ -1,14 +1,24 @@
-/**
- * Payroll Tracking Module
- * This module handles payroll tracking, transparency, and employee self-service
- */
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { ProtectedRoute } from '@/shared/components';
 
 export default function PayrollTrackingPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // Redirect to dashboard by default
+    router.replace('/modules/payroll-tracking/dashboard');
+  }, [router]);
+
   return (
-    <div>
-      <h1>Payroll Tracking</h1>
-      <p>Payroll Tracking module content will be implemented here</p>
-    </div>
+    <ProtectedRoute>
+      <div style={{ padding: '2rem', textAlign: 'center' }}>
+        <p>Redirecting to payroll dashboard...</p>
+      </div>
+    </ProtectedRoute>
   );
 }
+
 

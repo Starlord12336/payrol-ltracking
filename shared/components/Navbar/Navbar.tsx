@@ -221,12 +221,15 @@ export function Navbar() {
 
     // Performance
     // HR_ADMIN should NOT have access to performance module (not in user stories)
+    const isHrAdmin = userRoles.includes(SystemRole.HR_ADMIN);
     if (
-      userRoles.includes(SystemRole.HR_MANAGER) ||
-      userRoles.includes(SystemRole.SYSTEM_ADMIN) ||
-      userRoles.includes(SystemRole.DEPARTMENT_HEAD) ||
-      userRoles.includes(SystemRole.HR_EMPLOYEE) ||
-      userType === 'employee'
+      !isHrAdmin && (
+        userRoles.includes(SystemRole.HR_MANAGER) ||
+        userRoles.includes(SystemRole.SYSTEM_ADMIN) ||
+        userRoles.includes(SystemRole.DEPARTMENT_HEAD) ||
+        userRoles.includes(SystemRole.HR_EMPLOYEE) ||
+        userType === 'employee'
+      )
     ) {
       items.push({
         label: 'Performance',
