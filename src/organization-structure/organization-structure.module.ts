@@ -5,14 +5,29 @@ import { AuthModule } from '../auth/auth.module';
 // Shared Schemas (needed for populate)
 import { User, UserSchema } from '../shared/schemas/user.schema';
 import { Employee, EmployeeSchema } from '../shared/schemas/employee.schema';
-import { Department, DepartmentSchema } from '../shared/schemas/department.schema';
+import {
+  Department,
+  DepartmentSchema,
+} from '../shared/schemas/department.schema';
 import { Position, PositionSchema } from '../shared/schemas/position.schema';
 
 // Organization Structure Schemas
-import { ReportingLine, ReportingLineSchema } from './schemas/reporting-line.schema';
-import { OrgChangeRequest, OrgChangeRequestSchema } from './schemas/org-change-request.schema';
-import { DepartmentBudget, DepartmentBudgetSchema } from './schemas/department-budget.schema';
-import { OrgChartSnapshot, OrgChartSnapshotSchema } from './schemas/org-chart-snapshot.schema';
+import {
+  ReportingLine,
+  ReportingLineSchema,
+} from './schemas/reporting-line.schema';
+import {
+  OrgChangeRequest,
+  OrgChangeRequestSchema,
+} from './schemas/org-change-request.schema';
+import {
+  DepartmentBudget,
+  DepartmentBudgetSchema,
+} from './schemas/department-budget.schema';
+import {
+  OrgChartSnapshot,
+  OrgChartSnapshotSchema,
+} from './schemas/org-chart-snapshot.schema';
 
 // Controllers
 import { DepartmentController } from './controllers/department.controller';
@@ -77,4 +92,3 @@ import { OrgChartSnapshotService } from './services/org-chart-snapshot.service';
   ],
 })
 export class OrganizationStructureModule {}
-
