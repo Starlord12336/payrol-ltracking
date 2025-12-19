@@ -1,8 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { getCurrentPayslip } from '@/shared/utils/payslipService';
-import { PayrollStatusCard } from '@/app/modules/payroll-tracking/components/PayrollStatusCard';
-import { SalarySummaryCard } from '@/app/modules/payroll-tracking/components/SalarySummaryCard';
+import { PayrollStatusCard } from '@/app/modules/payroll-tracking/components/payrollStatusCard/PayrollStatusCard';
+import { SalarySummaryCard } from '@/app/modules/payroll-tracking/components/SalarySummary/SalarySummaryCard';
 import { Payslip } from '@/shared/types/payslip';
 
 export default function DashboardPage() {

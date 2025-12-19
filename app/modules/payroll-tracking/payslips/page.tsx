@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getPayslipList } from '@/shared/utils/payslipService';
 import { Payslip } from '@/shared/types/payslip';
-import { PayslipTable } from '../components/PayslipTable';
+import { PayslipTable } from '../components/payslipTable/PayslipTable';
 import styles from './Payslips.module.css';
 
 export default function PayslipListingPage() {

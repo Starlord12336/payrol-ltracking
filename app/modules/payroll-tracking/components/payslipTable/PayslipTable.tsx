@@ -1,7 +1,7 @@
 // app/modules/payroll-tracking/components/PayslipTable.tsx
 
 import React from 'react';
-import { Payslip } from '../../../../shared/types/payslip';
+import { Payslip } from '../../../../../shared/types/payslip';
 import Link from 'next/link';
 import styles from './PayslipTable.module.css';
 
