@@ -7,13 +7,11 @@ import {
   Query,
   Patch,
   UseGuards,
-  Request,
 } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiParam,
   ApiBearerAuth,
 } from '@nestjs/swagger';
 
@@ -245,7 +243,7 @@ export class PayrollTrackingController {
    * REQ-PY-14: Get employer contributions
    * GET /payroll-tracking/employee/:employeeId/payslips/:payslipId/employer-contributions
    */
-  @Get('employee/:employeeId/payslips/:payslipId/employer-contributions')
+  @Get('employee/:employeeId/payslips/:payslipId/ ')
   async getEmployerContributions(
     @Param('employeeId') employeeId: string,
     @Param('payslipId') payslipId: string,
